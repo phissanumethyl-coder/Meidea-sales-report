@@ -166,6 +166,45 @@
     .badge-inactive { background: #fee2e2; color: #b91c1c; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
     .manage-actions { margin-left: auto; display: flex; gap: 8px; }
     .manage-branch-title { font-weight: 600; color: var(--team-color); padding: 14px 14px 6px; }
+
+    /* Remove number spinner arrows -> plain empty box */
+    .no-spin::-webkit-outer-spin-button, .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .no-spin { -moz-appearance: textfield; }
+
+    /* Zones (sales / ads) */
+    .zone { border-radius: var(--radius-md); padding: 18px 20px 20px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+    .zone-sales { background: #eff6ff; border-color: #bfdbfe; }
+    .zone-ads { background: #fff7ed; border-color: #fed7aa; }
+    .zone-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px dashed rgba(0,0,0,0.08); }
+    .zone-sales .zone-title { color: #1d4ed8; }
+    .zone-ads .zone-title { color: #c2410c; }
+
+    /* Platform-colored input fields (left accent bar + focus color) */
+    .input-facebook .form-input { border-left: 5px solid #1877f2; background: #f5f9ff; }
+    .input-facebook .form-input:focus { border-color: #1877f2; box-shadow: 0 0 0 3px rgba(24,119,242,0.15); }
+    .input-facebook .form-label { color: #1877f2; font-weight: 600; }
+    .input-shopee .form-input { border-left: 5px solid #ee4d2d; background: #fff6f3; }
+    .input-shopee .form-input:focus { border-color: #ee4d2d; box-shadow: 0 0 0 3px rgba(238,77,45,0.15); }
+    .input-shopee .form-label { color: #ee4d2d; font-weight: 600; }
+    .input-lazada .form-input { border-left: 5px solid #8b5cf6; background: #f8f5ff; }
+    .input-lazada .form-input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.15); }
+    .input-lazada .form-label { color: #7c3aed; font-weight: 600; }
+    .input-lineoa .form-input { border-left: 5px solid #06663b; background: #f2fbf6; }
+    .input-lineoa .form-input:focus { border-color: #06663b; box-shadow: 0 0 0 3px rgba(6,102,59,0.15); }
+    .input-lineoa .form-label { color: #06663b; font-weight: 600; }
+    .input-total .form-input { border-left: 5px solid #f59e0b; background: #fffbeb; font-weight: 700; color: #b45309; }
+    .input-total .form-label { color: #b45309; font-weight: 700; }
+
+    /* Prominent "pull latest" button */
+    .pull-latest-wrap { margin: 16px 0 8px; }
+    .btn-pull-latest { display: inline-flex; align-items: center; gap: 12px; padding: 12px 22px; border: none; cursor: pointer; border-radius: 999px; color: #fff; font-family: 'Kanit', sans-serif; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%); box-shadow: 0 6px 18px rgba(139,92,246,0.35); transition: transform 0.15s, box-shadow 0.15s; }
+    .btn-pull-latest:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 10px 24px rgba(139,92,246,0.45); }
+    .btn-pull-latest:active { transform: translateY(0) scale(0.99); }
+    .btn-pull-latest .pull-icon { font-size: 22px; animation: spinSlow 4s linear infinite; }
+    .btn-pull-latest .pull-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25; text-align: left; }
+    .btn-pull-latest .pull-text b { font-size: 15px; font-weight: 600; }
+    .btn-pull-latest .pull-text small { font-size: 11px; opacity: 0.9; }
+    @keyframes spinSlow { to { transform: rotate(360deg); } }
     @media (max-width: 1024px) { .summary-pies { grid-template-columns: 1fr; } .pie-charts-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) { .pie-charts-grid { grid-template-columns: 1fr; } .form-grid, .filter-row { grid-template-columns: 1fr; } }
   </style>
@@ -228,29 +267,37 @@
           <div class="form-group"><label class="form-label">📅 วันที่บันทึก</label><input type="date" id="itDate" class="form-input"><small class="hint">เว้นว่าง = วันนี้ (ห้ามกรอกวันอาทิตย์/วันหยุด)</small></div>
           <div class="form-group"><label class="form-label">สาขา</label><select id="itBranch" class="form-select" onchange="loadItEmployees()"><option value="">เลือกสาขา</option></select></div>
           <div class="form-group"><label class="form-label">ชื่อพนักงาน (เซลล์)</label><select id="itEmployee" class="form-select" onchange="onItEmployeePicked()"><option value="">เลือกพนักงาน</option></select></div>
-          <div class="form-group"><label class="form-label">จำนวนลูกค้า (คน)</label><input type="number" id="itCustomers" class="form-input" placeholder="0"></div>
         </div>
         <div id="itEmpStatusBar" class="status-bar" style="display:none;"></div>
-        <div class="form-group full-width" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" onclick="loadItLastRecord()">🔄 ดึงยอดล่าสุดมากรอก (ยกยอดสะสม)</button></div>
-
-        <div class="section-divider"><div class="section-divider-line"></div><span class="section-divider-text">ยอดขาย (สะสมเดือน)</span><div class="section-divider-line"></div></div>
-        <div class="form-grid">
-          <div class="form-group"><label class="form-label">ยอดขาย Shopee</label><input type="number" id="itSalesShopee" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ยอดขาย Lazada</label><input type="number" id="itSalesLazada" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ยอดขาย TikTok</label><input type="number" id="itSalesTiktok" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ยอดขาย Web</label><input type="number" id="itSalesWeb" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ยอดขาย LineOA</label><input type="number" id="itSalesLineOA" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ยอดขาย Facebook</label><input type="number" id="itSalesFacebook" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ยอดขายรวม</label><input type="number" id="itTotalSales" class="form-input" disabled></div>
+        <div class="pull-latest-wrap">
+          <button class="btn-pull-latest" onclick="loadItLastRecord()">
+            <span class="pull-icon">🔄</span>
+            <span class="pull-text"><b>ดึงยอดล่าสุดมากรอก</b><small>ยกยอดสะสมของเซลล์คนนี้มาแก้ต่อ</small></span>
+          </button>
         </div>
 
-        <div class="section-divider"><div class="section-divider-line"></div><span class="section-divider-text">ต้นทุน (สะสมเดือน)</span><div class="section-divider-line"></div></div>
-        <div class="form-grid">
-          <div class="form-group"><label class="form-label">ต้นทุน Shopee</label><input type="number" id="itCostShopee" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ต้นทุน Lazada</label><input type="number" id="itCostLazada" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ต้นทุน Facebook</label><input type="number" id="itCostFacebook" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
-          <div class="form-group"><label class="form-label">ต้นทุนรวม</label><input type="number" id="itTotalCost" class="form-input" disabled></div>
-          <div class="form-group"><label class="form-label">กำไรสุทธิ (กรอกเอง)</label><input type="number" id="itNetProfit" class="form-input" placeholder="0"></div>
+        <!-- ZONE: SALES -->
+        <div class="zone zone-sales">
+          <div class="zone-title">💰 ยอดขาย (สะสมเดือน)</div>
+          <div class="form-grid">
+            <div class="form-group input-facebook"><label class="form-label">ยอดขาย Facebook</label><input type="text" inputmode="decimal" id="itSalesFacebook" class="form-input no-spin" placeholder="0" oninput="calcItTotals()"></div>
+            <div class="form-group input-shopee"><label class="form-label">ยอดขาย Shopee</label><input type="text" inputmode="decimal" id="itSalesShopee" class="form-input no-spin" placeholder="0" oninput="calcItTotals()"></div>
+            <div class="form-group input-lazada"><label class="form-label">ยอดขาย Lazada</label><input type="text" inputmode="decimal" id="itSalesLazada" class="form-input no-spin" placeholder="0" oninput="calcItTotals()"></div>
+            <div class="form-group input-lineoa"><label class="form-label">ยอดขาย LineOA</label><input type="text" inputmode="decimal" id="itSalesLineOA" class="form-input no-spin" placeholder="0" oninput="calcItTotals()"></div>
+            <div class="form-group input-total"><label class="form-label">ยอดขายรวม</label><input type="text" id="itTotalSales" class="form-input no-spin" disabled></div>
+          </div>
+        </div>
+
+        <!-- ZONE: ADS -->
+        <div class="zone zone-ads">
+          <div class="zone-title">📣 ค่าโฆษณา (สะสมเดือน)</div>
+          <div class="form-grid">
+            <div class="form-group input-facebook"><label class="form-label">ค่าโฆษณา Facebook</label><input type="text" inputmode="decimal" id="itAdsFacebook" class="form-input no-spin" placeholder="0" oninput="calcItTotals()"></div>
+            <div class="form-group input-shopee"><label class="form-label">ค่าโฆษณา Shopee</label><input type="text" inputmode="decimal" id="itAdsShopee" class="form-input no-spin" placeholder="0" oninput="calcItTotals()"></div>
+            <div class="form-group input-lazada"><label class="form-label">ค่าโฆษณา Lazada</label><input type="text" inputmode="decimal" id="itAdsLazada" class="form-input no-spin" placeholder="0" oninput="calcItTotals()"></div>
+            <div class="form-group input-total"><label class="form-label">ค่าโฆษณารวม</label><input type="text" id="itTotalAds" class="form-input no-spin" disabled></div>
+            <div class="form-group"><label class="form-label">กำไรสุทธิ (กรอกเอง)</label><input type="text" inputmode="decimal" id="itNetProfit" class="form-input no-spin" placeholder="0"></div>
+          </div>
         </div>
 
         <div class="btn-group">
@@ -331,15 +378,14 @@
 
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-value" id="itStatTotalSales">0</div><div class="stat-label">ยอดขายรวม</div></div>
-        <div class="stat-card"><div class="stat-value" id="itStatTotalCost">0</div><div class="stat-label">ต้นทุนรวม</div></div>
-        <div class="stat-card"><div class="stat-value" id="itStatCustomers">0</div><div class="stat-label">จำนวนลูกค้ารวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="itStatTotalAds">0</div><div class="stat-label">ค่าโฆษณารวม</div></div>
         <div class="stat-card"><div class="stat-value" id="itStatNetProfit">0</div><div class="stat-label">กำไรสุทธิรวม</div></div>
       </div>
 
       <div class="chart-container" id="itMainChartContainer">
         <button class="save-btn" onclick="saveNode('itMainChartContainer','it_main_chart')">📷 บันทึก</button>
         <div class="chart-header">
-          <h3 class="chart-title" id="itMainChartTitle">ยอดขายตามช่องทาง ต้นทุน และกำไรสุทธิ</h3>
+          <h3 class="chart-title" id="itMainChartTitle">ยอดขายตามช่องทาง ค่าโฆษณา และกำไรสุทธิ</h3>
           <p class="chart-subtitle" id="itMainChartSubtitle">ทุกสาขา</p>
         </div>
         <div class="main-chart-wrapper"><canvas id="itMainChart"></canvas></div>
@@ -359,15 +405,15 @@
 
       <div class="chart-container" id="itTodayChartContainer">
         <button class="save-btn" onclick="saveNode('itTodayChartContainer','it_today')">📷 บันทึก (พร้อมกราฟวงกลม)</button>
-        <div class="chart-header"><h3 class="chart-title">📊 ยอดขายวันนี้และค่าโฆษณา/ต้นทุนวันนี้</h3></div>
+        <div class="chart-header"><h3 class="chart-title">📊 ยอดขายวันนี้และต้นทุนวันนี้</h3></div>
         <div class="medium-chart-wrapper"><canvas id="itTodayChart"></canvas></div>
         <div class="summary-pies">
           <div class="summary-pie-item">
-            <div class="summary-pie-title">📊 สัดส่วนยอดขายรวม vs ต้นทุนรวม (ตัวเลข)</div>
+            <div class="summary-pie-title">📊 สัดส่วนยอดขายรวม vs ค่าโฆษณารวม (ตัวเลข)</div>
             <div class="summary-pie-canvas"><canvas id="itSummaryPieNum"></canvas></div>
           </div>
           <div class="summary-pie-item">
-            <div class="summary-pie-title">📊 สัดส่วนยอดขายรวม vs ต้นทุนรวม (เปอร์เซ็นต์)</div>
+            <div class="summary-pie-title">📊 สัดส่วนยอดขายรวม vs ค่าโฆษณารวม (เปอร์เซ็นต์)</div>
             <div class="summary-pie-canvas"><canvas id="itSummaryPiePct"></canvas></div>
           </div>
         </div>
@@ -375,7 +421,7 @@
 
       <div class="card" id="itBranchPiesContainer">
         <button class="save-btn" onclick="saveNode('itBranchPiesContainer','it_branch_pies')">📷 บันทึกทุกสาขา</button>
-        <div class="card-header"><h2 class="card-title">📈 สัดส่วนยอดขายและต้นทุนของแต่ละสาขา</h2></div>
+        <div class="card-header"><h2 class="card-title">📈 สัดส่วนยอดขายและค่าโฆษณาของแต่ละสาขา</h2></div>
         <div id="itPieChartsContainer" class="pie-charts-grid"></div>
       </div>
     </div>
@@ -536,7 +582,7 @@
     // HELPERS
     // =====================================================
     function fmt(n) { return (Number(n)||0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
-    function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
+    function num(id) { return parseFloat(String(document.getElementById(id).value).replace(/,/g,'')) || 0; }
     function todayStr() {
       const d = new Date();
       return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -608,7 +654,7 @@
     // =====================================================
     function initEnterKeyNavigation() {
       const groups = [
-        { ids: ['itDate','itBranch','itEmployee','itCustomers','itSalesShopee','itSalesLazada','itSalesTiktok','itSalesWeb','itSalesLineOA','itSalesFacebook','itCostShopee','itCostLazada','itCostFacebook','itNetProfit'], submit: submitItSales },
+        { ids: ['itDate','itBranch','itEmployee','itSalesFacebook','itSalesShopee','itSalesLazada','itSalesLineOA','itAdsFacebook','itAdsShopee','itAdsLazada','itNetProfit'], submit: submitItSales },
         { ids: ['itDailyDate','itDailyBranch','itSalesToday','itCostToday','itSalesMonth','itCostMonth'], submit: submitItDaily },
         { ids: ['liveDate','liveSeller','liveSales','liveCost','liveAds'], submit: submitLive }
       ];
@@ -904,13 +950,13 @@
 
     // =============== IT SALES INPUT ===============
     function calcItTotals() {
-      const ts = num('itSalesShopee')+num('itSalesLazada')+num('itSalesTiktok')+num('itSalesWeb')+num('itSalesLineOA')+num('itSalesFacebook');
-      document.getElementById('itTotalSales').value = ts;
-      const tc = num('itCostShopee')+num('itCostLazada')+num('itCostFacebook');
-      document.getElementById('itTotalCost').value = tc;
+      const ts = num('itSalesFacebook')+num('itSalesShopee')+num('itSalesLazada')+num('itSalesLineOA');
+      document.getElementById('itTotalSales').value = ts ? fmt(ts) : '';
+      const ta = num('itAdsFacebook')+num('itAdsShopee')+num('itAdsLazada');
+      document.getElementById('itTotalAds').value = ta ? fmt(ta) : '';
     }
     function clearItForm() {
-      ['itCustomers','itSalesShopee','itSalesLazada','itSalesTiktok','itSalesWeb','itSalesLineOA','itSalesFacebook','itTotalSales','itCostShopee','itCostLazada','itCostFacebook','itTotalCost','itNetProfit'].forEach(id => document.getElementById(id).value = '');
+      ['itSalesFacebook','itSalesShopee','itSalesLazada','itSalesLineOA','itTotalSales','itAdsFacebook','itAdsShopee','itAdsLazada','itTotalAds','itNetProfit'].forEach(id => document.getElementById(id).value = '');
     }
 
     async function submitItSales() {
@@ -918,15 +964,14 @@
       const emp = document.getElementById('itEmployee').value;
       if (!branch || !emp) { showToast('เลือกสาขาและพนักงาน', 'error'); return; }
       const date = document.getElementById('itDate').value || todayStr();
-      calcItTotals();
+      const totalSales = num('itSalesFacebook')+num('itSalesShopee')+num('itSalesLazada')+num('itSalesLineOA');
+      const totalAds = num('itAdsFacebook')+num('itAdsShopee')+num('itAdsLazada');
       const data = {
         date, branch, employeeName: emp,
-        customers: num('itCustomers'),
-        salesShopee: num('itSalesShopee'), salesLazada: num('itSalesLazada'), salesTiktok: num('itSalesTiktok'),
-        salesWeb: num('itSalesWeb'), salesLineOA: num('itSalesLineOA'), salesFacebook: num('itSalesFacebook'),
-        totalSales: num('itTotalSales'),
-        costShopee: num('itCostShopee'), costLazada: num('itCostLazada'), costFacebook: num('itCostFacebook'),
-        totalCost: num('itTotalCost'),
+        salesFacebook: num('itSalesFacebook'), salesShopee: num('itSalesShopee'), salesLazada: num('itSalesLazada'), salesLineOA: num('itSalesLineOA'),
+        totalSales,
+        adsFacebook: num('itAdsFacebook'), adsShopee: num('itAdsShopee'), adsLazada: num('itAdsLazada'),
+        totalAdsCost: totalAds,
         netProfit: num('itNetProfit'),
         updatedAt: new Date().toISOString()
       };
@@ -938,7 +983,7 @@
         showToast('บันทึกสำเร็จ!', 'success');
         clearItForm();
         delete cache.itSales[date]; delete cache.lastFetch['itSales_' + date];
-        // invalidate today's check cache and refresh status bar
+        delete cache.itSales['carry_' + date]; delete cache.lastFetch['itCarry_' + date];
         delete cache.lastFetch['itCheck_' + date];
         onItEmployeePicked();
       } catch (err) {
@@ -953,7 +998,7 @@
       try {
         const d = await fetchLatestItRecord(branch, emp);
         if (!d) { showToast('ไม่พบข้อมูลเดิม', 'error'); return; }
-        const map = { itCustomers:'customers', itSalesShopee:'salesShopee', itSalesLazada:'salesLazada', itSalesTiktok:'salesTiktok', itSalesWeb:'salesWeb', itSalesLineOA:'salesLineOA', itSalesFacebook:'salesFacebook', itCostShopee:'costShopee', itCostLazada:'costLazada', itCostFacebook:'costFacebook', itNetProfit:'netProfit' };
+        const map = { itSalesFacebook:'salesFacebook', itSalesShopee:'salesShopee', itSalesLazada:'salesLazada', itSalesLineOA:'salesLineOA', itAdsFacebook:'adsFacebook', itAdsShopee:'adsShopee', itAdsLazada:'adsLazada', itNetProfit:'netProfit' };
         Object.entries(map).forEach(([id,k]) => document.getElementById(id).value = d[k] || 0);
         calcItTotals();
         showToast('ดึงข้อมูลสำเร็จ', 'success');
@@ -1131,8 +1176,8 @@
       if (display === 'branch') {
         const g = {};
         filtered.forEach(s => {
-          if (!g[s.branch]) g[s.branch] = { employeeName:s.branch, branch:s.branch, salesShopee:0,salesLazada:0,salesTiktok:0,salesWeb:0,salesLineOA:0,salesFacebook:0, totalSales:0, totalCost:0, customers:0, netProfit:0 };
-          ['salesShopee','salesLazada','salesTiktok','salesWeb','salesLineOA','salesFacebook','totalSales','totalCost','customers','netProfit'].forEach(k => g[s.branch][k] += s[k]||0);
+          if (!g[s.branch]) g[s.branch] = { employeeName:s.branch, branch:s.branch, salesFacebook:0,salesShopee:0,salesLazada:0,salesLineOA:0, totalSales:0, adsFacebook:0,adsShopee:0,adsLazada:0, totalAdsCost:0, netProfit:0 };
+          ['salesFacebook','salesShopee','salesLazada','salesLineOA','totalSales','adsFacebook','adsShopee','adsLazada','totalAdsCost','netProfit'].forEach(k => g[s.branch][k] += s[k]||0);
         });
         chartData = Object.values(g);
       } else chartData = filtered;
@@ -1140,24 +1185,22 @@
       chartData.sort((a,b) => sortBy==='totalSales' ? b.totalSales-a.totalSales : b.netProfit-a.netProfit);
 
       const totalSales = chartData.reduce((s,x)=>s+(x.totalSales||0),0);
-      const totalCost = chartData.reduce((s,x)=>s+(x.totalCost||0),0);
-      const totalCust = chartData.reduce((s,x)=>s+(x.customers||0),0);
+      const totalAds = chartData.reduce((s,x)=>s+(x.totalAdsCost||0),0);
       const totalNet = chartData.reduce((s,x)=>s+(x.netProfit||0),0);
       document.getElementById('itStatTotalSales').textContent = fmt(totalSales);
-      document.getElementById('itStatTotalCost').textContent = fmt(totalCost);
-      document.getElementById('itStatCustomers').textContent = fmt(totalCust);
+      document.getElementById('itStatTotalAds').textContent = fmt(totalAds);
       document.getElementById('itStatNetProfit').textContent = fmt(totalNet);
 
       const bName = branch==='all' ? 'ทุกสาขา' : branch;
       const carriedCount = (display==='branch') ? 0 : chartData.filter(d=>d._carried).length;
-      document.getElementById('itMainChartTitle').textContent = 'ยอดขายตามช่องทาง ต้นทุน และกำไรสุทธิ';
+      document.getElementById('itMainChartTitle').textContent = 'ยอดขายตามช่องทาง ค่าโฆษณา และกำไรสุทธิ';
       document.getElementById('itMainChartSubtitle').textContent = bName + ' - ' + (display==='branch'?'แยกตามสาขา':'แยกตามพนักงาน') +
         (carriedCount>0 ? '  ·  ⏸ = ยกยอดล่าสุด (' + carriedCount + ' คนยังไม่กรอกวันนี้)' : '');
 
       renderItMainChart(chartData);
       renderItTopChart(itSalesData);
       renderItTodayChart(dailyData);
-      renderItSummaryPies(totalSales, totalCost);
+      renderItSummaryPies(totalSales, totalAds);
       renderItBranchPies();
     }
 
@@ -1170,15 +1213,16 @@
       itCharts.main = new Chart(ctx, {
         type: 'bar',
         data: { labels: data.map(d=> d._carried ? (d.employeeName + ' ⏸') : d.employeeName), datasets: [
-          { label:'ขาย Shopee', data:data.map(d=>d.salesShopee||0), backgroundColor:IT_COLORS.shopee, borderRadius:4 },
-          { label:'ขาย Lazada', data:data.map(d=>d.salesLazada||0), backgroundColor:IT_COLORS.lazada, borderRadius:4 },
-          { label:'ขาย TikTok', data:data.map(d=>d.salesTiktok||0), backgroundColor:IT_COLORS.tiktok, borderRadius:4 },
-          { label:'ขาย Web', data:data.map(d=>d.salesWeb||0), backgroundColor:IT_COLORS.web, borderRadius:4 },
-          { label:'ขาย LineOA', data:data.map(d=>d.salesLineOA||0), backgroundColor:IT_COLORS.lineoa, borderRadius:4 },
-          { label:'ขาย Facebook', data:data.map(d=>d.salesFacebook||0), backgroundColor:IT_COLORS.facebook, borderRadius:4 },
-          { label:'ยอดขายรวม', data:data.map(d=>d.totalSales||0), backgroundColor:IT_COLORS.totalSales, borderRadius:4 },
-          { label:'ต้นทุนรวม', data:data.map(d=>d.totalCost||0), backgroundColor:IT_COLORS.totalCost, borderRadius:4 },
-          { label:'กำไรสุทธิ', data:data.map(d=>d.netProfit||0), backgroundColor:IT_COLORS.netProfit, borderRadius:4 }
+          { label:'ขาย Facebook', data:data.map(d=>d.salesFacebook||0), backgroundColor:'#1877f2', borderRadius:4 },
+          { label:'ขาย Shopee', data:data.map(d=>d.salesShopee||0), backgroundColor:'#f97316', borderRadius:4 },
+          { label:'ขาย Lazada', data:data.map(d=>d.salesLazada||0), backgroundColor:'#8b5cf6', borderRadius:4 },
+          { label:'ขาย LineOA', data:data.map(d=>d.salesLineOA||0), backgroundColor:'#06663b', borderRadius:4 },
+          { label:'โฆษณา Facebook', data:data.map(d=>d.adsFacebook||0), backgroundColor:'#38bdf8', borderRadius:4 },
+          { label:'โฆษณา Shopee', data:data.map(d=>d.adsShopee||0), backgroundColor:'#fde047', borderRadius:4 },
+          { label:'โฆษณา Lazada', data:data.map(d=>d.adsLazada||0), backgroundColor:'#f472b6', borderRadius:4 },
+          { label:'ยอดขายรวม', data:data.map(d=>d.totalSales||0), backgroundColor:'#f59e0b', borderRadius:4 },
+          { label:'ค่าโฆษณารวม', data:data.map(d=>d.totalAdsCost||0), backgroundColor:'#ef4444', borderRadius:4 },
+          { label:'กำไรสุทธิ', data:data.map(d=>d.netProfit||0), backgroundColor:'#22c55e', borderRadius:4 }
         ]},
         options: { responsive:true, maintainAspectRatio:false,
           plugins: {
@@ -1255,14 +1299,14 @@
       });
     }
 
-    function renderItSummaryPies(totalSales, totalCost) {
-      const total = totalSales + totalCost;
-      const sp = total>0?totalSales/total*100:0, cp = total>0?totalCost/total*100:0;
-      const labels = ['ยอดขายรวม '+sp.toFixed(0)+'% ('+fmt(totalSales)+')', 'ต้นทุนรวม '+cp.toFixed(0)+'% ('+fmt(totalCost)+')'];
+    function renderItSummaryPies(totalSales, totalAds) {
+      const total = totalSales + totalAds;
+      const sp = total>0?totalSales/total*100:0, cp = total>0?totalAds/total*100:0;
+      const labels = ['ยอดขายรวม '+sp.toFixed(0)+'% ('+fmt(totalSales)+')', 'ค่าโฆษณารวม '+cp.toFixed(0)+'% ('+fmt(totalAds)+')'];
       if (itCharts.pieNum) itCharts.pieNum.destroy();
       if (itCharts.piePct) itCharts.piePct.destroy();
-      itCharts.pieNum = makePie('itSummaryPieNum', labels, [totalSales,totalCost], ['#667eea','#ff6b6b'], false);
-      itCharts.piePct = makePie('itSummaryPiePct', labels, [sp,cp], ['#667eea','#ff6b6b'], true);
+      itCharts.pieNum = makePie('itSummaryPieNum', labels, [totalSales,totalAds], ['#667eea','#ef4444'], false);
+      itCharts.piePct = makePie('itSummaryPiePct', labels, [sp,cp], ['#667eea','#ef4444'], true);
     }
 
     function renderItBranchPies() {
@@ -1271,18 +1315,18 @@
       itCharts.branchPies.forEach(c=>c.destroy()); itCharts.branchPies = [];
       const byBranch = {};
       itSalesData.forEach(s => {
-        if (!byBranch[s.branch]) byBranch[s.branch] = { totalSales:0, totalCost:0 };
+        if (!byBranch[s.branch]) byBranch[s.branch] = { totalSales:0, totalAdsCost:0 };
         byBranch[s.branch].totalSales += s.totalSales||0;
-        byBranch[s.branch].totalCost += s.totalCost||0;
+        byBranch[s.branch].totalAdsCost += s.totalAdsCost||0;
       });
       Object.entries(byBranch).forEach(([branch,d],idx) => {
-        const total = d.totalSales + d.totalCost;
-        const sp = total>0?d.totalSales/total*100:0, cp = total>0?d.totalCost/total*100:0;
+        const total = d.totalSales + d.totalAdsCost;
+        const sp = total>0?d.totalSales/total*100:0, cp = total>0?d.totalAdsCost/total*100:0;
         const div = document.createElement('div'); div.className = 'pie-chart-item';
-        div.innerHTML = '<div class="pie-chart-title">📊 '+branch+': ยอดขาย vs ต้นทุน</div><canvas id="itBranchPie'+idx+'" width="390" height="390"></canvas>';
+        div.innerHTML = '<div class="pie-chart-title">📊 '+branch+': ยอดขาย vs ค่าโฆษณา</div><canvas id="itBranchPie'+idx+'" width="390" height="390"></canvas>';
         container.appendChild(div);
-        const labels = ['ยอดขาย '+sp.toFixed(0)+'% ('+fmt(d.totalSales)+')', 'ต้นทุน '+cp.toFixed(0)+'% ('+fmt(d.totalCost)+')'];
-        itCharts.branchPies.push(makePie('itBranchPie'+idx, labels, [sp,cp], ['#667eea','#ff6b6b'], true));
+        const labels = ['ยอดขาย '+sp.toFixed(0)+'% ('+fmt(d.totalSales)+')', 'ค่าโฆษณา '+cp.toFixed(0)+'% ('+fmt(d.totalAdsCost)+')'];
+        itCharts.branchPies.push(makePie('itBranchPie'+idx, labels, [sp,cp], ['#667eea','#ef4444'], true));
       });
     }
 
