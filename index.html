@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEIDEA Sales Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f1f5f9;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border-color: #e2e8f0;
+      --accent-blue: #3b82f6;
+      --accent-green: #22c55e;
+      --accent-orange: #f97316;
+      --accent-purple: #8b5cf6;
+      --accent-pink: #ec4899;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      /* Team accent (switched dynamically) */
+      --team-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --team-color: #667eea;
+    }
+    body { font-family: 'Kanit', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+
+    /* ===== Team Switcher (top bar) ===== */
+    .team-bar { background: var(--team-gradient); padding: 10px 24px; }
+    .team-bar-content { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .team-brand { display: flex; align-items: center; gap: 12px; color: #fff; }
+    .team-brand-icon { width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; }
+    .team-brand-text { font-size: 20px; font-weight: 600; }
+    .team-brand-sub { font-size: 11px; opacity: 0.9; }
+    .team-switch { display: flex; gap: 6px; background: rgba(255,255,255,0.15); padding: 5px; border-radius: var(--radius-md); }
+    .team-btn { padding: 9px 22px; border: none; background: transparent; border-radius: var(--radius-sm); cursor: pointer; font-family: 'Kanit', sans-serif; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.85); transition: all 0.2s; }
+    .team-btn.active { background: #fff; color: var(--team-color); box-shadow: var(--shadow-sm); }
+
+    /* ===== Sub navigation (tabs per team) ===== */
+    .header { background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+    .header-content { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px; }
+    .nav-tabs { display: flex; gap: 4px; background: var(--bg-tertiary); padding: 4px; border-radius: var(--radius-md); flex-wrap: wrap; }
+    .nav-tab { padding: 10px 20px; border: none; background: transparent; border-radius: var(--radius-sm); cursor: pointer; font-family: 'Kanit', sans-serif; font-size: 14px; font-weight: 500; color: var(--text-secondary); transition: all 0.2s; }
+    .nav-tab:hover { color: var(--text-primary); }
+    .nav-tab.active { background: var(--bg-secondary); color: var(--team-color); box-shadow: var(--shadow-sm); }
+
+    .main-content { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    .team-section { display: none; }
+    .team-section.active { display: block; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; position: relative; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .card-title { font-size: 18px; font-weight: 600; color: var(--team-color); }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full-width { grid-column: 1 / -1; }
+    .form-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+    .form-input, .form-select { padding: 12px 16px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-family: 'Kanit', sans-serif; font-size: 14px; background: var(--bg-secondary); color: var(--text-primary); }
+    .form-input:focus, .form-select:focus { outline: none; border-color: var(--team-color); }
+    .form-input:disabled { background: var(--bg-tertiary); color: var(--text-secondary); }
+    .hint { color: var(--text-secondary); font-size: 11px; margin-top: 4px; }
+    .btn { padding: 10px 20px; border: none; border-radius: var(--radius-sm); font-family: 'Kanit', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .btn-primary { background: var(--team-gradient); color: white; }
+    .btn-primary:hover { transform: scale(1.02); box-shadow: var(--shadow-md); }
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+    .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); }
+    .btn-sm { padding: 8px 14px; font-size: 13px; }
+    .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .section-divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; }
+    .section-divider-line { flex: 1; height: 1px; background: var(--border-color); }
+    .section-divider-text { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; }
+
+    .filter-section { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+    .filter-group { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+    .filter-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; text-align: center; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--team-color); }
+    .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+
+    .chart-container { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; position: relative; }
+    .chart-header { text-align: center; margin-bottom: 8px; }
+    .chart-title { font-size: 17px; font-weight: 600; color: var(--team-color); }
+    .chart-subtitle { font-size: 14px; color: var(--text-secondary); font-weight: 500; margin-top: 2px; }
+    .main-chart-wrapper { width: 100%; height: 480px; }
+    .medium-chart-wrapper { width: 100%; height: 380px; }
+    .save-btn { position: absolute; top: 16px; right: 16px; padding: 8px 16px; background: var(--team-gradient); border: none; border-radius: 20px; cursor: pointer; font-family: 'Kanit', sans-serif; font-size: 13px; font-weight: 500; color: white; display: flex; align-items: center; gap: 6px; z-index: 10; }
+    .save-btn:hover { transform: scale(1.05); box-shadow: var(--shadow-md); }
+
+    .table-container { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .data-table th { background: var(--team-gradient); color: white; padding: 12px 10px; text-align: left; font-weight: 500; font-size: 12px; }
+    .data-table td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+    .data-table tr:hover td { background: var(--bg-primary); }
+    .data-table .highlight-warning { background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%) !important; color: #c2410c; font-weight: 600; }
+    .data-table .highlight-success { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important; color: #047857; font-weight: 600; }
+    .data-table .total-row { background: var(--bg-tertiary) !important; font-weight: 600; }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal-content { background: var(--bg-secondary); border-radius: var(--radius-lg); padding: 28px; max-width: 400px; width: 90%; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close { width: 32px; height: 32px; border: none; background: var(--bg-tertiary); border-radius: 50%; cursor: pointer; }
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; background: var(--text-primary); color: white; border-radius: var(--radius-md); z-index: 2000; transform: translateY(100px); opacity: 0; transition: all 0.3s; font-weight: 500; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    .loading { display: none; text-align: center; padding: 40px; }
+    .loading.active { display: block; }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--team-color); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .summary-pies { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 24px; }
+    .summary-pie-item { background: var(--bg-primary); border-radius: var(--radius-md); padding: 24px; text-align: center; }
+    .summary-pie-title { font-size: 15px; font-weight: 600; color: var(--team-color); margin-bottom: 16px; }
+    .summary-pie-canvas { max-width: 420px; margin: 0 auto; }
+    .pie-charts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .pie-chart-item { background: var(--bg-primary); border-radius: var(--radius-md); padding: 20px; text-align: center; }
+    .pie-chart-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--team-color); }
+    .empty-msg { text-align: center; padding: 40px; color: var(--text-secondary); }
+    @media (max-width: 1024px) { .summary-pies { grid-template-columns: 1fr; } .pie-charts-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) { .pie-charts-grid { grid-template-columns: 1fr; } .form-grid, .filter-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <!-- ================= TEAM SWITCHER ================= -->
+  <div class="team-bar">
+    <div class="team-bar-content">
+      <div class="team-brand">
+        <div class="team-brand-icon">M</div>
+        <div>
+          <div class="team-brand-text">MEIDEA Sales Report</div>
+          <div class="team-brand-sub">ระบบสรุปยอดขาย 2 ทีม · Firebase</div>
+        </div>
+      </div>
+      <div class="team-switch">
+        <button class="team-btn active" data-team="it" onclick="switchTeam('it')">💻 ฝ่ายไอที</button>
+        <button class="team-btn" data-team="live" onclick="switchTeam('live')">🎥 ฝ่ายไลฟ์สด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SUB NAV ================= -->
+  <header class="header">
+    <div class="header-content">
+      <!-- IT tabs -->
+      <nav class="nav-tabs team-nav" data-team="it">
+        <button class="nav-tab active" data-page="it-input">กรอกยอดขาย</button>
+        <button class="nav-tab" data-page="it-daily">ยอดขาย/ต้นทุนรายวัน</button>
+        <button class="nav-tab" data-page="it-dashboard">Dashboard</button>
+      </nav>
+      <!-- LIVE tabs -->
+      <nav class="nav-tabs team-nav" data-team="live" style="display:none;">
+        <button class="nav-tab active" data-page="live-input">กรอกยอดไลฟ์</button>
+        <button class="nav-tab" data-page="live-dashboard">Dashboard ไลฟ์</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+  <!-- ======================================================= -->
+  <!-- ==================== TEAM: IT ========================== -->
+  <!-- ======================================================= -->
+  <section id="team-it" class="team-section active">
+
+    <!-- IT Page 1: Sales Input -->
+    <div id="page-it-input" class="page active">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">💻 กรอกยอดขายฝ่ายไอที (สะสมตั้งแต่วันที่ 1 ถึงปัจจุบัน)</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="openModal('itAddBranchModal')">+ เพิ่มสาขา</button>
+            <button class="btn btn-secondary btn-sm" onclick="openItEmployeeModal()">+ เพิ่มพนักงาน</button>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">📅 วันที่บันทึก</label><input type="date" id="itDate" class="form-input"><small class="hint">เว้นว่าง = วันนี้ (ห้ามกรอกวันอาทิตย์/วันหยุด)</small></div>
+          <div class="form-group"><label class="form-label">สาขา</label><select id="itBranch" class="form-select" onchange="loadItEmployees()"><option value="">เลือกสาขา</option></select></div>
+          <div class="form-group"><label class="form-label">ชื่อพนักงาน (เซลล์)</label><select id="itEmployee" class="form-select"><option value="">เลือกพนักงาน</option></select></div>
+          <div class="form-group"><label class="form-label">จำนวนลูกค้า (คน)</label><input type="number" id="itCustomers" class="form-input" placeholder="0"></div>
+        </div>
+        <div class="form-group full-width" style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="loadItLastRecord()">🔄 ดึงข้อมูลล่าสุดมากรอก</button></div>
+
+        <div class="section-divider"><div class="section-divider-line"></div><span class="section-divider-text">ยอดขาย (สะสมเดือน)</span><div class="section-divider-line"></div></div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">ยอดขาย Shopee</label><input type="number" id="itSalesShopee" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ยอดขาย Lazada</label><input type="number" id="itSalesLazada" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ยอดขาย TikTok</label><input type="number" id="itSalesTiktok" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ยอดขาย Web</label><input type="number" id="itSalesWeb" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ยอดขาย LineOA</label><input type="number" id="itSalesLineOA" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ยอดขาย Facebook</label><input type="number" id="itSalesFacebook" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ยอดขายรวม</label><input type="number" id="itTotalSales" class="form-input" disabled></div>
+        </div>
+
+        <div class="section-divider"><div class="section-divider-line"></div><span class="section-divider-text">ต้นทุน (สะสมเดือน)</span><div class="section-divider-line"></div></div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">ต้นทุน Shopee</label><input type="number" id="itCostShopee" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ต้นทุน Lazada</label><input type="number" id="itCostLazada" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ต้นทุน Facebook</label><input type="number" id="itCostFacebook" class="form-input" placeholder="0" oninput="calcItTotals()"></div>
+          <div class="form-group"><label class="form-label">ต้นทุนรวม</label><input type="number" id="itTotalCost" class="form-input" disabled></div>
+          <div class="form-group"><label class="form-label">กำไรสุทธิ (กรอกเอง)</label><input type="number" id="itNetProfit" class="form-input" placeholder="0"></div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="submitItSales()">💾 บันทึกข้อมูล</button>
+          <button class="btn btn-secondary" onclick="clearItForm()">🗑️ ล้างฟอร์ม</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IT Page 2: Daily cost table -->
+    <div id="page-it-daily" class="page">
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">📈 กรอกยอดขายและต้นทุนรายวัน (ฝ่ายไอที)</h2></div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="itDailyDate" class="form-input"><small class="hint">เว้นว่าง = วันนี้</small></div>
+          <div class="form-group"><label class="form-label">สาขา</label><select id="itDailyBranch" class="form-select"><option value="">เลือกสาขา</option></select></div>
+          <div class="form-group"><label class="form-label">ยอดขายวันนี้</label><input type="number" id="itSalesToday" class="form-input" placeholder="0"></div>
+          <div class="form-group"><label class="form-label">ต้นทุนวันนี้</label><input type="number" id="itCostToday" class="form-input" placeholder="0"></div>
+          <div class="form-group"><label class="form-label">ยอดขายรวมเดือน</label><input type="number" id="itSalesMonth" class="form-input" placeholder="0"></div>
+          <div class="form-group"><label class="form-label">ต้นทุนรวมเดือน</label><input type="number" id="itCostMonth" class="form-input" placeholder="0"></div>
+        </div>
+        <div class="btn-group"><button class="btn btn-primary" onclick="submitItDaily()">💾 บันทึกข้อมูล</button></div>
+      </div>
+      <div class="card" id="itCostTableContainer">
+        <div class="card-header">
+          <h2 class="card-title">📊 ตาราง % ต้นทุนต่อยอดขายแต่ละสาขา</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span id="itDateRangeInfo" style="font-size:12px;color:var(--accent-purple);font-weight:500;"></span>
+            <button class="btn btn-outline btn-sm" onclick="loadItDailyComparisonForce()">🔄 รีเฟรช</button>
+            <button class="btn btn-primary btn-sm" onclick="saveNode('itCostTableContainer','it_cost_table')">📷 บันทึก</button>
+          </div>
+        </div>
+        <div id="itCostComparisonTable" class="table-container"><div class="loading active"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- IT Page 3: Dashboard -->
+    <div id="page-it-dashboard" class="page">
+      <div class="filter-section">
+        <div class="filter-row">
+          <div class="filter-group"><label class="filter-label">📅 เลือกวันที่</label><input type="date" id="itFilterDate" class="form-input" onchange="loadItDashboard()"></div>
+          <div class="filter-group"><label class="filter-label">🏢 สาขา</label><select id="itFilterBranch" class="form-select" onchange="applyItFilters()"><option value="all">ทุกสาขา</option></select></div>
+          <div class="filter-group"><label class="filter-label">👥 แสดงข้อมูล</label><select id="itFilterDisplay" class="form-select" onchange="applyItFilters()"><option value="employee">แยกตามพนักงาน</option><option value="branch">แยกตามสาขา</option></select></div>
+          <div class="filter-group"><label class="filter-label">📊 เรียงตาม</label><select id="itFilterSort" class="form-select" onchange="applyItFilters()"><option value="netProfit">กำไรสุทธิ (มาก → น้อย)</option><option value="totalSales">ยอดขายรวม (มาก → น้อย)</option></select></div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="itStatTotalSales">0</div><div class="stat-label">ยอดขายรวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="itStatTotalCost">0</div><div class="stat-label">ต้นทุนรวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="itStatCustomers">0</div><div class="stat-label">จำนวนลูกค้ารวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="itStatNetProfit">0</div><div class="stat-label">กำไรสุทธิรวม</div></div>
+      </div>
+
+      <div class="chart-container" id="itMainChartContainer">
+        <button class="save-btn" onclick="saveNode('itMainChartContainer','it_main_chart')">📷 บันทึก</button>
+        <div class="chart-header">
+          <h3 class="chart-title" id="itMainChartTitle">ยอดขายตามช่องทาง ต้นทุน และกำไรสุทธิ</h3>
+          <p class="chart-subtitle" id="itMainChartSubtitle">ทุกสาขา</p>
+        </div>
+        <div class="main-chart-wrapper"><canvas id="itMainChart"></canvas></div>
+      </div>
+
+      <div class="chart-container" id="itTopChartContainer">
+        <button class="save-btn" onclick="saveNode('itTopChartContainer','it_top6')">📷 บันทึก</button>
+        <div class="chart-header"><h3 class="chart-title">🏆 Top 6 กำไรสุทธิสูงสุด</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="itTopChart"></canvas></div>
+      </div>
+
+      <div class="chart-container" id="itBranchChartContainer">
+        <button class="save-btn" onclick="saveNode('itBranchChartContainer','it_branch_sales')">📷 บันทึก</button>
+        <div class="chart-header"><h3 class="chart-title">🏪 ยอดขายรวมของแต่ละสาขา (มาก → น้อย)</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="itBranchChart"></canvas></div>
+      </div>
+
+      <div class="chart-container" id="itTodayChartContainer">
+        <button class="save-btn" onclick="saveNode('itTodayChartContainer','it_today')">📷 บันทึก (พร้อมกราฟวงกลม)</button>
+        <div class="chart-header"><h3 class="chart-title">📊 ยอดขายวันนี้และค่าโฆษณา/ต้นทุนวันนี้</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="itTodayChart"></canvas></div>
+        <div class="summary-pies">
+          <div class="summary-pie-item">
+            <div class="summary-pie-title">📊 สัดส่วนยอดขายรวม vs ต้นทุนรวม (ตัวเลข)</div>
+            <div class="summary-pie-canvas"><canvas id="itSummaryPieNum"></canvas></div>
+          </div>
+          <div class="summary-pie-item">
+            <div class="summary-pie-title">📊 สัดส่วนยอดขายรวม vs ต้นทุนรวม (เปอร์เซ็นต์)</div>
+            <div class="summary-pie-canvas"><canvas id="itSummaryPiePct"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="itBranchPiesContainer">
+        <button class="save-btn" onclick="saveNode('itBranchPiesContainer','it_branch_pies')">📷 บันทึกทุกสาขา</button>
+        <div class="card-header"><h2 class="card-title">📈 สัดส่วนยอดขายและต้นทุนของแต่ละสาขา</h2></div>
+        <div id="itPieChartsContainer" class="pie-charts-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= -->
+  <!-- ==================== TEAM: LIVE ======================== -->
+  <!-- ======================================================= -->
+  <section id="team-live" class="team-section">
+
+    <!-- LIVE Page 1: Input -->
+    <div id="page-live-input" class="page active">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🎥 กรอกยอดไลฟ์สด (รายเซลล์)</h2>
+          <div><button class="btn btn-secondary btn-sm" onclick="openModal('liveAddSellerModal')">+ เพิ่มเซลล์</button></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="liveDate" class="form-input"><small class="hint">เว้นว่าง = วันนี้</small></div>
+          <div class="form-group"><label class="form-label">เซลล์</label><select id="liveSeller" class="form-select"><option value="">เลือกเซลล์</option></select></div>
+          <div class="form-group"><label class="form-label">💰 ยอดขาย (บาท)</label><input type="number" id="liveSales" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group"><label class="form-label">📦 ต้นทุน (บาท)</label><input type="number" id="liveCost" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group"><label class="form-label">📣 ค่าโฆษณารวม (บาท)</label><input type="number" id="liveAds" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group"><label class="form-label">% ต้นทุน</label><input type="text" id="liveCostPct" class="form-input" disabled></div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="submitLive()">💾 บันทึกข้อมูล</button>
+          <button class="btn btn-secondary" onclick="clearLiveForm()">🗑️ ล้างฟอร์ม</button>
+          <button class="btn btn-outline" onclick="loadLiveLastRecord()">🔄 ดึงข้อมูลล่าสุด</button>
+        </div>
+      </div>
+
+      <div class="card" id="liveCostTableContainer">
+        <div class="card-header">
+          <h2 class="card-title">📊 ตารางสรุป %ต้นทุนต่อยอดขาย (Live)</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span id="liveDateRangeInfo" style="font-size:12px;color:var(--accent-purple);font-weight:500;"></span>
+            <button class="btn btn-outline btn-sm" onclick="loadLiveTableForce()">🔄 รีเฟรช</button>
+            <button class="btn btn-primary btn-sm" onclick="saveNode('liveCostTableContainer','live_cost_table')">📷 บันทึก</button>
+          </div>
+        </div>
+        <div id="liveCostTable" class="table-container"><div class="loading active"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- LIVE Page 2: Dashboard -->
+    <div id="page-live-dashboard" class="page">
+      <div class="filter-section">
+        <div class="filter-row">
+          <div class="filter-group"><label class="filter-label">📅 เลือกวันที่</label><input type="date" id="liveFilterDate" class="form-input" onchange="loadLiveDashboard()"></div>
+          <button class="btn btn-primary btn-sm" onclick="loadLiveDashboard()">🔄 รีเฟรช</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="liveStatSales">0</div><div class="stat-label">ยอดขายรวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="liveStatCost">0</div><div class="stat-label">ต้นทุนรวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="liveStatAds">0</div><div class="stat-label">ค่าโฆษณารวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="liveStatPct">0%</div><div class="stat-label">% ต้นทุนเฉลี่ย</div></div>
+      </div>
+
+      <!-- Ranking chart (image 3) -->
+      <div class="chart-container" id="liveRankContainer">
+        <button class="save-btn" onclick="saveNode('liveRankContainer','live_ranking')">📷 บันทึก</button>
+        <div class="chart-header"><h3 class="chart-title" id="liveRankTitle">กราฟแสดงอันดับยอดขายรวม (Live)</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="liveRankChart"></canvas></div>
+      </div>
+
+      <!-- Sales vs Ads grouped (image 2 left) + donuts (image 2 right) -->
+      <div class="chart-container" id="liveSalesAdsContainer">
+        <button class="save-btn" onclick="saveNode('liveSalesAdsContainer','live_sales_ads')">📷 บันทึก (พร้อมกราฟวงกลม)</button>
+        <div class="chart-header"><h3 class="chart-title" id="liveSalesAdsTitle">ยอดขาย / ค่าโฆษณาไลฟ์สด</h3></div>
+        <div class="main-chart-wrapper"><canvas id="liveSalesAdsChart"></canvas></div>
+        <div class="summary-pies">
+          <div class="summary-pie-item">
+            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม (ตัวเลข)</div>
+            <div class="summary-pie-canvas"><canvas id="liveDonutNum"></canvas></div>
+          </div>
+          <div class="summary-pie-item">
+            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม (เปอร์เซ็นต์)</div>
+            <div class="summary-pie-canvas"><canvas id="liveDonutPct"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cost % table (image 1) rendered again on dashboard for the selected date -->
+      <div class="chart-container" id="liveCostChartContainer">
+        <button class="save-btn" onclick="saveNode('liveCostChartContainer','live_cost_chart')">📷 บันทึก</button>
+        <div class="chart-header"><h3 class="chart-title">📉 %ต้นทุนต่อยอดขายแต่ละเซลล์</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="liveCostChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- ================= MODALS ================= -->
+  <div id="itAddBranchModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h3 class="modal-title">เพิ่มสาขาใหม่ (IT)</h3><button class="modal-close" onclick="closeModal('itAddBranchModal')">✕</button></div>
+      <div class="form-group"><label class="form-label">ชื่อสาขา</label><input type="text" id="itNewBranchName" class="form-input"></div>
+      <div class="btn-group"><button class="btn btn-primary" onclick="addItBranch()">บันทึก</button><button class="btn btn-secondary" onclick="closeModal('itAddBranchModal')">ยกเลิก</button></div>
+    </div>
+  </div>
+  <div id="itAddEmployeeModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h3 class="modal-title">เพิ่มพนักงานใหม่ (IT)</h3><button class="modal-close" onclick="closeModal('itAddEmployeeModal')">✕</button></div>
+      <div class="form-group"><label class="form-label">สาขา</label><select id="itNewEmpBranch" class="form-select"><option value="">เลือกสาขา</option></select></div>
+      <div class="form-group"><label class="form-label">ชื่อพนักงาน</label><input type="text" id="itNewEmpName" class="form-input"></div>
+      <div class="btn-group"><button class="btn btn-primary" onclick="addItEmployee()">บันทึก</button><button class="btn btn-secondary" onclick="closeModal('itAddEmployeeModal')">ยกเลิก</button></div>
+    </div>
+  </div>
+  <div id="liveAddSellerModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h3 class="modal-title">เพิ่มเซลล์ใหม่ (Live)</h3><button class="modal-close" onclick="closeModal('liveAddSellerModal')">✕</button></div>
+      <div class="form-group"><label class="form-label">ชื่อเซลล์</label><input type="text" id="liveNewSellerName" class="form-input"></div>
+      <div class="btn-group"><button class="btn btn-primary" onclick="addLiveSeller()">บันทึก</button><button class="btn btn-secondary" onclick="closeModal('liveAddSellerModal')">ยกเลิก</button></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // =====================================================
+    // FIREBASE CONFIG
+    // =====================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJxqM4SKN9ShZG4k6oseR7yssLy_IOkj8",
+      authDomain: "meidea-sales-report.firebaseapp.com",
+      databaseURL: "https://meidea-sales-report-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "meidea-sales-report",
+      storageBucket: "meidea-sales-report.firebasestorage.app",
+      messagingSenderId: "397059035091",
+      appId: "1:397059035091:web:586b58b969da26e87ba926"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    Chart.register(ChartDataLabels);
+    Chart.defaults.font.family = 'Kanit';
+
+    // =====================================================
+    // CACHE SYSTEM (ประหยัด Firestore reads)
+    // =====================================================
+    const cache = {
+      itBranches: null, itEmployees: null,
+      liveSellers: null,
+      itSales: {}, itDaily: {}, liveSales: {},
+      lastFetch: {},
+      TTL: 5 * 60 * 1000
+    };
+    function isCacheValid(key) {
+      const t = cache.lastFetch[key];
+      return t ? (Date.now() - t) < cache.TTL : false;
+    }
+    function touchCache(key) { cache.lastFetch[key] = Date.now(); }
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
+    function fmt(n) { return (Number(n)||0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+    function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
+    function todayStr() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    function showToast(msg, type) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + (type || '');
+      setTimeout(() => { t.className = 'toast'; }, 3000);
+    }
+    function openModal(id) {
+      if (id === 'itAddEmployeeModal') populateItBranchSelects();
+      document.getElementById(id).classList.add('active');
+    }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    function safeId(s) { return s.replace(/[\/\\]/g, '_'); }
+
+    // Palette for platform bars (IT)
+    const IT_COLORS = {
+      shopee: '#ee4d2d', lazada: '#0f146d', tiktok: '#000000',
+      web: '#8b5cf6', lineoa: '#06c755', facebook: '#1877f2',
+      totalSales: '#ffa500', totalCost: '#ff6347', netProfit: '#32cd32'
+    };
+
+    // =====================================================
+    // TEAM SWITCHER
+    // =====================================================
+    function switchTeam(team) {
+      document.querySelectorAll('.team-btn').forEach(b => b.classList.toggle('active', b.dataset.team === team));
+      document.querySelectorAll('.team-nav').forEach(n => n.style.display = (n.dataset.team === team) ? 'flex' : 'none');
+      document.querySelectorAll('.team-section').forEach(s => s.classList.toggle('active', s.id === 'team-' + team));
+      // switch theme color
+      const root = document.documentElement.style;
+      if (team === 'it') {
+        root.setProperty('--team-gradient', 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)');
+        root.setProperty('--team-color', '#667eea');
+      } else {
+        root.setProperty('--team-gradient', 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)');
+        root.setProperty('--team-color', '#f97316');
+      }
+    }
+
+    // Sub-tab navigation (works across both teams)
+    function initNavigation() {
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          const page = this.dataset.page;
+          const nav = this.closest('.nav-tabs');
+          nav.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          const section = this.closest('.team-section');
+          section.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+          document.getElementById('page-' + page).classList.add('active');
+          // lazy load
+          if (page === 'it-dashboard') loadItDashboard();
+          else if (page === 'it-daily') loadItDailyComparison();
+          else if (page === 'live-dashboard') loadLiveDashboard();
+          else if (page === 'live-input') loadLiveTable();
+        });
+      });
+    }
+
+    // =====================================================
+    // ENTER KEY NAVIGATION
+    // =====================================================
+    function initEnterKeyNavigation() {
+      const groups = [
+        { ids: ['itDate','itBranch','itEmployee','itCustomers','itSalesShopee','itSalesLazada','itSalesTiktok','itSalesWeb','itSalesLineOA','itSalesFacebook','itCostShopee','itCostLazada','itCostFacebook','itNetProfit'], submit: submitItSales },
+        { ids: ['itDailyDate','itDailyBranch','itSalesToday','itCostToday','itSalesMonth','itCostMonth'], submit: submitItDaily },
+        { ids: ['liveDate','liveSeller','liveSales','liveCost','liveAds'], submit: submitLive }
+      ];
+      groups.forEach(g => {
+        g.ids.forEach((id, i) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const next = g.ids[i+1];
+              if (next && document.getElementById(next)) document.getElementById(next).focus();
+              else g.submit();
+            }
+          });
+        });
+      });
+    }
+
+    function setDefaultDates() {
+      const t = todayStr();
+      ['itDate','itDailyDate','itFilterDate','liveDate','liveFilterDate'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = t;
+      });
+    }
+
+    // Disable form while saving
+    function setFormDisabled(scopeSelector, disabled) {
+      document.querySelectorAll(scopeSelector + ' input, ' + scopeSelector + ' select, ' + scopeSelector + ' button').forEach(el => {
+        el.disabled = disabled;
+        el.style.opacity = disabled ? '0.6' : '1';
+        el.style.cursor = disabled ? 'not-allowed' : '';
+      });
+    }
+
+    // =====================================================
+    // INIT
+    // =====================================================
+    document.addEventListener('DOMContentLoaded', async function() {
+      const t0 = performance.now();
+      initNavigation();
+      setDefaultDates();
+      initEnterKeyNavigation();
+      await Promise.all([loadItBranchesEmployees(), loadLiveSellers()]);
+      console.log('⚡ Loaded in ' + (performance.now()-t0).toFixed(0) + 'ms');
+    });
+
+    // =====================================================
+    // ============== IT TEAM : BRANCHES / EMP =============
+    // =====================================================
+    let itBranches = [];
+    let itEmployees = {};   // { branch: [names] }
+    let itSalesData = [];   // current selected date
+
+    async function loadItBranchesEmployees() {
+      try {
+        if (isCacheValid('itMeta') && cache.itBranches) {
+          itBranches = cache.itBranches; itEmployees = cache.itEmployees;
+          populateItBranchSelects(); return;
+        }
+        const bSnap = await db.collection('it_branches').orderBy('order').get();
+        itBranches = []; bSnap.forEach(d => itBranches.push(d.data().name));
+        const eSnap = await db.collection('it_employees').get();
+        itEmployees = {};
+        eSnap.forEach(d => {
+          const e = d.data();
+          (itEmployees[e.branch] = itEmployees[e.branch] || []).push(e.name);
+        });
+        cache.itBranches = itBranches; cache.itEmployees = itEmployees; touchCache('itMeta');
+        populateItBranchSelects();
+      } catch (err) { console.error(err); showToast('โหลดข้อมูล IT ผิดพลาด', 'error'); }
+    }
+
+    function populateItBranchSelects() {
+      ['itBranch','itDailyBranch','itFilterBranch','itNewEmpBranch'].forEach(id => {
+        const sel = document.getElementById(id); if (!sel) return;
+        const first = sel.options[0].cloneNode(true);
+        sel.innerHTML = ''; sel.appendChild(first);
+        itBranches.forEach(b => {
+          const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o);
+        });
+      });
+    }
+    function openItEmployeeModal() { openModal('itAddEmployeeModal'); }
+
+    function loadItEmployees() {
+      const b = document.getElementById('itBranch').value;
+      const sel = document.getElementById('itEmployee');
+      sel.innerHTML = '<option value="">เลือกพนักงาน</option>';
+      (itEmployees[b] || []).forEach(e => {
+        const o = document.createElement('option'); o.value = e; o.textContent = e; sel.appendChild(o);
+      });
+    }
+
+    async function addItBranch() {
+      const name = document.getElementById('itNewBranchName').value.trim();
+      if (!name) { showToast('กรอกชื่อสาขา', 'error'); return; }
+      try {
+        await db.collection('it_branches').doc(safeId(name)).set({ name, order: itBranches.length + 1, createdAt: new Date().toISOString() });
+        itBranches.push(name); cache.itBranches = itBranches;
+        populateItBranchSelects(); closeModal('itAddBranchModal');
+        document.getElementById('itNewBranchName').value = '';
+        showToast('เพิ่มสาขาสำเร็จ', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    async function addItEmployee() {
+      const branch = document.getElementById('itNewEmpBranch').value;
+      const name = document.getElementById('itNewEmpName').value.trim();
+      if (!branch || !name) { showToast('กรอกข้อมูลให้ครบ', 'error'); return; }
+      try {
+        await db.collection('it_employees').doc(safeId(branch) + '_' + safeId(name)).set({ name, branch, createdAt: new Date().toISOString() });
+        (itEmployees[branch] = itEmployees[branch] || []).push(name);
+        cache.itEmployees = itEmployees;
+        closeModal('itAddEmployeeModal'); document.getElementById('itNewEmpName').value = '';
+        showToast('เพิ่มพนักงานสำเร็จ', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    // =============== IT SALES INPUT ===============
+    function calcItTotals() {
+      const ts = num('itSalesShopee')+num('itSalesLazada')+num('itSalesTiktok')+num('itSalesWeb')+num('itSalesLineOA')+num('itSalesFacebook');
+      document.getElementById('itTotalSales').value = ts;
+      const tc = num('itCostShopee')+num('itCostLazada')+num('itCostFacebook');
+      document.getElementById('itTotalCost').value = tc;
+    }
+    function clearItForm() {
+      ['itCustomers','itSalesShopee','itSalesLazada','itSalesTiktok','itSalesWeb','itSalesLineOA','itSalesFacebook','itTotalSales','itCostShopee','itCostLazada','itCostFacebook','itTotalCost','itNetProfit'].forEach(id => document.getElementById(id).value = '');
+    }
+
+    async function submitItSales() {
+      const branch = document.getElementById('itBranch').value;
+      const emp = document.getElementById('itEmployee').value;
+      if (!branch || !emp) { showToast('เลือกสาขาและพนักงาน', 'error'); return; }
+      const date = document.getElementById('itDate').value || todayStr();
+      calcItTotals();
+      const data = {
+        date, branch, employeeName: emp,
+        customers: num('itCustomers'),
+        salesShopee: num('itSalesShopee'), salesLazada: num('itSalesLazada'), salesTiktok: num('itSalesTiktok'),
+        salesWeb: num('itSalesWeb'), salesLineOA: num('itSalesLineOA'), salesFacebook: num('itSalesFacebook'),
+        totalSales: num('itTotalSales'),
+        costShopee: num('itCostShopee'), costLazada: num('itCostLazada'), costFacebook: num('itCostFacebook'),
+        totalCost: num('itTotalCost'),
+        netProfit: num('itNetProfit'),
+        updatedAt: new Date().toISOString()
+      };
+      setFormDisabled('#page-it-input', true);
+      showToast('กำลังบันทึก...', '');
+      try {
+        await db.collection('it_sales').doc(date + '_' + safeId(branch) + '_' + safeId(emp)).set(data);
+        setFormDisabled('#page-it-input', false);
+        showToast('บันทึกสำเร็จ!', 'success');
+        clearItForm();
+        delete cache.itSales[date]; delete cache.lastFetch['itSales_' + date];
+      } catch (err) {
+        console.error(err); setFormDisabled('#page-it-input', false); showToast('ผิดพลาด: ' + err.message, 'error');
+      }
+    }
+
+    async function loadItLastRecord() {
+      const branch = document.getElementById('itBranch').value;
+      const emp = document.getElementById('itEmployee').value;
+      if (!branch || !emp) { showToast('เลือกสาขาและพนักงานก่อน', 'error'); return; }
+      try {
+        const snap = await db.collection('it_sales')
+          .where('branch','==',branch).where('employeeName','==',emp)
+          .orderBy('date','desc').limit(1).get();
+        if (snap.empty) { showToast('ไม่พบข้อมูลเดิม', 'error'); return; }
+        const d = snap.docs[0].data();
+        const map = { itCustomers:'customers', itSalesShopee:'salesShopee', itSalesLazada:'salesLazada', itSalesTiktok:'salesTiktok', itSalesWeb:'salesWeb', itSalesLineOA:'salesLineOA', itSalesFacebook:'salesFacebook', itCostShopee:'costShopee', itCostLazada:'costLazada', itCostFacebook:'costFacebook', itNetProfit:'netProfit' };
+        Object.entries(map).forEach(([id,k]) => document.getElementById(id).value = d[k] || 0);
+        calcItTotals();
+        showToast('ดึงข้อมูลสำเร็จ', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    // =============== IT DAILY SALES ===============
+    async function submitItDaily() {
+      const branch = document.getElementById('itDailyBranch').value;
+      if (!branch) { showToast('เลือกสาขา', 'error'); return; }
+      const date = document.getElementById('itDailyDate').value || todayStr();
+      const data = {
+        date, branch,
+        salesToday: num('itSalesToday'), costToday: num('itCostToday'),
+        salesMonth: num('itSalesMonth'), costMonth: num('itCostMonth'),
+        updatedAt: new Date().toISOString()
+      };
+      setFormDisabled('#page-it-daily', true);
+      showToast('กำลังบันทึก...', '');
+      try {
+        await db.collection('it_daily').doc(date + '_' + safeId(branch)).set(data);
+        setFormDisabled('#page-it-daily', false);
+        showToast('บันทึกสำเร็จ! กำลังอัพเดทตาราง...', 'success');
+        ['itSalesToday','itCostToday','itSalesMonth','itCostMonth'].forEach(id => document.getElementById(id).value = '');
+        itDailyList = null;
+        // รอ 1.5 วินาทีก่อนโหลดตารางใหม่
+        setTimeout(async () => { await loadItDailyComparison(); showToast('อัพเดทตารางเรียบร้อย!', 'success'); }, 1500);
+      } catch (err) {
+        console.error(err); setFormDisabled('#page-it-daily', false); showToast('ผิดพลาด: ' + err.message, 'error');
+      }
+    }
+
+    let itDailyList = null, itDailyTime = 0;
+    function loadItDailyComparisonForce() { itDailyList = null; itDailyTime = 0; loadItDailyComparison(); }
+
+    async function loadItDailyComparison() {
+      const container = document.getElementById('itCostComparisonTable');
+      container.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      try {
+        const now = Date.now();
+        if (itDailyList && (now - itDailyTime) < cache.TTL) { renderItCostTable(); return; }
+        const snap = await db.collection('it_daily').orderBy('date','desc').limit(100).get();
+        if (snap.empty) { container.innerHTML = '<p class="empty-msg">ยังไม่มีข้อมูล</p>'; return; }
+        itDailyList = []; snap.forEach(d => itDailyList.push(d.data())); itDailyTime = now;
+        renderItCostTable();
+      } catch (err) { console.error(err); container.innerHTML = '<p class="empty-msg" style="color:var(--danger)">เกิดข้อผิดพลาด</p>'; }
+    }
+
+    function renderItCostTable() {
+      const byDate = {};
+      itDailyList.forEach(d => { (byDate[d.date] = byDate[d.date] || []).push(d); });
+      const dates = Object.keys(byDate).sort().reverse();
+      const todayDate = dates[0], yDate = dates[1] || null;
+      document.getElementById('itDateRangeInfo').textContent = '📅 ล่าสุด: ' + todayDate;
+      buildCostTable('itCostComparisonTable', 'สาขา', byDate[todayDate], byDate[yDate] || [], todayDate, yDate, 'branch');
+    }
+
+    // Generic cost-% comparison table (used by IT branch & Live seller)
+    function buildCostTable(containerId, keyLabel, todayData, yData, todayDate, yDate, keyField) {
+      const container = document.getElementById(containerId);
+      const today = {}, yest = {};
+      todayData.forEach(d => today[d[keyField]] = d);
+      yData.forEach(d => yest[d[keyField]] = d);
+      const keys = [...new Set([...Object.keys(today), ...Object.keys(yest)])].sort();
+      const bR = 'border-right: 3px solid #374151;', bL = 'border-right: 2px solid #9ca3af;';
+      let h = '<table class="data-table"><thead>';
+      h += '<tr><th rowspan="2" style="text-align:center;'+bL+'">ลำดับ</th><th rowspan="2" style="text-align:center;'+bR+'">'+keyLabel+'</th>';
+      h += '<th colspan="3" style="text-align:center;background:#f59e0b;'+bR+'">'+(yDate||'เมื่อวาน')+'</th>';
+      h += '<th colspan="3" style="text-align:center;background:#f59e0b;'+bR+'">'+todayDate+'</th>';
+      h += '<th colspan="3" style="text-align:center;background:#059669;">รวม (เดือนนี้)</th></tr>';
+      h += '<tr>';
+      ['ยอดขาย','ต้นทุน','%','ยอดขาย','ต้นทุน','%','ยอดขาย','ต้นทุน','%'].forEach((t,i) => {
+        const b = (i===2||i===5) ? bR : (i===8 ? '' : bL);
+        h += '<th style="background:#fbbf24;color:#78350f;'+b+'">'+t+'</th>';
+      });
+      h += '</tr></thead><tbody>';
+      let tsy=0,tcy=0,tst=0,tct=0,tsa=0,tca=0;
+      keys.forEach((k, idx) => {
+        const y = yest[k] || { salesToday:0, costToday:0 };
+        const t = today[k] || { salesToday:0, costToday:0, salesMonth:0, costMonth:0 };
+        const yp = y.salesToday>0 ? y.costToday/y.salesToday*100 : 0;
+        const tp = t.salesToday>0 ? t.costToday/t.salesToday*100 : 0;
+        const ap = t.salesMonth>0 ? t.costMonth/t.salesMonth*100 : 0;
+        tsy+=y.salesToday||0; tcy+=y.costToday||0; tst+=t.salesToday||0; tct+=t.costToday||0; tsa+=t.salesMonth||0; tca+=t.costMonth||0;
+        const c = p => p<=45?'highlight-success':'highlight-warning';
+        h += '<tr><td style="text-align:center;'+bL+'">'+(idx+1)+'</td><td style="'+bR+'">'+k+'</td>';
+        h += '<td style="text-align:right;'+bL+'">'+fmt(y.salesToday||0)+'</td><td style="text-align:right;'+bL+'">'+fmt(y.costToday||0)+'</td><td class="'+c(yp)+'" style="text-align:center;'+bR+'">'+yp.toFixed(2)+'%</td>';
+        h += '<td style="text-align:right;'+bL+'">'+fmt(t.salesToday||0)+'</td><td style="text-align:right;'+bL+'">'+fmt(t.costToday||0)+'</td><td class="'+c(tp)+'" style="text-align:center;'+bR+'">'+tp.toFixed(2)+'%</td>';
+        h += '<td style="text-align:right;'+bL+'">'+fmt(t.salesMonth||0)+'</td><td style="text-align:right;'+bL+'">'+fmt(t.costMonth||0)+'</td><td class="'+c(ap)+'" style="text-align:center;">'+ap.toFixed(2)+'%</td></tr>';
+      });
+      const typ=tsy>0?tcy/tsy*100:0, ttp=tst>0?tct/tst*100:0, tap=tsa>0?tca/tsa*100:0;
+      h += '<tr class="total-row"><td colspan="2" style="text-align:center;font-weight:700;'+bR+'">รวมทั้งหมด</td>';
+      h += '<td style="text-align:right;'+bL+'">'+fmt(tsy)+'</td><td style="text-align:right;'+bL+'">'+fmt(tcy)+'</td><td style="text-align:center;'+bR+'">'+typ.toFixed(2)+'%</td>';
+      h += '<td style="text-align:right;'+bL+'">'+fmt(tst)+'</td><td style="text-align:right;'+bL+'">'+fmt(tct)+'</td><td style="text-align:center;'+bR+'">'+ttp.toFixed(2)+'%</td>';
+      h += '<td style="text-align:right;'+bL+'">'+fmt(tsa)+'</td><td style="text-align:right;'+bL+'">'+fmt(tca)+'</td><td style="text-align:center;">'+tap.toFixed(2)+'%</td></tr>';
+      h += '</tbody></table>';
+      container.innerHTML = h;
+    }
+
+    // =============== IT DATA FETCH (cached) ===============
+    async function getItSales(date, force) {
+      const key = 'itSales_' + date;
+      if (!force && cache.itSales[date] && isCacheValid(key)) return cache.itSales[date];
+      const snap = await db.collection('it_sales').where('date','==',date).get();
+      const arr = []; snap.forEach(d => arr.push(d.data()));
+      cache.itSales[date] = arr; touchCache(key);
+      return arr;
+    }
+    async function getItDaily(date, force) {
+      const key = 'itDaily_' + date;
+      if (!force && cache.itDaily[date] && isCacheValid(key)) return cache.itDaily[date];
+      const snap = await db.collection('it_daily').where('date','==',date).get();
+      const arr = []; snap.forEach(d => arr.push(d.data()));
+      cache.itDaily[date] = arr; touchCache(key);
+      return arr;
+    }
+
+    // =============== IT DASHBOARD ===============
+    let itCharts = { main:null, top:null, branch:null, today:null, pieNum:null, piePct:null, branchPies:[] };
+
+    async function loadItDashboard() {
+      const date = document.getElementById('itFilterDate').value;
+      if (!date) return;
+      try {
+        itSalesData = await getItSales(date);
+        const daily = await getItDaily(date);
+        applyItFilters(daily);
+        renderItBranchChart();
+      } catch (err) { console.error(err); showToast('โหลด Dashboard ผิดพลาด', 'error'); }
+    }
+
+    function applyItFilters(dailyData) {
+      const branch = document.getElementById('itFilterBranch').value;
+      const display = document.getElementById('itFilterDisplay').value;
+      const sortBy = document.getElementById('itFilterSort').value;
+      let filtered = itSalesData.slice();
+      if (branch !== 'all') filtered = filtered.filter(s => s.branch === branch);
+
+      let chartData;
+      if (display === 'branch') {
+        const g = {};
+        filtered.forEach(s => {
+          if (!g[s.branch]) g[s.branch] = { employeeName:s.branch, branch:s.branch, salesShopee:0,salesLazada:0,salesTiktok:0,salesWeb:0,salesLineOA:0,salesFacebook:0, totalSales:0, totalCost:0, customers:0, netProfit:0 };
+          ['salesShopee','salesLazada','salesTiktok','salesWeb','salesLineOA','salesFacebook','totalSales','totalCost','customers','netProfit'].forEach(k => g[s.branch][k] += s[k]||0);
+        });
+        chartData = Object.values(g);
+      } else chartData = filtered;
+
+      chartData.sort((a,b) => sortBy==='totalSales' ? b.totalSales-a.totalSales : b.netProfit-a.netProfit);
+
+      const totalSales = chartData.reduce((s,x)=>s+(x.totalSales||0),0);
+      const totalCost = chartData.reduce((s,x)=>s+(x.totalCost||0),0);
+      const totalCust = chartData.reduce((s,x)=>s+(x.customers||0),0);
+      const totalNet = chartData.reduce((s,x)=>s+(x.netProfit||0),0);
+      document.getElementById('itStatTotalSales').textContent = fmt(totalSales);
+      document.getElementById('itStatTotalCost').textContent = fmt(totalCost);
+      document.getElementById('itStatCustomers').textContent = fmt(totalCust);
+      document.getElementById('itStatNetProfit').textContent = fmt(totalNet);
+
+      const bName = branch==='all' ? 'ทุกสาขา' : branch;
+      document.getElementById('itMainChartTitle').textContent = 'ยอดขายตามช่องทาง ต้นทุน และกำไรสุทธิ';
+      document.getElementById('itMainChartSubtitle').textContent = bName + ' - ' + (display==='branch'?'แยกตามสาขา':'แยกตามพนักงาน');
+
+      renderItMainChart(chartData);
+      renderItTopChart(itSalesData);
+      renderItTodayChart(dailyData);
+      renderItSummaryPies(totalSales, totalCost);
+      renderItBranchPies();
+    }
+
+    const dynAnchor = ctx => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'end' : 'start';
+    const dynAlign  = ctx => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'top' : 'bottom';
+
+    function renderItMainChart(data) {
+      const ctx = document.getElementById('itMainChart').getContext('2d');
+      if (itCharts.main) itCharts.main.destroy();
+      itCharts.main = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: data.map(d=>d.employeeName), datasets: [
+          { label:'ขาย Shopee', data:data.map(d=>d.salesShopee||0), backgroundColor:IT_COLORS.shopee, borderRadius:4 },
+          { label:'ขาย Lazada', data:data.map(d=>d.salesLazada||0), backgroundColor:IT_COLORS.lazada, borderRadius:4 },
+          { label:'ขาย TikTok', data:data.map(d=>d.salesTiktok||0), backgroundColor:IT_COLORS.tiktok, borderRadius:4 },
+          { label:'ขาย Web', data:data.map(d=>d.salesWeb||0), backgroundColor:IT_COLORS.web, borderRadius:4 },
+          { label:'ขาย LineOA', data:data.map(d=>d.salesLineOA||0), backgroundColor:IT_COLORS.lineoa, borderRadius:4 },
+          { label:'ขาย Facebook', data:data.map(d=>d.salesFacebook||0), backgroundColor:IT_COLORS.facebook, borderRadius:4 },
+          { label:'ยอดขายรวม', data:data.map(d=>d.totalSales||0), backgroundColor:IT_COLORS.totalSales, borderRadius:4 },
+          { label:'ต้นทุนรวม', data:data.map(d=>d.totalCost||0), backgroundColor:IT_COLORS.totalCost, borderRadius:4 },
+          { label:'กำไรสุทธิ', data:data.map(d=>d.netProfit||0), backgroundColor:IT_COLORS.netProfit, borderRadius:4 }
+        ]},
+        options: { responsive:true, maintainAspectRatio:false,
+          plugins: {
+            legend: { position:'top', labels:{ usePointStyle:true, padding:15, font:{family:'Kanit',size:11} } },
+            datalabels: { display:true, rotation:-90, anchor:dynAnchor, align:dynAlign, formatter:v=>v!==0?fmt(v):'', font:{family:'Kanit',size:9,weight:'bold'}, color:'#333' }
+          },
+          scales: { x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit',size:10}}, grid:{color:'#eee'} } }
+        }
+      });
+    }
+
+    function renderItTopChart(data) {
+      const ctx = document.getElementById('itTopChart').getContext('2d');
+      if (itCharts.top) itCharts.top.destroy();
+      const top6 = data.slice().sort((a,b)=>b.netProfit-a.netProfit).slice(0,6);
+      const colors = ['#54a0ff','#2ed573','#ffa502','#ff9ff3','#ff6b6b','#ee4d2d'];
+      itCharts.top = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: top6.map(d=>d.employeeName), datasets:[{ label:'กำไรสุทธิ', data: top6.map(d=>d.netProfit||0), backgroundColor: top6.map((_,i)=>colors[i%colors.length]), borderRadius:6 }] },
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:12}, color:'#333' } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+        }
+      });
+    }
+
+    function renderItBranchChart() {
+      const ctx = document.getElementById('itBranchChart').getContext('2d');
+      if (itCharts.branch) itCharts.branch.destroy();
+      const byBranch = {};
+      itSalesData.forEach(s => byBranch[s.branch] = (byBranch[s.branch]||0) + (s.totalSales||0));
+      const sorted = Object.entries(byBranch).sort((a,b)=>b[1]-a[1]);
+      const colors = ['#54a0ff','#2ed573','#ffa502','#ff9ff3','#ff6b6b','#ee4d2d','#feca57','#1877f2'];
+      itCharts.branch = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: sorted.map(s=>s[0]), datasets:[{ label:'ยอดขายรวม', data: sorted.map(s=>s[1]), backgroundColor: sorted.map((_,i)=>colors[i%colors.length]), borderRadius:6 }] },
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:12}, color:'#333' } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+        }
+      });
+    }
+
+    function renderItTodayChart(dailyData) {
+      const ctx = document.getElementById('itTodayChart').getContext('2d');
+      if (itCharts.today) itCharts.today.destroy();
+      const rows = (dailyData||[]).map(d => ({ name:d.branch, sales:d.salesToday||0, cost:d.costToday||0 }));
+      rows.sort((a,b)=>b.sales-a.sales);
+      let ts=0, tc=0; rows.forEach(r=>{ts+=r.sales;tc+=r.cost;});
+      rows.push({ name:'รวมทั้งหมด', sales:ts, cost:tc });
+      if (!rows.length) { itCharts.today = null; return; }
+      itCharts.today = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: rows.map(r=>r.name), datasets:[
+          { label:'ยอดขายวันนี้', data: rows.map(r=>r.sales), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#1877f2':'#667eea'), borderRadius:{topLeft:6,topRight:6} },
+          { label:'ต้นทุนวันนี้', data: rows.map(r=>r.cost), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#ff4757':'#ff6b6b'), borderRadius:{topLeft:6,topRight:6} }
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}}, datalabels:{ color:'#262626', anchor:dynAnchor, align:dynAlign, formatter:v=>v===0?'':fmt(v), font:{family:'Kanit',weight:'600',size:11} } },
+          scales:{ y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}} }, x:{ ticks:{font:{family:'Kanit',size:11}} } }
+        }
+      });
+    }
+
+    function makePie(canvasId, labels, values, colors, isPercent) {
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      return new Chart(ctx, {
+        type:'pie',
+        data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderColor:'#fff', borderWidth:3 }] },
+        options:{ responsive:true,
+          plugins:{ legend:{position:'bottom',labels:{font:{family:'Kanit',size:15,weight:'600'},usePointStyle:true,padding:14}},
+            datalabels:{ color:'#fff', font:{family:'Kanit',weight:'700',size:isPercent?30:26}, formatter:v=>isPercent?v.toFixed(0)+'%':Math.round(v).toLocaleString() } }
+        }
+      });
+    }
+
+    function renderItSummaryPies(totalSales, totalCost) {
+      const total = totalSales + totalCost;
+      const sp = total>0?totalSales/total*100:0, cp = total>0?totalCost/total*100:0;
+      const labels = ['ยอดขายรวม '+sp.toFixed(0)+'% ('+fmt(totalSales)+')', 'ต้นทุนรวม '+cp.toFixed(0)+'% ('+fmt(totalCost)+')'];
+      if (itCharts.pieNum) itCharts.pieNum.destroy();
+      if (itCharts.piePct) itCharts.piePct.destroy();
+      itCharts.pieNum = makePie('itSummaryPieNum', labels, [totalSales,totalCost], ['#667eea','#ff6b6b'], false);
+      itCharts.piePct = makePie('itSummaryPiePct', labels, [sp,cp], ['#667eea','#ff6b6b'], true);
+    }
+
+    function renderItBranchPies() {
+      const container = document.getElementById('itPieChartsContainer');
+      container.innerHTML = '';
+      itCharts.branchPies.forEach(c=>c.destroy()); itCharts.branchPies = [];
+      const byBranch = {};
+      itSalesData.forEach(s => {
+        if (!byBranch[s.branch]) byBranch[s.branch] = { totalSales:0, totalCost:0 };
+        byBranch[s.branch].totalSales += s.totalSales||0;
+        byBranch[s.branch].totalCost += s.totalCost||0;
+      });
+      Object.entries(byBranch).forEach(([branch,d],idx) => {
+        const total = d.totalSales + d.totalCost;
+        const sp = total>0?d.totalSales/total*100:0, cp = total>0?d.totalCost/total*100:0;
+        const div = document.createElement('div'); div.className = 'pie-chart-item';
+        div.innerHTML = '<div class="pie-chart-title">📊 '+branch+': ยอดขาย vs ต้นทุน</div><canvas id="itBranchPie'+idx+'" width="390" height="390"></canvas>';
+        container.appendChild(div);
+        const labels = ['ยอดขาย '+sp.toFixed(0)+'% ('+fmt(d.totalSales)+')', 'ต้นทุน '+cp.toFixed(0)+'% ('+fmt(d.totalCost)+')'];
+        itCharts.branchPies.push(makePie('itBranchPie'+idx, labels, [sp,cp], ['#667eea','#ff6b6b'], true));
+      });
+    }
+
+    // =====================================================
+    // ================= LIVE TEAM =========================
+    // =====================================================
+    let liveSellers = [];
+    let liveData = [];
+
+    async function loadLiveSellers() {
+      try {
+        if (isCacheValid('liveMeta') && cache.liveSellers) { liveSellers = cache.liveSellers; populateLiveSellerSelect(); return; }
+        const snap = await db.collection('live_sellers').orderBy('order').get();
+        liveSellers = []; snap.forEach(d => liveSellers.push(d.data().name));
+        cache.liveSellers = liveSellers; touchCache('liveMeta');
+        populateLiveSellerSelect();
+      } catch (err) { console.error(err); showToast('โหลดข้อมูล Live ผิดพลาด', 'error'); }
+    }
+    function populateLiveSellerSelect() {
+      const sel = document.getElementById('liveSeller');
+      sel.innerHTML = '<option value="">เลือกเซลล์</option>';
+      liveSellers.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
+    }
+    async function addLiveSeller() {
+      const name = document.getElementById('liveNewSellerName').value.trim();
+      if (!name) { showToast('กรอกชื่อเซลล์', 'error'); return; }
+      try {
+        await db.collection('live_sellers').doc(safeId(name)).set({ name, order: liveSellers.length+1, createdAt:new Date().toISOString() });
+        liveSellers.push(name); cache.liveSellers = liveSellers;
+        populateLiveSellerSelect(); closeModal('liveAddSellerModal');
+        document.getElementById('liveNewSellerName').value = '';
+        showToast('เพิ่มเซลล์สำเร็จ', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    function calcLiveTotals() {
+      const s = num('liveSales'), c = num('liveCost');
+      document.getElementById('liveCostPct').value = (s>0 ? (c/s*100).toFixed(2) : '0.00') + '%';
+    }
+    function clearLiveForm() {
+      ['liveSales','liveCost','liveAds','liveCostPct'].forEach(id => document.getElementById(id).value = '');
+    }
+
+    async function submitLive() {
+      const seller = document.getElementById('liveSeller').value;
+      if (!seller) { showToast('เลือกเซลล์', 'error'); return; }
+      const date = document.getElementById('liveDate').value || todayStr();
+      const sales = num('liveSales'), cost = num('liveCost'), ads = num('liveAds');
+      const data = {
+        date, seller,
+        salesToday: sales, costToday: cost, ads,
+        salesMonth: sales, costMonth: cost,   // สะสมตั้งแต่วันที่ 1 ถึงปัจจุบัน (ยอดที่รายงานมา)
+        costPercent: sales>0 ? cost/sales*100 : 0,
+        updatedAt: new Date().toISOString()
+      };
+      setFormDisabled('#page-live-input', true);
+      showToast('กำลังบันทึก...', '');
+      try {
+        await db.collection('live_sales').doc(date + '_' + safeId(seller)).set(data);
+        setFormDisabled('#page-live-input', false);
+        showToast('บันทึกสำเร็จ! กำลังอัพเดทตาราง...', 'success');
+        clearLiveForm();
+        delete cache.liveSales[date]; delete cache.lastFetch['liveSales_' + date];
+        liveTableList = null;
+        setTimeout(async () => { await loadLiveTable(); showToast('อัพเดทตารางเรียบร้อย!', 'success'); }, 1500);
+      } catch (err) {
+        console.error(err); setFormDisabled('#page-live-input', false); showToast('ผิดพลาด: ' + err.message, 'error');
+      }
+    }
+
+    async function loadLiveLastRecord() {
+      const seller = document.getElementById('liveSeller').value;
+      if (!seller) { showToast('เลือกเซลล์ก่อน', 'error'); return; }
+      try {
+        const snap = await db.collection('live_sales').where('seller','==',seller).orderBy('date','desc').limit(1).get();
+        if (snap.empty) { showToast('ไม่พบข้อมูลเดิม', 'error'); return; }
+        const d = snap.docs[0].data();
+        document.getElementById('liveSales').value = d.salesToday || 0;
+        document.getElementById('liveCost').value = d.costToday || 0;
+        document.getElementById('liveAds').value = d.ads || 0;
+        calcLiveTotals();
+        showToast('ดึงข้อมูลสำเร็จ', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    // Live cost table (input page)
+    let liveTableList = null, liveTableTime = 0;
+    function loadLiveTableForce() { liveTableList = null; liveTableTime = 0; loadLiveTable(); }
+    async function loadLiveTable() {
+      const container = document.getElementById('liveCostTable');
+      container.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      try {
+        const now = Date.now();
+        if (liveTableList && (now - liveTableTime) < cache.TTL) { renderLiveTable(); return; }
+        const snap = await db.collection('live_sales').orderBy('date','desc').limit(200).get();
+        if (snap.empty) { container.innerHTML = '<p class="empty-msg">ยังไม่มีข้อมูล</p>'; return; }
+        liveTableList = []; snap.forEach(d => liveTableList.push(d.data())); liveTableTime = now;
+        renderLiveTable();
+      } catch (err) { console.error(err); container.innerHTML = '<p class="empty-msg" style="color:var(--danger)">เกิดข้อผิดพลาด</p>'; }
+    }
+    function renderLiveTable() {
+      const byDate = {};
+      liveTableList.forEach(d => { (byDate[d.date] = byDate[d.date] || []).push(d); });
+      const dates = Object.keys(byDate).sort().reverse();
+      const todayDate = dates[0], yDate = dates[1] || null;
+      document.getElementById('liveDateRangeInfo').textContent = '📅 ล่าสุด: ' + todayDate;
+      buildCostTable('liveCostTable', 'เซลล์', byDate[todayDate], byDate[yDate] || [], todayDate, yDate, 'seller');
+    }
+
+    // Live data fetch (cached)
+    async function getLiveSales(date, force) {
+      const key = 'liveSales_' + date;
+      if (!force && cache.liveSales[date] && isCacheValid(key)) return cache.liveSales[date];
+      const snap = await db.collection('live_sales').where('date','==',date).get();
+      const arr = []; snap.forEach(d => arr.push(d.data()));
+      cache.liveSales[date] = arr; touchCache(key);
+      return arr;
+    }
+
+    // ============= LIVE DASHBOARD =============
+    let liveCharts = { rank:null, salesAds:null, donutNum:null, donutPct:null, cost:null };
+
+    async function loadLiveDashboard() {
+      const date = document.getElementById('liveFilterDate').value;
+      if (!date) return;
+      try {
+        liveData = await getLiveSales(date);
+        if (!liveData.length) {
+          // fall back to latest available date
+          const snap = await db.collection('live_sales').orderBy('date','desc').limit(50).get();
+          const all = []; snap.forEach(d=>all.push(d.data()));
+          if (all.length) {
+            const latest = all[0].date;
+            document.getElementById('liveFilterDate').value = latest;
+            liveData = all.filter(d => d.date === latest);
+          }
+        }
+        renderLiveDashboard();
+      } catch (err) { console.error(err); showToast('โหลด Dashboard ไลฟ์ผิดพลาด', 'error'); }
+    }
+
+    function renderLiveDashboard() {
+      const rows = liveData.map(d => ({ seller:d.seller, sales:d.salesToday||0, cost:d.costToday||0, ads:d.ads||0, pct:d.costPercent||0 }));
+      const totalSales = rows.reduce((s,r)=>s+r.sales,0);
+      const totalCost = rows.reduce((s,r)=>s+r.cost,0);
+      const totalAds = rows.reduce((s,r)=>s+r.ads,0);
+      const avgPct = totalSales>0 ? totalCost/totalSales*100 : 0;
+      document.getElementById('liveStatSales').textContent = fmt(totalSales);
+      document.getElementById('liveStatCost').textContent = fmt(totalCost);
+      document.getElementById('liveStatAds').textContent = fmt(totalAds);
+      document.getElementById('liveStatPct').textContent = avgPct.toFixed(2) + '%';
+
+      renderLiveRank(rows);
+      renderLiveSalesAds(rows, totalSales, totalAds);
+      renderLiveDonuts(totalSales, totalAds);
+      renderLiveCostChart(rows);
+    }
+
+    // Ranking (image 3) — orange gradient bars, high → low
+    function renderLiveRank(rows) {
+      const ctx = document.getElementById('liveRankChart').getContext('2d');
+      if (liveCharts.rank) liveCharts.rank.destroy();
+      const sorted = rows.slice().sort((a,b)=>b.sales-a.sales);
+      const grad = ctx.createLinearGradient(0,0,0,380);
+      grad.addColorStop(0, '#f97316'); grad.addColorStop(1, '#fed7aa');
+      liveCharts.rank = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: sorted.map(r=>r.seller), datasets:[{ label:'ยอดขายรวม', data: sorted.map(r=>r.sales), backgroundColor: grad, borderRadius:6 }] },
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:12}, color:'#c2410c' } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#f3e8ff'} } }
+        }
+      });
+    }
+
+    // Sales vs Ads grouped (image 2 left) + total column, supports negatives
+    function renderLiveSalesAds(rows, totalSales, totalAds) {
+      const ctx = document.getElementById('liveSalesAdsChart').getContext('2d');
+      if (liveCharts.salesAds) liveCharts.salesAds.destroy();
+      const sorted = rows.slice().sort((a,b)=>b.sales-a.sales);
+      const labels = sorted.map(r=>r.seller).concat(['รวม']);
+      const salesArr = sorted.map(r=>r.sales).concat([totalSales]);
+      const adsArr = sorted.map(r=>r.ads).concat([totalAds]);
+      liveCharts.salesAds = new Chart(ctx, {
+        type:'bar',
+        data:{ labels, datasets:[
+          { label:'ยอดขาย', data: salesArr, backgroundColor: labels.map(l=>l==='รวม'?'#1d4ed8':'#4361ee'), borderRadius:{topLeft:5,topRight:5} },
+          { label:'ค่าโฆษณา', data: adsArr, backgroundColor: labels.map(l=>l==='รวม'?'#ea580c':'#f97316'), borderRadius:{topLeft:5,topRight:5} }
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}},
+            datalabels:{ anchor:dynAnchor, align:dynAlign, rotation:-90, formatter:v=>v!==0?fmt(v):'', font:{family:'Kanit',weight:'600',size:10}, color:'#333' } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+        }
+      });
+    }
+
+    // Donuts (image 2 right)
+    function makeDonut(canvasId, labels, values, colors, isPercent) {
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      return new Chart(ctx, {
+        type:'doughnut',
+        data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderColor:'#fff', borderWidth:3 }] },
+        options:{ responsive:true, cutout:'60%',
+          plugins:{ legend:{position:'bottom',labels:{font:{family:'Kanit',size:15,weight:'600'},usePointStyle:true,padding:14}},
+            datalabels:{ color:'#fff', font:{family:'Kanit',weight:'700',size:isPercent?28:22}, formatter:v=>isPercent?v.toFixed(0)+'%':Math.round(v).toLocaleString() } }
+        }
+      });
+    }
+    function renderLiveDonuts(totalSales, totalAds) {
+      const total = totalSales + totalAds;
+      const sp = total>0?totalSales/total*100:0, ap = total>0?totalAds/total*100:0;
+      const labels = ['ยอดขายรวม '+sp.toFixed(0)+'% ('+fmt(totalSales)+')', 'ค่าโฆษณารวม '+ap.toFixed(0)+'% ('+fmt(totalAds)+')'];
+      if (liveCharts.donutNum) liveCharts.donutNum.destroy();
+      if (liveCharts.donutPct) liveCharts.donutPct.destroy();
+      liveCharts.donutNum = makeDonut('liveDonutNum', labels, [totalSales,totalAds], ['#4361ee','#f97316'], false);
+      liveCharts.donutPct = makeDonut('liveDonutPct', labels, [sp,ap], ['#4361ee','#f97316'], true);
+    }
+
+    // %ต้นทุน per seller (bar, colored by threshold)
+    function renderLiveCostChart(rows) {
+      const ctx = document.getElementById('liveCostChart').getContext('2d');
+      if (liveCharts.cost) liveCharts.cost.destroy();
+      const sorted = rows.slice().sort((a,b)=>b.pct-a.pct);
+      liveCharts.cost = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: sorted.map(r=>r.seller), datasets:[{ label:'% ต้นทุน', data: sorted.map(r=>Number(r.pct.toFixed(2))), backgroundColor: sorted.map(r=>r.pct<=45?'#22c55e':'#f97316'), borderRadius:6 }] },
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, datalabels:{ anchor:'end', align:'top', formatter:v=>v.toFixed(2)+'%', font:{family:'Kanit',weight:'bold',size:12}, color:'#333' } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ticks:{callback:v=>v+'%',font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+        }
+      });
+    }
+
+    // =====================================================
+    // SAVE ANY CONTAINER AS PNG (html2canvas)
+    // =====================================================
+    async function saveNode(containerId, filename) {
+      const container = document.getElementById(containerId);
+      const btn = container.querySelector('.save-btn');
+      if (btn) btn.style.display = 'none';
+      try {
+        const canvas = await html2canvas(container, { backgroundColor:'#ffffff', scale:2, useCORS:true });
+        const link = document.createElement('a');
+        link.download = filename + '_' + todayStr() + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('บันทึกรูปสำเร็จ', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+      finally { if (btn) btn.style.display = 'flex'; }
+    }
+  </script>
+</body>
+</html>
