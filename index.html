@@ -1207,6 +1207,15 @@
     const dynAnchor = ctx => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'end' : 'start';
     const dynAlign  = ctx => ctx.dataset.data[ctx.dataIndex] >= 0 ? 'top' : 'bottom';
 
+    // Give vertical bar charts headroom so top datalabels don't clip the frame/title.
+    // maxOfAll = largest bar value; ratio = extra fraction on top (0.22 = +22%)
+    function headroom(values, ratio) {
+      const mx = Math.max(0, ...values.map(v => Number(v)||0));
+      const mn = Math.min(0, ...values.map(v => Number(v)||0));
+      return { suggestedMax: mx > 0 ? mx * (1 + (ratio||0.18)) : undefined,
+               suggestedMin: mn < 0 ? mn * (1 + (ratio||0.18)) : undefined };
+    }
+
     function renderItMainChart(data) {
       const ctx = document.getElementById('itMainChart').getContext('2d');
       if (itCharts.main) itCharts.main.destroy();
@@ -1225,11 +1234,12 @@
           { label:'กำไรสุทธิ', data:data.map(d=>d.netProfit||0), backgroundColor:'#22c55e', borderRadius:4 }
         ]},
         options: { responsive:true, maintainAspectRatio:false,
+          layout: { padding: { top: 28 } },
           plugins: {
             legend: { position:'top', labels:{ usePointStyle:true, padding:15, font:{family:'Kanit',size:11} } },
             datalabels: { display:true, rotation:-90, anchor:dynAnchor, align:dynAlign, formatter:v=>v!==0?fmt(v):'', font:{family:'Kanit',size:9,weight:'bold'}, color:'#333' }
           },
-          scales: { x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit',size:10}}, grid:{color:'#eee'} } }
+          scales: { x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ...headroom([].concat(...data.map(d=>[d.salesFacebook,d.salesShopee,d.salesLazada,d.salesLineOA,d.adsFacebook,d.adsShopee,d.adsLazada,d.totalSales,d.totalAdsCost,d.netProfit])), 0.30), ticks:{callback:v=>fmt(v),font:{family:'Kanit',size:10}}, grid:{color:'#eee'} } }
         }
       });
     }
@@ -1243,8 +1253,9 @@
         type:'bar',
         data:{ labels: top6.map(d=>d.employeeName), datasets:[{ label:'กำไรสุทธิ', data: top6.map(d=>d.netProfit||0), backgroundColor: top6.map((_,i)=>colors[i%colors.length]), borderRadius:6 }] },
         options:{ responsive:true, maintainAspectRatio:false,
+          layout: { padding: { top: 24 } },
           plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:12}, color:'#333' } },
-          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ...headroom(top6.map(d=>d.netProfit||0), 0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
         }
       });
     }
@@ -1260,8 +1271,9 @@
         type:'bar',
         data:{ labels: sorted.map(s=>s[0]), datasets:[{ label:'ยอดขายรวม', data: sorted.map(s=>s[1]), backgroundColor: sorted.map((_,i)=>colors[i%colors.length]), borderRadius:6 }] },
         options:{ responsive:true, maintainAspectRatio:false,
+          layout: { padding: { top: 24 } },
           plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:12}, color:'#333' } },
-          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ...headroom(sorted.map(s=>s[1]), 0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
         }
       });
     }
@@ -1281,8 +1293,9 @@
           { label:'ต้นทุนวันนี้', data: rows.map(r=>r.cost), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#ff4757':'#ff6b6b'), borderRadius:{topLeft:6,topRight:6} }
         ]},
         options:{ responsive:true, maintainAspectRatio:false,
+          layout: { padding: { top: 22 } },
           plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}}, datalabels:{ color:'#262626', anchor:dynAnchor, align:dynAlign, formatter:v=>v===0?'':fmt(v), font:{family:'Kanit',weight:'600',size:11} } },
-          scales:{ y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}} }, x:{ ticks:{font:{family:'Kanit',size:11}} } }
+          scales:{ y:{ ...headroom(rows.map(r=>Math.max(r.sales,r.cost)), 0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}} }, x:{ ticks:{font:{family:'Kanit',size:11}} } }
         }
       });
     }
@@ -1496,8 +1509,9 @@
         type:'bar',
         data:{ labels: sorted.map(r=>r.seller), datasets:[{ label:'ยอดขายรวม', data: sorted.map(r=>r.sales), backgroundColor: grad, borderRadius:6 }] },
         options:{ responsive:true, maintainAspectRatio:false,
+          layout: { padding: { top: 24 } },
           plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:12}, color:'#c2410c' } },
-          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#f3e8ff'} } }
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ...headroom(sorted.map(r=>r.sales), 0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#f3e8ff'} } }
         }
       });
     }
@@ -1517,9 +1531,10 @@
           { label:'ค่าโฆษณา', data: adsArr, backgroundColor: labels.map(l=>l==='รวม'?'#ea580c':'#f97316'), borderRadius:{topLeft:5,topRight:5} }
         ]},
         options:{ responsive:true, maintainAspectRatio:false,
+          layout: { padding: { top: 28 } },
           plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}},
             datalabels:{ anchor:dynAnchor, align:dynAlign, rotation:-90, formatter:v=>v!==0?fmt(v):'', font:{family:'Kanit',weight:'600',size:10}, color:'#333' } },
-          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ...headroom(salesArr.concat(adsArr), 0.28), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
         }
       });
     }
@@ -1555,8 +1570,9 @@
         type:'bar',
         data:{ labels: sorted.map(r=>r.seller), datasets:[{ label:'% ต้นทุน', data: sorted.map(r=>Number(r.pct.toFixed(2))), backgroundColor: sorted.map(r=>r.pct<=45?'#22c55e':'#f97316'), borderRadius:6 }] },
         options:{ responsive:true, maintainAspectRatio:false,
+          layout: { padding: { top: 22 } },
           plugins:{ legend:{display:false}, datalabels:{ anchor:'end', align:'top', formatter:v=>v.toFixed(2)+'%', font:{family:'Kanit',weight:'bold',size:12}, color:'#333' } },
-          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ticks:{callback:v=>v+'%',font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ...headroom(sorted.map(r=>r.pct), 0.15), ticks:{callback:v=>v+'%',font:{family:'Kanit'}}, grid:{color:'#eee'} } }
         }
       });
     }
