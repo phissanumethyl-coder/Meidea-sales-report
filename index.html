@@ -135,6 +135,37 @@
     .pie-chart-item { background: var(--bg-primary); border-radius: var(--radius-md); padding: 20px; text-align: center; }
     .pie-chart-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--team-color); }
     .empty-msg { text-align: center; padding: 40px; color: var(--text-secondary); }
+    /* Employee status bar (on input form) */
+    .status-bar { margin: 12px 0 4px; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .status-bar.done { background: #d1fae5; color: #047857; }
+    .status-bar.pending { background: #fef3c7; color: #b45309; }
+    .status-bar.carry { background: #e0e7ff; color: #4338ca; }
+    .status-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    /* Check panel */
+    .check-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .check-stat { padding: 16px; border-radius: var(--radius-md); text-align: center; }
+    .check-stat.total { background: var(--bg-tertiary); }
+    .check-stat.done { background: #d1fae5; }
+    .check-stat.pending { background: #fef3c7; }
+    .check-stat-num { font-size: 28px; font-weight: 700; }
+    .check-stat-label { font-size: 12px; margin-top: 2px; }
+    .branch-block { border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: 16px; overflow: hidden; }
+    .branch-block-head { background: var(--bg-tertiary); padding: 12px 16px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .branch-block-body { padding: 12px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .emp-chip { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px; border: 1px solid var(--border-color); }
+    .emp-chip.done { background: #ecfdf5; border-color: #a7f3d0; }
+    .emp-chip.pending { background: #fffbeb; border-color: #fde68a; }
+    .emp-chip .dot { font-size: 16px; }
+    .emp-chip .go { margin-left: auto; font-size: 12px; color: var(--team-color); cursor: pointer; text-decoration: underline; }
+    /* Manage table */
+    .manage-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; }
+    .manage-row:last-child { border-bottom: none; }
+    .manage-name { font-weight: 500; min-width: 140px; }
+    .manage-branch { color: var(--text-secondary); font-size: 13px; min-width: 100px; }
+    .badge-active { background: #d1fae5; color: #047857; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .badge-inactive { background: #fee2e2; color: #b91c1c; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .manage-actions { margin-left: auto; display: flex; gap: 8px; }
+    .manage-branch-title { font-weight: 600; color: var(--team-color); padding: 14px 14px 6px; }
     @media (max-width: 1024px) { .summary-pies { grid-template-columns: 1fr; } .pie-charts-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) { .pie-charts-grid { grid-template-columns: 1fr; } .form-grid, .filter-row { grid-template-columns: 1fr; } }
   </style>
@@ -163,8 +194,10 @@
       <!-- IT tabs -->
       <nav class="nav-tabs team-nav" data-team="it">
         <button class="nav-tab active" data-page="it-input">กรอกยอดขาย</button>
+        <button class="nav-tab" data-page="it-check">✅ เช็คการกรอก</button>
         <button class="nav-tab" data-page="it-daily">ยอดขาย/ต้นทุนรายวัน</button>
         <button class="nav-tab" data-page="it-dashboard">Dashboard</button>
+        <button class="nav-tab" data-page="it-manage">👥 จัดการพนักงาน</button>
       </nav>
       <!-- LIVE tabs -->
       <nav class="nav-tabs team-nav" data-team="live" style="display:none;">
@@ -194,10 +227,11 @@
         <div class="form-grid">
           <div class="form-group"><label class="form-label">📅 วันที่บันทึก</label><input type="date" id="itDate" class="form-input"><small class="hint">เว้นว่าง = วันนี้ (ห้ามกรอกวันอาทิตย์/วันหยุด)</small></div>
           <div class="form-group"><label class="form-label">สาขา</label><select id="itBranch" class="form-select" onchange="loadItEmployees()"><option value="">เลือกสาขา</option></select></div>
-          <div class="form-group"><label class="form-label">ชื่อพนักงาน (เซลล์)</label><select id="itEmployee" class="form-select"><option value="">เลือกพนักงาน</option></select></div>
+          <div class="form-group"><label class="form-label">ชื่อพนักงาน (เซลล์)</label><select id="itEmployee" class="form-select" onchange="onItEmployeePicked()"><option value="">เลือกพนักงาน</option></select></div>
           <div class="form-group"><label class="form-label">จำนวนลูกค้า (คน)</label><input type="number" id="itCustomers" class="form-input" placeholder="0"></div>
         </div>
-        <div class="form-group full-width" style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="loadItLastRecord()">🔄 ดึงข้อมูลล่าสุดมากรอก</button></div>
+        <div id="itEmpStatusBar" class="status-bar" style="display:none;"></div>
+        <div class="form-group full-width" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" onclick="loadItLastRecord()">🔄 ดึงยอดล่าสุดมากรอก (ยกยอดสะสม)</button></div>
 
         <div class="section-divider"><div class="section-divider-line"></div><span class="section-divider-text">ยอดขาย (สะสมเดือน)</span><div class="section-divider-line"></div></div>
         <div class="form-grid">
@@ -223,6 +257,37 @@
           <button class="btn btn-primary" onclick="submitItSales()">💾 บันทึกข้อมูล</button>
           <button class="btn btn-secondary" onclick="clearItForm()">🗑️ ล้างฟอร์ม</button>
         </div>
+      </div>
+    </div>
+
+    <!-- IT Page: Check submission status -->
+    <div id="page-it-check" class="page">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">✅ เช็คสถานะการกรอกยอดรายวัน (ทุกสาขา)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="date" id="itCheckDate" class="form-input" style="padding:8px 12px;" onchange="loadItCheck()">
+            <button class="btn btn-outline btn-sm" onclick="loadItCheckForce()">🔄 รีเฟรช</button>
+          </div>
+        </div>
+        <div id="itCheckSummary" class="check-summary"></div>
+        <div id="itCheckContainer"><div class="loading active"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- IT Page: Manage employees -->
+    <div id="page-it-manage" class="page">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">👥 จัดการพนักงาน (เปิด/ปิดการใช้งาน)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);"><input type="checkbox" id="itShowInactive" onchange="renderItManage()"> แสดงคนที่ปิดใช้งานด้วย</label>
+            <button class="btn btn-secondary btn-sm" onclick="openItEmployeeModal()">+ เพิ่มพนักงาน</button>
+            <button class="btn btn-outline btn-sm" onclick="loadItManageForce()">🔄 รีเฟรช</button>
+          </div>
+        </div>
+        <p class="hint" style="margin-bottom:16px;">💡 เมื่อพนักงานลาออก กด "ปิดใช้งาน" — ชื่อจะหายจาก dropdown กรอกยอด แต่ข้อมูลยอดขายเดิมยังอยู่ครบ กู้คืนได้ทุกเมื่อ</p>
+        <div id="itManageContainer"><div class="loading active"><div class="spinner"></div></div></div>
       </div>
     </div>
 
@@ -530,6 +595,8 @@
           // lazy load
           if (page === 'it-dashboard') loadItDashboard();
           else if (page === 'it-daily') loadItDailyComparison();
+          else if (page === 'it-check') loadItCheck();
+          else if (page === 'it-manage') renderItManage();
           else if (page === 'live-dashboard') loadLiveDashboard();
           else if (page === 'live-input') loadLiveTable();
         });
@@ -563,7 +630,7 @@
 
     function setDefaultDates() {
       const t = todayStr();
-      ['itDate','itDailyDate','itFilterDate','liveDate','liveFilterDate'].forEach(id => {
+      ['itDate','itDailyDate','itFilterDate','itCheckDate','liveDate','liveFilterDate'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = t;
       });
     }
@@ -594,24 +661,29 @@
     // ============== IT TEAM : BRANCHES / EMP =============
     // =====================================================
     let itBranches = [];
-    let itEmployees = {};   // { branch: [names] }
-    let itSalesData = [];   // current selected date
+    let itEmployeeList = [];   // [{ id, name, branch, active }]
+    let itSalesData = [];      // current selected date
+
+    // active-only names grouped by branch (for dropdowns)
+    function activeEmployeesByBranch(branch) {
+      return itEmployeeList.filter(e => e.branch === branch && e.active !== false).map(e => e.name);
+    }
 
     async function loadItBranchesEmployees() {
       try {
         if (isCacheValid('itMeta') && cache.itBranches) {
-          itBranches = cache.itBranches; itEmployees = cache.itEmployees;
+          itBranches = cache.itBranches; itEmployeeList = cache.itEmployees;
           populateItBranchSelects(); return;
         }
         const bSnap = await db.collection('it_branches').orderBy('order').get();
         itBranches = []; bSnap.forEach(d => itBranches.push(d.data().name));
         const eSnap = await db.collection('it_employees').get();
-        itEmployees = {};
+        itEmployeeList = [];
         eSnap.forEach(d => {
           const e = d.data();
-          (itEmployees[e.branch] = itEmployees[e.branch] || []).push(e.name);
+          itEmployeeList.push({ id: d.id, name: e.name, branch: e.branch, active: e.active !== false });
         });
-        cache.itBranches = itBranches; cache.itEmployees = itEmployees; touchCache('itMeta');
+        cache.itBranches = itBranches; cache.itEmployees = itEmployeeList; touchCache('itMeta');
         populateItBranchSelects();
       } catch (err) { console.error(err); showToast('โหลดข้อมูล IT ผิดพลาด', 'error'); }
     }
@@ -632,9 +704,55 @@
       const b = document.getElementById('itBranch').value;
       const sel = document.getElementById('itEmployee');
       sel.innerHTML = '<option value="">เลือกพนักงาน</option>';
-      (itEmployees[b] || []).forEach(e => {
-        const o = document.createElement('option'); o.value = e; o.textContent = e; sel.appendChild(o);
+      activeEmployeesByBranch(b).forEach(name => {
+        const o = document.createElement('option'); o.value = name; o.textContent = name; sel.appendChild(o);
       });
+      document.getElementById('itEmpStatusBar').style.display = 'none';
+    }
+
+    // Index-free: fetch all records for one employee (two equality filters), pick latest in JS
+    async function fetchLatestItRecord(branch, emp) {
+      const snap = await db.collection('it_sales')
+        .where('branch','==',branch).where('employeeName','==',emp).get();
+      let latest = null;
+      snap.forEach(doc => { const d = doc.data(); if (!latest || d.date > latest.date) latest = d; });
+      return latest;
+    }
+
+    // When a specific employee is chosen: show whether they've submitted today, else carry forward
+    async function onItEmployeePicked() {
+      const branch = document.getElementById('itBranch').value;
+      const emp = document.getElementById('itEmployee').value;
+      const bar = document.getElementById('itEmpStatusBar');
+      if (!branch || !emp) { bar.style.display = 'none'; return; }
+      const date = document.getElementById('itDate').value || todayStr();
+      bar.style.display = 'flex';
+      bar.className = 'status-bar carry';
+      bar.innerHTML = '⏳ กำลังตรวจสอบข้อมูลของ ' + emp + '...';
+      try {
+        // Has this employee submitted for the selected date already?
+        const todayDoc = await db.collection('it_sales').doc(date + '_' + safeId(branch) + '_' + safeId(emp)).get();
+        if (todayDoc.exists) {
+          const d = todayDoc.data();
+          bar.className = 'status-bar done';
+          bar.innerHTML = '<span class="status-chip" style="background:#047857;color:#fff;">✅ กรอกวันนี้แล้ว</span> ' + emp + ' — ยอดขายรวม ' + fmt(d.totalSales||0) + ' บาท (กรอกใหม่ = ทับข้อมูลเดิม)';
+          return;
+        }
+        // Not submitted today → find latest previous record to carry forward
+        const d = await fetchLatestItRecord(branch, emp);
+        if (!d) {
+          bar.className = 'status-bar pending';
+          bar.innerHTML = '<span class="status-chip" style="background:#b45309;color:#fff;">⬜ ยังไม่เคยมีข้อมูล</span> ' + emp + ' — กรอกยอดเริ่มต้นได้เลย';
+        } else {
+          bar.className = 'status-bar carry';
+          bar.innerHTML = '<span class="status-chip" style="background:#4338ca;color:#fff;">📌 ยังไม่กรอกวันนี้</span> พบยอดล่าสุด (' + d.date + ') = ' + fmt(d.totalSales||0) + ' บาท ' +
+            '<button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadItLastRecord()">ยกยอดสะสมมากรอก</button>';
+        }
+      } catch (err) {
+        console.error(err);
+        bar.className = 'status-bar pending';
+        bar.innerHTML = '⚠️ ตรวจสอบข้อมูลไม่สำเร็จ';
+      }
     }
 
     async function addItBranch() {
@@ -654,12 +772,134 @@
       const name = document.getElementById('itNewEmpName').value.trim();
       if (!branch || !name) { showToast('กรอกข้อมูลให้ครบ', 'error'); return; }
       try {
-        await db.collection('it_employees').doc(safeId(branch) + '_' + safeId(name)).set({ name, branch, createdAt: new Date().toISOString() });
-        (itEmployees[branch] = itEmployees[branch] || []).push(name);
-        cache.itEmployees = itEmployees;
+        const id = safeId(branch) + '_' + safeId(name);
+        await db.collection('it_employees').doc(id).set({ name, branch, active: true, createdAt: new Date().toISOString() });
+        // update local list (avoid duplicates / re-activate if existed)
+        const existing = itEmployeeList.find(e => e.id === id);
+        if (existing) existing.active = true;
+        else itEmployeeList.push({ id, name, branch, active: true });
+        cache.itEmployees = itEmployeeList;
         closeModal('itAddEmployeeModal'); document.getElementById('itNewEmpName').value = '';
+        if (document.getElementById('itBranch').value === branch) loadItEmployees();
         showToast('เพิ่มพนักงานสำเร็จ', 'success');
       } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    // =============== MANAGE EMPLOYEES (active/inactive) ===============
+    function loadItManageForce() { touchCacheReset('itMeta'); loadItBranchesEmployees().then(renderItManage); }
+    function touchCacheReset(key) { delete cache.lastFetch[key]; }
+
+    function renderItManage() {
+      const container = document.getElementById('itManageContainer');
+      const showInactive = document.getElementById('itShowInactive').checked;
+      if (!itEmployeeList.length) { container.innerHTML = '<p class="empty-msg">ยังไม่มีพนักงาน</p>'; return; }
+      // group by branch (follow branch order)
+      const byBranch = {};
+      itEmployeeList.forEach(e => { (byBranch[e.branch] = byBranch[e.branch] || []).push(e); });
+      const branchOrder = itBranches.filter(b => byBranch[b]).concat(Object.keys(byBranch).filter(b => !itBranches.includes(b)));
+      let html = '';
+      branchOrder.forEach(branch => {
+        const list = byBranch[branch].filter(e => showInactive || e.active !== false)
+                                     .sort((a,b) => (b.active?1:0)-(a.active?1:0) || a.name.localeCompare(b.name,'th'));
+        if (!list.length) return;
+        html += '<div class="manage-branch-title">🏢 ' + branch + '</div>';
+        list.forEach(e => {
+          const active = e.active !== false;
+          html += '<div class="manage-row">';
+          html += '<span class="manage-name">' + e.name + '</span>';
+          html += '<span class="' + (active?'badge-active':'badge-inactive') + '">' + (active?'ทำงานอยู่':'ลาออก/ปิดใช้งาน') + '</span>';
+          html += '<span class="manage-actions">';
+          if (active) html += '<button class="btn btn-outline btn-sm" onclick="setItEmployeeActive(\'' + e.id.replace(/'/g,"\\'") + '\', false)">🚫 ปิดใช้งาน</button>';
+          else html += '<button class="btn btn-primary btn-sm" onclick="setItEmployeeActive(\'' + e.id.replace(/'/g,"\\'") + '\', true)">↩️ กู้คืน</button>';
+          html += '</span></div>';
+        });
+      });
+      container.innerHTML = html || '<p class="empty-msg">ไม่มีพนักงานที่แสดง</p>';
+    }
+
+    async function setItEmployeeActive(id, active) {
+      try {
+        await db.collection('it_employees').doc(id).update({ active });
+        const e = itEmployeeList.find(x => x.id === id);
+        if (e) e.active = active;
+        cache.itEmployees = itEmployeeList;
+        renderItManage();
+        // refresh dropdown if same branch selected
+        if (e && document.getElementById('itBranch').value === e.branch) loadItEmployees();
+        showToast(active ? 'กู้คืนพนักงานแล้ว' : 'ปิดใช้งานพนักงานแล้ว', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    // =============== CHECK SUBMISSION STATUS (all branches) ===============
+    function loadItCheckForce() {
+      const date = document.getElementById('itCheckDate').value || todayStr();
+      delete cache.lastFetch['itCheck_' + date];
+      loadItCheck();
+    }
+    async function loadItCheck() {
+      const dateEl = document.getElementById('itCheckDate');
+      if (!dateEl.value) dateEl.value = todayStr();
+      const date = dateEl.value;
+      const container = document.getElementById('itCheckContainer');
+      const summary = document.getElementById('itCheckSummary');
+      container.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      summary.innerHTML = '';
+      try {
+        // fetch today's submissions for that date
+        const todayArr = await getItSales(date);
+        const submitted = new Set(todayArr.map(s => s.branch + '||' + s.employeeName));
+
+        // group ACTIVE employees by branch
+        const activeEmps = itEmployeeList.filter(e => e.active !== false);
+        if (!activeEmps.length) { container.innerHTML = '<p class="empty-msg">ยังไม่มีพนักงาน (active)</p>'; return; }
+        const byBranch = {};
+        activeEmps.forEach(e => { (byBranch[e.branch] = byBranch[e.branch] || []).push(e); });
+        const branchOrder = itBranches.filter(b => byBranch[b]).concat(Object.keys(byBranch).filter(b => !itBranches.includes(b)));
+
+        let totalCount = 0, doneCount = 0, html = '';
+        branchOrder.forEach(branch => {
+          const emps = byBranch[branch].slice().sort((a,b)=>a.name.localeCompare(b.name,'th'));
+          let bDone = 0;
+          let body = '';
+          emps.forEach(e => {
+            const done = submitted.has(branch + '||' + e.name);
+            totalCount++; if (done) { doneCount++; bDone++; }
+            body += '<div class="emp-chip ' + (done?'done':'pending') + '">';
+            body += '<span class="dot">' + (done?'✅':'⬜') + '</span> ' + e.name;
+            if (!done) body += '<span class="go" onclick="jumpToItInput(\'' + branch.replace(/'/g,"\\'") + '\',\'' + e.name.replace(/'/g,"\\'") + '\')">กรอกเลย →</span>';
+            body += '</div>';
+          });
+          const allDone = bDone === emps.length;
+          html += '<div class="branch-block">';
+          html += '<div class="branch-block-head"><span>🏢 ' + branch + '</span>' +
+                  '<span class="' + (allDone?'badge-active':'badge-inactive') + '">' + bDone + '/' + emps.length + (allDone?' ครบแล้ว':' ยังไม่ครบ') + '</span></div>';
+          html += '<div class="branch-block-body">' + body + '</div></div>';
+        });
+
+        const pending = totalCount - doneCount;
+        summary.innerHTML =
+          '<div class="check-stat total"><div class="check-stat-num">' + totalCount + '</div><div class="check-stat-label">เซลล์ทั้งหมด (active)</div></div>' +
+          '<div class="check-stat done"><div class="check-stat-num" style="color:#047857;">' + doneCount + '</div><div class="check-stat-label">✅ กรอกแล้ว</div></div>' +
+          '<div class="check-stat pending"><div class="check-stat-num" style="color:#b45309;">' + pending + '</div><div class="check-stat-label">⬜ ยังไม่กรอก</div></div>';
+        container.innerHTML = html;
+      } catch (err) { console.error(err); container.innerHTML = '<p class="empty-msg" style="color:var(--danger)">เกิดข้อผิดพลาด</p>'; }
+    }
+
+    // Jump from checklist to input form pre-filled
+    function jumpToItInput(branch, name) {
+      // switch to input tab
+      const nav = document.querySelector('.nav-tabs[data-team="it"]');
+      nav.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.page === 'it-input'));
+      document.getElementById('team-it').querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-it-input').classList.add('active');
+      // set date to the checked date
+      const chkDate = document.getElementById('itCheckDate').value;
+      if (chkDate) document.getElementById('itDate').value = chkDate;
+      document.getElementById('itBranch').value = branch;
+      loadItEmployees();
+      document.getElementById('itEmployee').value = name;
+      onItEmployeePicked();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     // =============== IT SALES INPUT ===============
@@ -698,6 +938,9 @@
         showToast('บันทึกสำเร็จ!', 'success');
         clearItForm();
         delete cache.itSales[date]; delete cache.lastFetch['itSales_' + date];
+        // invalidate today's check cache and refresh status bar
+        delete cache.lastFetch['itCheck_' + date];
+        onItEmployeePicked();
       } catch (err) {
         console.error(err); setFormDisabled('#page-it-input', false); showToast('ผิดพลาด: ' + err.message, 'error');
       }
@@ -708,11 +951,8 @@
       const emp = document.getElementById('itEmployee').value;
       if (!branch || !emp) { showToast('เลือกสาขาและพนักงานก่อน', 'error'); return; }
       try {
-        const snap = await db.collection('it_sales')
-          .where('branch','==',branch).where('employeeName','==',emp)
-          .orderBy('date','desc').limit(1).get();
-        if (snap.empty) { showToast('ไม่พบข้อมูลเดิม', 'error'); return; }
-        const d = snap.docs[0].data();
+        const d = await fetchLatestItRecord(branch, emp);
+        if (!d) { showToast('ไม่พบข้อมูลเดิม', 'error'); return; }
         const map = { itCustomers:'customers', itSalesShopee:'salesShopee', itSalesLazada:'salesLazada', itSalesTiktok:'salesTiktok', itSalesWeb:'salesWeb', itSalesLineOA:'salesLineOA', itSalesFacebook:'salesFacebook', itCostShopee:'costShopee', itCostLazada:'costLazada', itCostFacebook:'costFacebook', itNetProfit:'netProfit' };
         Object.entries(map).forEach(([id,k]) => document.getElementById(id).value = d[k] || 0);
         calcItTotals();
@@ -838,11 +1078,46 @@
       const date = document.getElementById('itFilterDate').value;
       if (!date) return;
       try {
-        itSalesData = await getItSales(date);
+        itSalesData = await getItSalesWithCarry(date);
         const daily = await getItDaily(date);
         applyItFilters(daily);
         renderItBranchChart();
       } catch (err) { console.error(err); showToast('โหลด Dashboard ผิดพลาด', 'error'); }
+    }
+
+    // Cumulative sales: employees who didn't submit on `date` keep their latest total (carry-forward).
+    // Single index-free query (where date <= selected), then compute latest-per-employee in memory.
+    async function getItSalesWithCarry(date, force) {
+      const key = 'itCarry_' + date;
+      if (!force && cache.itSales['carry_' + date] && isCacheValid(key)) return cache.itSales['carry_' + date];
+
+      // One query: all records up to and including the selected date (single-field range = no composite index)
+      const snap = await db.collection('it_sales').where('date','<=',date).get();
+      const all = []; snap.forEach(d => all.push(d.data()));
+
+      // records ON the selected date
+      const todayArr = all.filter(s => s.date === date);
+      const submitted = new Set(todayArr.map(s => s.branch + '||' + s.employeeName));
+      const result = todayArr.map(s => ({ ...s, _carried: false }));
+
+      // latest record per employee (from anything strictly before the date)
+      const latest = {};   // key -> record
+      all.forEach(s => {
+        if (s.date === date) return;
+        const k = s.branch + '||' + s.employeeName;
+        if (!latest[k] || s.date > latest[k].date) latest[k] = s;
+      });
+
+      // add carry-forward for ACTIVE employees who didn't submit today
+      itEmployeeList.filter(e => e.active !== false).forEach(e => {
+        const k = e.branch + '||' + e.name;
+        if (!submitted.has(k) && latest[k]) {
+          result.push({ ...latest[k], _carried: true, _carriedFrom: latest[k].date });
+        }
+      });
+
+      cache.itSales['carry_' + date] = result; touchCache(key);
+      return result;
     }
 
     function applyItFilters(dailyData) {
@@ -874,8 +1149,10 @@
       document.getElementById('itStatNetProfit').textContent = fmt(totalNet);
 
       const bName = branch==='all' ? 'ทุกสาขา' : branch;
+      const carriedCount = (display==='branch') ? 0 : chartData.filter(d=>d._carried).length;
       document.getElementById('itMainChartTitle').textContent = 'ยอดขายตามช่องทาง ต้นทุน และกำไรสุทธิ';
-      document.getElementById('itMainChartSubtitle').textContent = bName + ' - ' + (display==='branch'?'แยกตามสาขา':'แยกตามพนักงาน');
+      document.getElementById('itMainChartSubtitle').textContent = bName + ' - ' + (display==='branch'?'แยกตามสาขา':'แยกตามพนักงาน') +
+        (carriedCount>0 ? '  ·  ⏸ = ยกยอดล่าสุด (' + carriedCount + ' คนยังไม่กรอกวันนี้)' : '');
 
       renderItMainChart(chartData);
       renderItTopChart(itSalesData);
@@ -892,7 +1169,7 @@
       if (itCharts.main) itCharts.main.destroy();
       itCharts.main = new Chart(ctx, {
         type: 'bar',
-        data: { labels: data.map(d=>d.employeeName), datasets: [
+        data: { labels: data.map(d=> d._carried ? (d.employeeName + ' ⏸') : d.employeeName), datasets: [
           { label:'ขาย Shopee', data:data.map(d=>d.salesShopee||0), backgroundColor:IT_COLORS.shopee, borderRadius:4 },
           { label:'ขาย Lazada', data:data.map(d=>d.salesLazada||0), backgroundColor:IT_COLORS.lazada, borderRadius:4 },
           { label:'ขาย TikTok', data:data.map(d=>d.salesTiktok||0), backgroundColor:IT_COLORS.tiktok, borderRadius:4 },
@@ -1080,9 +1357,9 @@
       const seller = document.getElementById('liveSeller').value;
       if (!seller) { showToast('เลือกเซลล์ก่อน', 'error'); return; }
       try {
-        const snap = await db.collection('live_sales').where('seller','==',seller).orderBy('date','desc').limit(1).get();
+        const snap = await db.collection('live_sales').where('seller','==',seller).get();
         if (snap.empty) { showToast('ไม่พบข้อมูลเดิม', 'error'); return; }
-        const d = snap.docs[0].data();
+        let d = null; snap.forEach(doc => { const x = doc.data(); if (!d || x.date > d.date) d = x; });
         document.getElementById('liveSales').value = d.salesToday || 0;
         document.getElementById('liveCost').value = d.costToday || 0;
         document.getElementById('liveAds').value = d.ads || 0;
