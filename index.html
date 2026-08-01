@@ -522,9 +522,11 @@
           const nav = this.closest('.nav-tabs');
           nav.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
           this.classList.add('active');
-          const section = this.closest('.team-section');
-          section.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-          document.getElementById('page-' + page).classList.add('active');
+          // nav-tabs live in the header (not inside a team-section) — find section by team id
+          const section = document.getElementById('team-' + nav.dataset.team);
+          if (section) section.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+          const pageEl = document.getElementById('page-' + page);
+          if (pageEl) pageEl.classList.add('active');
           // lazy load
           if (page === 'it-dashboard') loadItDashboard();
           else if (page === 'it-daily') loadItDailyComparison();
@@ -568,6 +570,7 @@
 
     // Disable form while saving
     function setFormDisabled(scopeSelector, disabled) {
+      if (!document.querySelector(scopeSelector)) return;
       document.querySelectorAll(scopeSelector + ' input, ' + scopeSelector + ' select, ' + scopeSelector + ' button').forEach(el => {
         el.disabled = disabled;
         el.style.opacity = disabled ? '0.6' : '1';
