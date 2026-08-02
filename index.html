@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MEIDEA Sales Report</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23667eea'/%3E%3Cstop offset='0.5' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='45' font-family='Arial,sans-serif' font-size='38' font-weight='700' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -37,6 +38,7 @@
       --team-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       --team-color: #667eea;
     }
+    html { overflow-y: scroll; scrollbar-gutter: stable; }
     body { font-family: 'Kanit', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
 
     /* ===== Team Switcher (top bar) ===== */
@@ -58,7 +60,7 @@
     .nav-tab:hover { color: var(--text-primary); }
     .nav-tab.active { background: var(--bg-secondary); color: var(--team-color); box-shadow: var(--shadow-sm); }
 
-    .main-content { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    .main-content { max-width: 1400px; margin: 0 auto; padding: 24px; min-height: calc(100vh - 130px); }
     .team-section { display: none; }
     .team-section.active { display: block; }
     .page { display: none; }
@@ -167,6 +169,30 @@
     .manage-actions { margin-left: auto; display: flex; gap: 8px; }
     .manage-branch-title { font-weight: 600; color: var(--team-color); padding: 14px 14px 6px; }
 
+    /* Live hours calendar */
+    .hours-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 8px; }
+    .hours-stat { padding: 16px; border-radius: var(--radius-md); text-align: center; background: var(--bg-tertiary); }
+    .hours-stat.hl { background: linear-gradient(135deg, #f97316 0%, #ec4899 100%); color: #fff; }
+    .hours-stat-num { font-size: 26px; font-weight: 700; }
+    .hours-stat-label { font-size: 12px; margin-top: 2px; }
+    .hours-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .cal-dow { text-align: center; font-weight: 600; font-size: 12px; color: var(--text-secondary); padding: 6px 0; }
+    .cal-cell { min-height: 74px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 6px; cursor: pointer; transition: all 0.15s; background: var(--bg-secondary); display: flex; flex-direction: column; gap: 2px; }
+    .cal-cell:hover { border-color: var(--team-color); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+    .cal-cell.empty { background: transparent; border: none; cursor: default; }
+    .cal-cell.has-live { background: #fff7ed; border-color: #fed7aa; }
+    .cal-cell.today { outline: 2px solid var(--team-color); outline-offset: -2px; }
+    .cal-daynum { font-size: 13px; font-weight: 600; }
+    .cal-daynum small { font-weight: 400; color: var(--text-secondary); font-size: 10px; }
+    .cal-hours { margin-top: auto; font-size: 14px; font-weight: 700; color: #c2410c; }
+    .cal-slots { font-size: 9px; color: var(--text-secondary); line-height: 1.3; }
+    .cal-cell.other-month { opacity: 0.4; }
+    .slot-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .slot-row .slot-label { min-width: 58px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+    .slot-row input[type=time] { flex: 1; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-family: 'Kanit', sans-serif; }
+    .slot-row .slot-dur { min-width: 60px; text-align: right; font-size: 12px; color: #c2410c; font-weight: 600; }
+    @media (max-width: 640px) { .cal-cell { min-height: 58px; } .cal-hours { font-size: 12px; } .cal-slots { display: none; } }
+
     /* Remove number spinner arrows -> plain empty box */
     .no-spin::-webkit-outer-spin-button, .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .no-spin { -moz-appearance: textfield; }
@@ -241,6 +267,7 @@
       <!-- LIVE tabs -->
       <nav class="nav-tabs team-nav" data-team="live" style="display:none;">
         <button class="nav-tab active" data-page="live-input">กรอกยอดไลฟ์</button>
+        <button class="nav-tab" data-page="live-hours">⏱️ ชั่วโมงไลฟ์</button>
         <button class="nav-tab" data-page="live-dashboard">Dashboard ไลฟ์</button>
       </nav>
     </div>
@@ -467,6 +494,24 @@
       </div>
     </div>
 
+    <!-- LIVE Page: Live Hours (calendar) -->
+    <div id="page-live-hours" class="page">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">⏱️ บันทึกชั่วโมงไลฟ์ (รอบเดือน 26 → 25)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="liveHoursSeller" class="form-select" style="padding:8px 12px;" onchange="loadLiveHours()"><option value="">เลือกเซลล์</option></select>
+            <button class="btn btn-outline btn-sm" onclick="shiftLiveMonth(-1)">◀ เดือนก่อน</button>
+            <span id="liveHoursMonthLabel" style="font-weight:600;color:var(--team-color);min-width:150px;text-align:center;"></span>
+            <button class="btn btn-outline btn-sm" onclick="shiftLiveMonth(1)">เดือนถัดไป ▶</button>
+          </div>
+        </div>
+        <div class="hours-summary" id="liveHoursSummary"></div>
+        <p class="hint" style="margin:8px 0 16px;">💡 แต่ละวันไลฟ์ได้ 3 ช่วง · เว้นว่างช่วงไหน = ลา/ไม่ไลฟ์ช่วงนั้น · ไลฟ์ข้ามวันได้ (เช่น 23:00–01:00 = 2 ชม.)</p>
+        <div id="liveHoursCalendar" class="hours-calendar"><div class="loading active"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
     <!-- LIVE Page 2: Dashboard -->
     <div id="page-live-dashboard" class="page">
       <div class="filter-section">
@@ -513,6 +558,15 @@
         <div class="chart-header"><h3 class="chart-title">📉 %ต้นทุนต่อยอดขายแต่ละเซลล์</h3></div>
         <div class="medium-chart-wrapper"><canvas id="liveCostChart"></canvas></div>
       </div>
+
+      <div class="chart-container" id="liveHoursChartContainer">
+        <button class="save-btn" onclick="saveNode('liveHoursChartContainer','live_hours_avg')">📷 บันทึก</button>
+        <div class="chart-header">
+          <h3 class="chart-title">⏱️ เฉลี่ยชั่วโมงไลฟ์ต่อวัน (รอบเดือน 26 → 25)</h3>
+          <p class="chart-subtitle" id="liveHoursChartSubtitle"></p>
+        </div>
+        <div class="medium-chart-wrapper"><canvas id="liveHoursChart"></canvas></div>
+      </div>
     </div>
   </section>
 
@@ -539,6 +593,20 @@
       <div class="modal-header"><h3 class="modal-title">เพิ่มเซลล์ใหม่ (Live)</h3><button class="modal-close" onclick="closeModal('liveAddSellerModal')">✕</button></div>
       <div class="form-group"><label class="form-label">ชื่อเซลล์</label><input type="text" id="liveNewSellerName" class="form-input"></div>
       <div class="btn-group"><button class="btn btn-primary" onclick="addLiveSeller()">บันทึก</button><button class="btn btn-secondary" onclick="closeModal('liveAddSellerModal')">ยกเลิก</button></div>
+    </div>
+  </div>
+
+  <div id="liveHoursDayModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header"><h3 class="modal-title" id="liveHoursDayTitle">บันทึกชั่วโมงไลฟ์</h3><button class="modal-close" onclick="closeModal('liveHoursDayModal')">✕</button></div>
+      <p class="hint" style="margin-bottom:14px;">เว้นว่างช่วงไหน = ลา/ไม่ไลฟ์ช่วงนั้น</p>
+      <div id="liveHoursSlots"></div>
+      <div id="liveHoursDayTotal" style="text-align:center;font-weight:600;color:var(--team-color);margin:12px 0;"></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveLiveHoursDay()">💾 บันทึก</button>
+        <button class="btn btn-outline" onclick="clearLiveHoursDay()">🗑️ ล้างวันนี้</button>
+        <button class="btn btn-secondary" onclick="closeModal('liveHoursDayModal')">ยกเลิก</button>
+      </div>
     </div>
   </div>
 
@@ -645,6 +713,7 @@
           else if (page === 'it-manage') renderItManage();
           else if (page === 'live-dashboard') loadLiveDashboard();
           else if (page === 'live-input') loadLiveTable();
+          else if (page === 'live-hours') loadLiveHours();
         });
       });
     }
@@ -1359,9 +1428,13 @@
       } catch (err) { console.error(err); showToast('โหลดข้อมูล Live ผิดพลาด', 'error'); }
     }
     function populateLiveSellerSelect() {
-      const sel = document.getElementById('liveSeller');
-      sel.innerHTML = '<option value="">เลือกเซลล์</option>';
-      liveSellers.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
+      ['liveSeller','liveHoursSeller'].forEach(id => {
+        const sel = document.getElementById(id); if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">เลือกเซลล์</option>';
+        liveSellers.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
+        if (cur) sel.value = cur;
+      });
     }
     async function addLiveSeller() {
       const name = document.getElementById('liveNewSellerName').value.trim();
@@ -1460,7 +1533,7 @@
     }
 
     // ============= LIVE DASHBOARD =============
-    let liveCharts = { rank:null, salesAds:null, donutNum:null, donutPct:null, cost:null };
+    let liveCharts = { rank:null, salesAds:null, donutNum:null, donutPct:null, cost:null, hours:null };
 
     async function loadLiveDashboard() {
       const date = document.getElementById('liveFilterDate').value;
@@ -1496,6 +1569,7 @@
       renderLiveSalesAds(rows, totalSales, totalAds);
       renderLiveDonuts(totalSales, totalAds);
       renderLiveCostChart(rows);
+      renderLiveHoursChart();
     }
 
     // Ranking (image 3) — orange gradient bars, high → low
@@ -1575,6 +1649,220 @@
           scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ...headroom(sorted.map(r=>r.pct), 0.15), ticks:{callback:v=>v+'%',font:{family:'Kanit'}}, grid:{color:'#eee'} } }
         }
       });
+    }
+
+    // =====================================================
+    // ============== LIVE HOURS (calendar) ================
+    // =====================================================
+    // Billing cycle: 26th of month M to 25th of month M+1.
+    // "cycleKey" identifies a cycle by its START year-month, e.g. 2026-07 = 26 Jul 2026 → 25 Aug 2026.
+    let liveHoursCursor = null;     // {y, m} = start month of the displayed cycle (m: 0-11)
+    let liveHoursDocs = {};         // date(YYYY-MM-DD) -> { slots:[{start,end}], hours }
+    let liveHoursEditingDate = null;
+
+    function pad2(n){ return String(n).padStart(2,'0'); }
+    function ymd(y,m,d){ return y + '-' + pad2(m+1) + '-' + pad2(d); }
+    function cycleKeyFromCursor(){ return liveHoursCursor.y + '-' + pad2(liveHoursCursor.m+1); }
+
+    // which cycle does a real date belong to? returns {y,m} start-month
+    function cycleStartForDate(dt) {
+      let y = dt.getFullYear(), m = dt.getMonth();
+      if (dt.getDate() < 26) { m -= 1; if (m < 0) { m = 11; y -= 1; } }
+      return { y, m };
+    }
+    function initLiveHoursCursor() {
+      if (liveHoursCursor) return;
+      liveHoursCursor = cycleStartForDate(new Date());
+    }
+    function shiftLiveMonth(delta) {
+      initLiveHoursCursor();
+      let m = liveHoursCursor.m + delta, y = liveHoursCursor.y;
+      if (m > 11) { m = 0; y++; } if (m < 0) { m = 11; y--; }
+      liveHoursCursor = { y, m };
+      loadLiveHours();
+    }
+
+    // list all real dates in the cycle (26 of start-month .. 25 of next month)
+    function cycleDates() {
+      const { y, m } = liveHoursCursor;
+      const dates = [];
+      const start = new Date(y, m, 26);
+      const end = new Date(y, m + 1, 25);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+        dates.push(new Date(d));
+      }
+      return dates;
+    }
+
+    const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    function slotHours(start, end) {
+      if (!start || !end) return 0;
+      const [sh,sm] = start.split(':').map(Number);
+      const [eh,em] = end.split(':').map(Number);
+      let mins = (eh*60+em) - (sh*60+sm);
+      if (mins < 0) mins += 24*60;   // crosses midnight
+      return mins / 60;
+    }
+    function dayHours(doc) {
+      if (!doc || !doc.slots) return 0;
+      return doc.slots.reduce((s,sl)=> s + slotHours(sl.start, sl.end), 0);
+    }
+
+    async function loadLiveHours() {
+      initLiveHoursCursor();
+      const seller = document.getElementById('liveHoursSeller').value;
+      const cal = document.getElementById('liveHoursCalendar');
+      const { y, m } = liveHoursCursor;
+      document.getElementById('liveHoursMonthLabel').textContent =
+        '26 ' + TH_MONTHS[m] + ' – 25 ' + TH_MONTHS[(m+1)%12] + ' ' + (y+543 + ((m+1)>11?1:0));
+      if (!seller) { cal.innerHTML = '<p class="empty-msg">เลือกเซลล์เพื่อดู/กรอกชั่วโมงไลฟ์</p>'; document.getElementById('liveHoursSummary').innerHTML=''; return; }
+      cal.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      try {
+        const ck = cycleKeyFromCursor();
+        const snap = await db.collection('live_hours').where('seller','==',seller).where('cycle','==',ck).get();
+        liveHoursDocs = {};
+        snap.forEach(doc => { const d = doc.data(); liveHoursDocs[d.date] = d; });
+        renderLiveHoursCalendar();
+      } catch (err) { console.error(err); cal.innerHTML = '<p class="empty-msg" style="color:var(--danger)">เกิดข้อผิดพลาด</p>'; }
+    }
+
+    function renderLiveHoursCalendar() {
+      const cal = document.getElementById('liveHoursCalendar');
+      const dates = cycleDates();
+      const dow = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+      let html = '';
+      dow.forEach(d => html += '<div class="cal-dow">' + d + '</div>');
+      // leading blanks to align first date to its weekday
+      const firstDow = dates[0].getDay();
+      for (let i=0;i<firstDow;i++) html += '<div class="cal-cell empty"></div>';
+      const todayKey = todayStr();
+      let totalHours = 0, liveDays = 0;
+      dates.forEach(dt => {
+        const key = ymd(dt.getFullYear(), dt.getMonth(), dt.getDate());
+        const doc = liveHoursDocs[key];
+        const h = dayHours(doc);
+        if (h > 0) { totalHours += h; liveDays++; }
+        const slotsTxt = doc && doc.slots ? doc.slots.filter(s=>s.start&&s.end).map(s=>s.start+'-'+s.end).join('<br>') : '';
+        html += '<div class="cal-cell ' + (h>0?'has-live':'') + (key===todayKey?' today':'') + '" onclick="openLiveHoursDay(\'' + key + '\')">';
+        html += '<div class="cal-daynum">' + dt.getDate() + ' <small>' + TH_MONTHS[dt.getMonth()] + '</small></div>';
+        html += '<div class="cal-slots">' + slotsTxt + '</div>';
+        html += '<div class="cal-hours">' + (h>0 ? h.toFixed(1)+' ชม.' : '') + '</div>';
+        html += '</div>';
+      });
+      cal.innerHTML = html;
+
+      const totalDays = dates.length;
+      const avg = totalDays>0 ? totalHours/totalDays : 0;
+      document.getElementById('liveHoursSummary').innerHTML =
+        '<div class="hours-stat hl"><div class="hours-stat-num">' + totalHours.toFixed(1) + '</div><div class="hours-stat-label">ชั่วโมงไลฟ์รวมทั้งเดือน</div></div>' +
+        '<div class="hours-stat"><div class="hours-stat-num">' + liveDays + '/' + totalDays + '</div><div class="hours-stat-label">วันที่ไลฟ์ / วันทั้งรอบ</div></div>' +
+        '<div class="hours-stat"><div class="hours-stat-num">' + avg.toFixed(2) + '</div><div class="hours-stat-label">เฉลี่ย ชม./วัน (÷' + totalDays + ')</div></div>';
+    }
+
+    function openLiveHoursDay(dateKey) {
+      liveHoursEditingDate = dateKey;
+      const doc = liveHoursDocs[dateKey];
+      const slots = (doc && doc.slots) ? doc.slots : [{start:'',end:''},{start:'',end:''},{start:'',end:''}];
+      const [y,m,d] = dateKey.split('-').map(Number);
+      document.getElementById('liveHoursDayTitle').textContent = '⏱️ ' + d + ' ' + TH_MONTHS[m-1] + ' ' + (y+543);
+      let html = '';
+      for (let i=0;i<3;i++) {
+        const s = slots[i] || {start:'',end:''};
+        html += '<div class="slot-row">' +
+          '<span class="slot-label">ช่วง ' + (i+1) + '</span>' +
+          '<input type="time" id="lhStart'+i+'" value="'+(s.start||'')+'" onchange="updateLiveHoursDayTotal()">' +
+          '<span style="color:var(--text-secondary);">–</span>' +
+          '<input type="time" id="lhEnd'+i+'" value="'+(s.end||'')+'" onchange="updateLiveHoursDayTotal()">' +
+          '<span class="slot-dur" id="lhDur'+i+'"></span></div>';
+      }
+      document.getElementById('liveHoursSlots').innerHTML = html;
+      updateLiveHoursDayTotal();
+      openModal('liveHoursDayModal');
+    }
+
+    function updateLiveHoursDayTotal() {
+      let total = 0;
+      for (let i=0;i<3;i++) {
+        const s = document.getElementById('lhStart'+i).value;
+        const e = document.getElementById('lhEnd'+i).value;
+        const h = slotHours(s,e);
+        total += h;
+        document.getElementById('lhDur'+i).textContent = h>0 ? h.toFixed(2)+' ชม.' : '';
+      }
+      document.getElementById('liveHoursDayTotal').textContent = 'รวมวันนี้: ' + total.toFixed(2) + ' ชม.';
+    }
+
+    async function saveLiveHoursDay() {
+      const seller = document.getElementById('liveHoursSeller').value;
+      if (!seller || !liveHoursEditingDate) return;
+      const slots = [];
+      for (let i=0;i<3;i++) {
+        const s = document.getElementById('lhStart'+i).value;
+        const e = document.getElementById('lhEnd'+i).value;
+        if (s && e) slots.push({ start:s, end:e });
+      }
+      const dt = new Date(liveHoursEditingDate);
+      const cs = cycleStartForDate(dt);
+      const cycle = cs.y + '-' + pad2(cs.m+1);
+      const hours = slots.reduce((a,sl)=>a+slotHours(sl.start,sl.end),0);
+      const docId = safeId(seller) + '_' + liveHoursEditingDate;
+      const data = { seller, date: liveHoursEditingDate, cycle, slots, hours, updatedAt: new Date().toISOString() };
+      const btns = document.querySelectorAll('#liveHoursDayModal button');
+      btns.forEach(b=>b.disabled=true);
+      try {
+        await db.collection('live_hours').doc(docId).set(data);
+        liveHoursDocs[liveHoursEditingDate] = data;
+        closeModal('liveHoursDayModal');
+        renderLiveHoursCalendar();
+        showToast('บันทึกชั่วโมงไลฟ์แล้ว', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด: ' + err.message, 'error'); }
+      finally { btns.forEach(b=>b.disabled=false); }
+    }
+
+    async function clearLiveHoursDay() {
+      const seller = document.getElementById('liveHoursSeller').value;
+      if (!seller || !liveHoursEditingDate) return;
+      const docId = safeId(seller) + '_' + liveHoursEditingDate;
+      try {
+        await db.collection('live_hours').doc(docId).delete();
+        delete liveHoursDocs[liveHoursEditingDate];
+        closeModal('liveHoursDayModal');
+        renderLiveHoursCalendar();
+        showToast('ล้างข้อมูลวันนี้แล้ว', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    // Dashboard chart: average live hours/day per seller for the current cycle (based on dashboard date)
+    async function renderLiveHoursChart() {
+      const ctx = document.getElementById('liveHoursChart').getContext('2d');
+      if (liveCharts.hours) liveCharts.hours.destroy();
+      const dateStr = document.getElementById('liveFilterDate').value || todayStr();
+      const cs = cycleStartForDate(new Date(dateStr));
+      const cycle = cs.y + '-' + pad2(cs.m+1);
+      const totalDays = (new Date(cs.y, cs.m+1, 25) - new Date(cs.y, cs.m, 26)) / 86400000 + 1;
+      document.getElementById('liveHoursChartSubtitle').textContent =
+        'รอบ 26 ' + TH_MONTHS[cs.m] + ' – 25 ' + TH_MONTHS[(cs.m+1)%12] + ' ' + (cs.y+543) + ' (÷' + totalDays + ' วัน)';
+      try {
+        const snap = await db.collection('live_hours').where('cycle','==',cycle).get();
+        const bySeller = {};
+        snap.forEach(doc => { const d = doc.data(); bySeller[d.seller] = (bySeller[d.seller]||0) + (d.hours||0); });
+        const rows = Object.entries(bySeller).map(([seller,tot]) => ({ seller, avg: tot/totalDays, total: tot }))
+                          .sort((a,b)=>b.avg-a.avg);
+        if (!rows.length) { liveCharts.hours = null; ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
+        const grad = ctx.createLinearGradient(0,0,0,380);
+        grad.addColorStop(0,'#8b5cf6'); grad.addColorStop(1,'#c4b5fd');
+        liveCharts.hours = new Chart(ctx, {
+          type:'bar',
+          data:{ labels: rows.map(r=>r.seller), datasets:[{ label:'เฉลี่ย ชม./วัน', data: rows.map(r=>Number(r.avg.toFixed(2))), backgroundColor: grad, borderRadius:6 }] },
+          options:{ responsive:true, maintainAspectRatio:false,
+            layout:{ padding:{ top:24 } },
+            plugins:{ legend:{display:false},
+              tooltip:{ callbacks:{ afterLabel:(c)=> 'รวมทั้งเดือน ' + rows[c.dataIndex].total.toFixed(1) + ' ชม.' } },
+              datalabels:{ anchor:'end', align:'top', formatter:v=>v.toFixed(2)+' ชม.', font:{family:'Kanit',weight:'bold',size:12}, color:'#6d28d9' } },
+            scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ...headroom(rows.map(r=>r.avg),0.18), ticks:{callback:v=>v+' ชม.',font:{family:'Kanit'}}, grid:{color:'#f3e8ff'} } }
+          }
+        });
+      } catch (err) { console.error(err); }
     }
 
     // =====================================================
