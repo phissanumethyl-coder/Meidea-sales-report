@@ -1311,9 +1311,33 @@
       try {
         itSalesData = await getItSalesWithCarry(date);
         const daily = await getItDaily(date);
-        applyItFilters(daily);
+        const adsByBranch = await getItMonthAdsByBranch(date);
+        applyItFilters(daily, adsByBranch, date);
         renderItBranchChart();
       } catch (err) { console.error(err); showToast('โหลด Dashboard ผิดพลาด', 'error'); }
+    }
+
+    // Total ad spend per branch for the month up to `date`, counting EVERY seller
+    // (including resigned/inactive). it_sales stores cumulative-to-date ads, so we take
+    // each employee's latest record within the month and sum per branch.
+    async function getItMonthAdsByBranch(date) {
+      const key = 'itMonthAds_' + date;
+      if (cache.itSales['ads_' + date] && isCacheValid(key)) return cache.itSales['ads_' + date];
+      const snap = await db.collection('it_sales').where('date','<=',date).get();
+      const monthPrefix = date.slice(0,7);
+      const latest = {};   // branch||emp -> record
+      snap.forEach(doc => {
+        const s = doc.data();
+        if (s.date.slice(0,7) !== monthPrefix) return;
+        const k = s.branch + '||' + s.employeeName;
+        if (!latest[k] || s.date > latest[k].date) latest[k] = s;
+      });
+      const byBranch = {};
+      Object.values(latest).forEach(s => {
+        byBranch[s.branch] = (byBranch[s.branch]||0) + (s.totalAdsCost||0);
+      });
+      cache.itSales['ads_' + date] = byBranch; touchCache(key);
+      return byBranch;
     }
 
     // Cumulative sales: employees who didn't submit on `date` keep their latest total (carry-forward).
@@ -1362,7 +1386,13 @@
       return result;
     }
 
-    function applyItFilters(dailyData) {
+    let itDashCtx = { dailyData:[], adsByBranch:{}, selectedDate:null };
+    function applyItFilters(dailyData, adsByBranch, selectedDate) {
+      // keep last context so filter dropdowns (which call with no args) can re-render
+      if (dailyData !== undefined) itDashCtx.dailyData = dailyData;
+      if (adsByBranch !== undefined) itDashCtx.adsByBranch = adsByBranch;
+      if (selectedDate !== undefined) itDashCtx.selectedDate = selectedDate;
+      dailyData = itDashCtx.dailyData; adsByBranch = itDashCtx.adsByBranch; selectedDate = itDashCtx.selectedDate;
       const branch = document.getElementById('itFilterBranch').value;
       const display = document.getElementById('itFilterDisplay').value;
       const sortBy = document.getElementById('itFilterSort').value;
@@ -1379,11 +1409,14 @@
         chartData = Object.values(g);
       } else chartData = filtered;
 
-      chartData.sort((a,b) => sortBy==='totalSales' ? b.totalSales-a.totalSales : b.netProfit-a.netProfit);
+      // derived: true net profit after subtracting ad spend
+      chartData.forEach(d => d.netAfterAds = (d.netProfit||0) - (d.totalAdsCost||0));
+
+      chartData.sort((a,b) => sortBy==='totalSales' ? b.totalSales-a.totalSales : b.netAfterAds-a.netAfterAds);
 
       const totalSales = chartData.reduce((s,x)=>s+(x.totalSales||0),0);
       const totalAds = chartData.reduce((s,x)=>s+(x.totalAdsCost||0),0);
-      const totalNet = chartData.reduce((s,x)=>s+(x.netProfit||0),0);
+      const totalNet = chartData.reduce((s,x)=>s+(x.netAfterAds||0),0);
       document.getElementById('itStatTotalSales').textContent = fmt(totalSales);
       document.getElementById('itStatTotalAds').textContent = fmt(totalAds);
       document.getElementById('itStatNetProfit').textContent = fmt(totalNet);
@@ -1399,7 +1432,7 @@
 
       renderItMainChart(chartData);
       renderItTopChart(itSalesData);
-      renderItTodayChart(dailyData);
+      renderItTodayChart(dailyData, adsByBranch, selectedDate);
       renderItSummaryPies(totalSales, totalAds);
       renderItBranchPies();
     }
@@ -1431,7 +1464,7 @@
           { label:'โฆษณา Lazada', data:data.map(d=>d.adsLazada||0), backgroundColor:'#f472b6', borderRadius:4 },
           { label:'ยอดขายรวม', data:data.map(d=>d.totalSales||0), backgroundColor:'#f59e0b', borderRadius:4 },
           { label:'ค่าโฆษณารวม', data:data.map(d=>d.totalAdsCost||0), backgroundColor:'#ef4444', borderRadius:4 },
-          { label:'กำไรสุทธิ', data:data.map(d=>d.netProfit||0), backgroundColor:'#22c55e', borderRadius:4 }
+          { label:'กำไรสุทธิ (หัก ค่าโฆษณา)', data:data.map(d=>d.netAfterAds!=null?d.netAfterAds:((d.netProfit||0)-(d.totalAdsCost||0))), backgroundColor:'#22c55e', borderRadius:4 }
         ]},
         options: { responsive:true, maintainAspectRatio:false,
           layout: { padding: { top: 28 } },
@@ -1440,22 +1473,43 @@
             datalabels: { display:true, rotation:-90, anchor:dynAnchor, align:dynAlign, formatter:v=>v!==0?fmt(v):'', font:{family:'Kanit',size:9,weight:'bold'}, color:'#333' }
           },
           scales: { x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ...headroom([].concat(...data.map(d=>[d.salesFacebook,d.salesShopee,d.salesLazada,d.salesLineOA,d.adsFacebook,d.adsShopee,d.adsLazada,d.totalSales,d.totalAdsCost,d.netProfit])), 0.30), ticks:{callback:v=>fmt(v),font:{family:'Kanit',size:10}}, grid:{color:'#eee'} } }
-        }
+        },
+        plugins: [categorySeparatorPlugin]
       });
     }
+
+    // Draws thin vertical separators between each category (person/branch) group
+    const categorySeparatorPlugin = {
+      id: 'categorySeparator',
+      afterDatasetsDraw(chart) {
+        const { ctx, chartArea:{ top, bottom }, scales:{ x } } = chart;
+        if (!x || x.ticks.length < 2) return;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(100,116,139,0.35)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        for (let i = 0; i < x.ticks.length - 1; i++) {
+          const x1 = x.getPixelForTick(i), x2 = x.getPixelForTick(i+1);
+          const mid = (x1 + x2) / 2;
+          ctx.beginPath(); ctx.moveTo(mid, top); ctx.lineTo(mid, bottom); ctx.stroke();
+        }
+        ctx.restore();
+      }
+    };
 
     function renderItTopChart(data) {
       const ctx = document.getElementById('itTopChart').getContext('2d');
       if (itCharts.top) itCharts.top.destroy();
-      const top6 = data.slice().sort((a,b)=>b.netProfit-a.netProfit).slice(0,6);
+      data = data.map(d => ({ ...d, netAfterAds: d.netAfterAds!=null ? d.netAfterAds : ((d.netProfit||0)-(d.totalAdsCost||0)) }));
+      const top6 = data.slice().sort((a,b)=>(b.netAfterAds||0)-(a.netAfterAds||0)).slice(0,6);
       const colors = ['#54a0ff','#2ed573','#ffa502','#ff9ff3','#ff6b6b','#ee4d2d'];
       itCharts.top = new Chart(ctx, {
         type:'bar',
-        data:{ labels: top6.map(d=>d.employeeName), datasets:[{ label:'กำไรสุทธิ', data: top6.map(d=>d.netProfit||0), backgroundColor: top6.map((_,i)=>colors[i%colors.length]), borderRadius:6 }] },
+        data:{ labels: top6.map(d=>d.employeeName), datasets:[{ label:'กำไรสุทธิ', data: top6.map(d=>d.netAfterAds||0), backgroundColor: top6.map((_,i)=>colors[i%colors.length]), borderRadius:6 }] },
         options:{ responsive:true, maintainAspectRatio:false,
           layout: { padding: { top: 24 } },
           plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:12}, color:'#333' } },
-          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ...headroom(top6.map(d=>d.netProfit||0), 0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ...headroom(top6.map(d=>d.netAfterAds||0), 0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
         }
       });
     }
@@ -1478,24 +1532,43 @@
       });
     }
 
-    function renderItTodayChart(dailyData) {
+    function renderItTodayChart(dailyData, adsByBranch, selectedDate) {
       const ctx = document.getElementById('itTodayChart').getContext('2d');
       if (itCharts.today) itCharts.today.destroy();
-      const rows = (dailyData||[]).map(d => ({ name:d.branch, sales:d.salesToday||0, cost:d.costToday||0 }));
-      rows.sort((a,b)=>b.sales-a.sales);
-      let ts=0, tc=0; rows.forEach(r=>{ts+=r.sales;tc+=r.cost;});
-      rows.push({ name:'รวมทั้งหมด', sales:ts, cost:tc });
-      if (!rows.length) { itCharts.today = null; return; }
+      adsByBranch = adsByBranch || {};
+      const date = selectedDate || todayStr();
+      const dayNum = parseInt(date.slice(8,10), 10) || 1;   // ค่าโฆษณาวันนี้ = ค่าโฆษณารวมเดือน ÷ เลขวันที่
+
+      // daily sales per branch (from it_daily)
+      const salesByBranch = {};
+      (dailyData||[]).forEach(d => { salesByBranch[d.branch] = (salesByBranch[d.branch]||0) + (d.salesToday||0); });
+
+      // union of branches that have either sales-today or month-ads
+      const branches = [...new Set([...Object.keys(salesByBranch), ...Object.keys(adsByBranch)])];
+      const rows = branches.map(b => ({
+        name: b,
+        sales: salesByBranch[b] || 0,
+        ads: (adsByBranch[b] || 0) / dayNum
+      })).sort((a,b)=>b.sales-a.sales);
+
+      if (!rows.length) { itCharts.today = null; ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
+
+      let ts=0, ta=0; rows.forEach(r=>{ts+=r.sales;ta+=r.ads;});
+      rows.push({ name:'รวมทั้งหมด', sales:ts, ads:ta });
+
+      const sub = document.querySelector('#itTodayChartContainer .chart-title');
+      if (sub) sub.textContent = '📊 ยอดขายวันนี้ และค่าโฆษณาวันนี้ (ค่าโฆษณารวมเดือน ÷ ' + dayNum + ')';
+
       itCharts.today = new Chart(ctx, {
         type:'bar',
         data:{ labels: rows.map(r=>r.name), datasets:[
           { label:'ยอดขายวันนี้', data: rows.map(r=>r.sales), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#1d4ed8':'#3b82f6'), borderRadius:{topLeft:6,topRight:6} },
-          { label:'ต้นทุนวันนี้', data: rows.map(r=>r.cost), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#ff4757':'#ff6b6b'), borderRadius:{topLeft:6,topRight:6} }
+          { label:'ค่าโฆษณาวันนี้', data: rows.map(r=>r.ads), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#ea580c':'#f97316'), borderRadius:{topLeft:6,topRight:6} }
         ]},
         options:{ responsive:true, maintainAspectRatio:false,
           layout: { padding: { top: 22 } },
           plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}}, datalabels:{ color:'#262626', anchor:dynAnchor, align:dynAlign, formatter:v=>v===0?'':fmt(v), font:{family:'Kanit',weight:'600',size:11} } },
-          scales:{ y:{ ...headroom(rows.map(r=>Math.max(r.sales,r.cost)), 0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}} }, x:{ ticks:{font:{family:'Kanit',size:11}} } }
+          scales:{ y:{ ...headroom(rows.map(r=>Math.max(r.sales,r.ads)), 0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}} }, x:{ ticks:{font:{family:'Kanit',size:11}} } }
         }
       });
     }
