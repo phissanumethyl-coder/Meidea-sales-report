@@ -223,6 +223,8 @@
     .live-cum-summary .cum-item { background: #fff; border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
     .live-cum-summary .cum-item span { font-size: 11px; color: var(--text-secondary); }
     .live-cum-summary .cum-item b { font-size: 17px; color: #c2410c; }
+    .live-cum-summary .cum-item.cum-net { background: #f0fdf4; }
+    .live-cum-summary .cum-item.cum-net b { color: #16a34a; }
     .danger-zone { border: 1px solid #fecaca; background: #fef2f2; }
 
     /* Remove number spinner arrows -> plain empty box */
@@ -522,27 +524,15 @@
         <div class="form-grid">
           <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="liveDate" class="form-input" onchange="onLiveSellerPicked()"><small class="hint">เว้นว่าง = วันนี้</small></div>
           <div class="form-group"><label class="form-label">เซลล์</label><select id="liveSeller" class="form-select" onchange="onLiveSellerPicked()"><option value="">เลือกเซลล์</option></select></div>
-          <div class="form-group input-sales"><label class="form-label">💰 ยอดขายวันนี้ (บาท)</label><input type="text" inputmode="decimal" id="liveSales" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
-          <div class="form-group input-cost"><label class="form-label">📦 ต้นทุนวันนี้ (บาท)</label><input type="text" inputmode="decimal" id="liveCost" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
-          <div class="form-group input-adsblue"><label class="form-label">📣 ค่าโฆษณาวันนี้ (บาท)</label><input type="text" inputmode="decimal" id="liveAds" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group input-sales"><label class="form-label">💰 ยอดขายวันนี้ (บาท)</label><input type="text" inputmode="decimal" autocomplete="off" id="liveSales" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group input-cost"><label class="form-label">📦 ต้นทุนวันนี้ (บาท)</label><input type="text" inputmode="decimal" autocomplete="off" id="liveCost" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group input-adsblue"><label class="form-label">📣 ค่าโฆษณาวันนี้ (บาท)</label><input type="text" inputmode="decimal" autocomplete="off" id="liveAds" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
         </div>
         <div id="liveCumSummary" class="live-cum-summary" style="display:none;"></div>
         <div class="btn-group">
           <button class="btn btn-primary" onclick="submitLive()">💾 บันทึกข้อมูล</button>
           <button class="btn btn-secondary" onclick="clearLiveForm()">🗑️ ล้างฟอร์ม</button>
         </div>
-      </div>
-
-      <div class="card" id="liveCostTableContainer">
-        <div class="card-header">
-          <h2 class="card-title">📊 ตารางสรุป %ต้นทุนต่อยอดขาย (Live)</h2>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span id="liveDateRangeInfo" style="font-size:12px;color:var(--accent-purple);font-weight:500;"></span>
-            <button class="btn btn-outline btn-sm" onclick="loadLiveTableForce()">🔄 รีเฟรช</button>
-            <button class="btn btn-primary btn-sm" onclick="saveNode('liveCostTableContainer','live_cost_table')">📷 บันทึก</button>
-          </div>
-        </div>
-        <div id="liveCostTable" class="table-container"><div class="loading active"><div class="spinner"></div></div></div>
       </div>
     </div>
 
@@ -577,47 +567,65 @@
         <div class="stat-card"><div class="stat-value" id="liveStatSales">0</div><div class="stat-label">ยอดขายรวม</div></div>
         <div class="stat-card"><div class="stat-value" id="liveStatCost">0</div><div class="stat-label">ต้นทุนรวม</div></div>
         <div class="stat-card"><div class="stat-value" id="liveStatAds">0</div><div class="stat-label">ค่าโฆษณารวม</div></div>
-        <div class="stat-card"><div class="stat-value" id="liveStatPct">0%</div><div class="stat-label">% ต้นทุนเฉลี่ย</div></div>
+        <div class="stat-card"><div class="stat-value" id="liveStatNet">0</div><div class="stat-label">กำไรสุทธิ</div></div>
       </div>
 
-      <!-- Ranking chart (image 3) -->
+      <!-- Graph 1: totals (sales / ads / net) -->
+      <div class="chart-container" id="liveTotalsContainer">
+        <button class="save-btn" onclick="saveNode('liveTotalsContainer','live_totals')">📷 บันทึก</button>
+        <div class="chart-header"><h3 class="chart-title" id="liveTotalsTitle">ยอดขายรวม ค่าโฆษณา และกำไรสุทธิ</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="liveTotalsChart"></canvas></div>
+      </div>
+
+      <!-- Graph 2: sales ranking -->
       <div class="chart-container" id="liveRankContainer">
         <button class="save-btn" onclick="saveNode('liveRankContainer','live_ranking')">📷 บันทึก</button>
-        <div class="chart-header"><h3 class="chart-title" id="liveRankTitle">กราฟแสดงอันดับยอดขายรวม (Live)</h3></div>
+        <div class="chart-header"><h3 class="chart-title" id="liveRankTitle">ยอดขายรวม</h3></div>
         <div class="medium-chart-wrapper"><canvas id="liveRankChart"></canvas></div>
       </div>
 
-      <!-- Sales vs Ads grouped (image 2 left) + donuts (image 2 right) -->
+      <!-- Graph 3: sales + ads per seller + total, with 2 donuts -->
       <div class="chart-container" id="liveSalesAdsContainer">
         <button class="save-btn" onclick="saveNode('liveSalesAdsContainer','live_sales_ads')">📷 บันทึก (พร้อมกราฟวงกลม)</button>
-        <div class="chart-header"><h3 class="chart-title" id="liveSalesAdsTitle">ยอดขาย / ค่าโฆษณาไลฟ์สด</h3></div>
+        <div class="chart-header"><h3 class="chart-title" id="liveSalesAdsTitle">ยอดขายและค่าโฆษณา รายเซลล์</h3></div>
         <div class="main-chart-wrapper"><canvas id="liveSalesAdsChart"></canvas></div>
         <div class="summary-pies">
           <div class="summary-pie-item">
-            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม (ตัวเลข)</div>
+            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม ทุกสาขา (ตัวเลข)</div>
             <div class="summary-pie-canvas"><canvas id="liveDonutNum"></canvas></div>
           </div>
           <div class="summary-pie-item">
-            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม (เปอร์เซ็นต์)</div>
+            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม ทุกสาขา (เปอร์เซ็นต์)</div>
             <div class="summary-pie-canvas"><canvas id="liveDonutPct"></canvas></div>
           </div>
         </div>
       </div>
 
-      <!-- Cost % table (image 1) rendered again on dashboard for the selected date -->
-      <div class="chart-container" id="liveCostChartContainer">
-        <button class="save-btn" onclick="saveNode('liveCostChartContainer','live_cost_chart')">📷 บันทึก</button>
-        <div class="chart-header"><h3 class="chart-title">📉 %ต้นทุนต่อยอดขายแต่ละเซลล์</h3></div>
-        <div class="medium-chart-wrapper"><canvas id="liveCostChart"></canvas></div>
+      <!-- Graph 4: cost % table (moved from input page) -->
+      <div class="card" id="liveCostTableContainer">
+        <div class="card-header">
+          <h2 class="card-title">📊 ตารางสรุป %ต้นทุนต่อยอดขาย (Live)</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span id="liveDateRangeInfo" style="font-size:12px;color:var(--accent-purple);font-weight:500;"></span>
+            <button class="btn btn-outline btn-sm" onclick="loadLiveTableForce()">🔄 รีเฟรช</button>
+            <button class="btn btn-primary btn-sm" onclick="saveNode('liveCostTableContainer','live_cost_table')">📷 บันทึก</button>
+          </div>
+        </div>
+        <div id="liveCostTable" class="table-container"><div class="loading active"><div class="spinner"></div></div></div>
       </div>
 
-      <div class="chart-container" id="liveHoursChartContainer">
-        <button class="save-btn" onclick="saveNode('liveHoursChartContainer','live_hours_avg')">📷 บันทึก</button>
-        <div class="chart-header">
-          <h3 class="chart-title">⏱️ เฉลี่ยชั่วโมงไลฟ์ต่อวัน (รอบเดือน 26 → 25)</h3>
-          <p class="chart-subtitle" id="liveHoursChartSubtitle"></p>
-        </div>
-        <div class="medium-chart-wrapper"><canvas id="liveHoursChart"></canvas></div>
+      <!-- Graph 5: live hours per day -->
+      <div class="chart-container" id="liveHoursDayContainer">
+        <button class="save-btn" onclick="saveNode('liveHoursDayContainer','live_hours_day')">📷 บันทึก</button>
+        <div class="chart-header"><h3 class="chart-title" id="liveHoursDayTitle2">ชั่วโมงไลฟ์สดประจำวัน</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="liveHoursDayChart"></canvas></div>
+      </div>
+
+      <!-- Graph 6: live hours per month -->
+      <div class="chart-container" id="liveHoursMonthContainer">
+        <button class="save-btn" onclick="saveNode('liveHoursMonthContainer','live_hours_month')">📷 บันทึก</button>
+        <div class="chart-header"><h3 class="chart-title" id="liveHoursMonthTitle">ชั่วโมงไลฟ์สดประจำเดือน</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="liveHoursMonthChart"></canvas></div>
       </div>
     </div>
 
@@ -812,7 +820,6 @@
           else if (page === 'it-check') loadItCheck();
           else if (page === 'it-manage') renderItManage();
           else if (page === 'live-dashboard') loadLiveDashboard();
-          else if (page === 'live-input') loadLiveTable();
           else if (page === 'live-hours') loadLiveHours();
           else if (page === 'live-manage') renderLiveManage();
         });
@@ -1243,7 +1250,8 @@
     }
 
     // Generic cost-% comparison table (used by IT branch & Live seller)
-    function buildCostTable(containerId, keyLabel, todayData, yData, todayDate, yDate, keyField) {
+    function buildCostTable(containerId, keyLabel, todayData, yData, todayDate, yDate, keyField, threshold) {
+      const TH = threshold || 45;
       const container = document.getElementById(containerId);
       const today = {}, yest = {};
       todayData.forEach(d => today[d[keyField]] = d);
@@ -1269,7 +1277,7 @@
         const tp = t.salesToday>0 ? t.costToday/t.salesToday*100 : 0;
         const ap = t.salesMonth>0 ? t.costMonth/t.salesMonth*100 : 0;
         tsy+=y.salesToday||0; tcy+=y.costToday||0; tst+=t.salesToday||0; tct+=t.costToday||0; tsa+=t.salesMonth||0; tca+=t.costMonth||0;
-        const c = p => p<=45?'highlight-success':'highlight-warning';
+        const c = p => p<=TH?'highlight-success':'highlight-warning';
         h += '<tr><td style="text-align:center;'+bL+'">'+(idx+1)+'</td><td style="'+bR+'">'+k+'</td>';
         h += '<td style="text-align:right;'+bL+'">'+fmt(y.salesToday||0)+'</td><td style="text-align:right;'+bL+'">'+fmt(y.costToday||0)+'</td><td class="'+c(yp)+'" style="text-align:center;'+bR+'">'+yp.toFixed(2)+'%</td>';
         h += '<td style="text-align:right;'+bL+'">'+fmt(t.salesToday||0)+'</td><td style="text-align:right;'+bL+'">'+fmt(t.costToday||0)+'</td><td class="'+c(tp)+'" style="text-align:center;'+bR+'">'+tp.toFixed(2)+'%</td>';
@@ -1729,14 +1737,14 @@
           document.getElementById('liveAds').value = (todayDoc.adsToday!=null?todayDoc.adsToday:todayDoc.ads)||0;
           calcLiveTotals();
         }
-        const pct = sales>0 ? (cost/sales*100).toFixed(2) : '0.00';
+        const netProfit = sales - cost - ads;
         box.innerHTML =
           '<div class="cum-title">📊 ยอดสะสมเดือนนี้ (1 → ' + date + ')' + (todayDoc?' · <span style="color:#16a34a;">วันนี้กรอกแล้ว (กรอกใหม่=ทับ)</span>':'') + '</div>' +
           '<div class="cum-grid">' +
           '<div class="cum-item"><span>ยอดขายรวม</span><b>' + fmt(sales) + '</b></div>' +
           '<div class="cum-item"><span>ต้นทุนรวม</span><b>' + fmt(cost) + '</b></div>' +
           '<div class="cum-item"><span>ค่าโฆษณารวม</span><b>' + fmt(ads) + '</b></div>' +
-          '<div class="cum-item"><span>% ต้นทุนสะสม</span><b>' + pct + '%</b></div>' +
+          '<div class="cum-item cum-net"><span>กำไรสุทธิ</span><b>' + fmt(netProfit) + '</b></div>' +
           '</div>';
       } catch (err) { console.error(err); box.innerHTML = '⚠️ โหลดยอดสะสมไม่สำเร็จ'; }
     }
@@ -1759,9 +1767,12 @@
         setFormDisabled('#page-live-input', false);
         showToast('บันทึกสำเร็จ! กำลังอัพเดทตาราง...', 'success');
         clearLiveForm();
+        // reset for the next seller
+        document.getElementById('liveSeller').value = '';
+        document.getElementById('liveCumSummary').style.display = 'none';
+        document.getElementById('liveSeller').focus();
         delete cache.liveSales[date]; delete cache.lastFetch['liveSales_' + date];
         liveTableList = null;
-        onLiveSellerPicked();
         setTimeout(async () => { await loadLiveTable(); showToast('อัพเดทตารางเรียบร้อย!', 'success'); }, 1500);
       } catch (err) {
         console.error(err); setFormDisabled('#page-live-input', false); showToast('ผิดพลาด: ' + err.message, 'error');
@@ -1803,7 +1814,7 @@
       const todayRows = (byDate[todayDate]||[]).map(d => ({
         ...d, salesMonth:(agg[d.seller]||{}).sales||0, costMonth:(agg[d.seller]||{}).cost||0
       }));
-      buildCostTable('liveCostTable', 'เซลล์', todayRows, byDate[yDate] || [], todayDate, yDate, 'seller');
+      buildCostTable('liveCostTable', 'เซลล์', todayRows, byDate[yDate] || [], todayDate, yDate, 'seller', 50);
     }
 
     // Live data fetch (cached)
@@ -1817,16 +1828,14 @@
     }
 
     // ============= LIVE DASHBOARD =============
-    let liveCharts = { rank:null, salesAds:null, donutNum:null, donutPct:null, cost:null, hours:null };
+    let liveCharts = { totals:null, rank:null, salesAds:null, donutNum:null, donutPct:null, hoursDay:null, hoursMonth:null };
 
     async function loadLiveDashboard() {
       const date = document.getElementById('liveFilterDate').value || todayStr();
       try {
         const monthPrefix = date.slice(0,7);
-        // fetch this month's records up to the selected date
         const snap = await db.collection('live_sales').where('date','<=',date).get();
         const all = []; snap.forEach(d => { const x=d.data(); if (x.date.slice(0,7)===monthPrefix) all.push(x); });
-        // aggregate per seller
         const agg = {};
         all.forEach(d => {
           if (!agg[d.seller]) agg[d.seller] = { seller:d.seller, sales:0, cost:0, ads:0 };
@@ -1836,33 +1845,57 @@
         });
         liveData = Object.values(agg);
         renderLiveDashboard(date);
+        loadLiveTable();          // graph 4 (cost % table)
+        renderLiveHoursDayChart(date);   // graph 5
+        renderLiveHoursMonthChart(date); // graph 6
       } catch (err) { console.error(err); showToast('โหลด Dashboard ไลฟ์ผิดพลาด', 'error'); }
     }
 
+    function thaiMonthYear(dateStr) {
+      const m = parseInt(dateStr.slice(5,7),10)-1;
+      const y = parseInt(dateStr.slice(0,4),10) + 543;
+      return TH_MONTHS[m] + ' ' + y;
+    }
+
     function renderLiveDashboard(dateStr) {
-      const rows = liveData.map(d => ({ seller:d.seller, sales:d.sales||0, cost:d.cost||0, ads:d.ads||0, pct: d.sales>0 ? d.cost/d.sales*100 : 0 }));
+      const rows = liveData.map(d => ({ seller:d.seller, sales:d.sales||0, cost:d.cost||0, ads:d.ads||0, net:(d.sales||0)-(d.cost||0)-(d.ads||0), pct: d.sales>0 ? d.cost/d.sales*100 : 0 }));
       const totalSales = rows.reduce((s,r)=>s+r.sales,0);
       const totalCost = rows.reduce((s,r)=>s+r.cost,0);
       const totalAds = rows.reduce((s,r)=>s+r.ads,0);
-      const avgPct = totalSales>0 ? totalCost/totalSales*100 : 0;
+      const totalNet = totalSales - totalCost - totalAds;
       document.getElementById('liveStatSales').textContent = fmt(totalSales);
       document.getElementById('liveStatCost').textContent = fmt(totalCost);
       document.getElementById('liveStatAds').textContent = fmt(totalAds);
-      document.getElementById('liveStatPct').textContent = avgPct.toFixed(2) + '%';
+      document.getElementById('liveStatNet').textContent = fmt(totalNet);
 
-      const dt = dateStr || todayStr();
-      const rangeTxt = 'สะสม 1 → ' + dt.slice(8) + ' ' + TH_MONTHS[parseInt(dt.slice(5,7))-1];
-      const rt = document.getElementById('liveRankTitle'); if (rt) rt.textContent = 'อันดับยอดขายรวม (' + rangeTxt + ')';
-      const st = document.getElementById('liveSalesAdsTitle'); if (st) st.textContent = 'ยอดขาย / ค่าโฆษณาไลฟ์สด (' + rangeTxt + ')';
+      const my = thaiMonthYear(dateStr || todayStr());
+      const rt = document.getElementById('liveRankTitle'); if (rt) rt.textContent = 'ยอดขายรวม เดือน ' + my;
+      const st = document.getElementById('liveSalesAdsTitle'); if (st) st.textContent = 'ยอดขายและค่าโฆษณา รายเซลล์ เดือน ' + my;
+      const tt = document.getElementById('liveTotalsTitle'); if (tt) tt.textContent = 'ยอดขายรวม ค่าโฆษณา และกำไรสุทธิ เดือน ' + my;
 
+      renderLiveTotals(totalSales, totalAds, totalNet);
       renderLiveRank(rows);
       renderLiveSalesAds(rows, totalSales, totalAds);
       renderLiveDonuts(totalSales, totalAds);
-      renderLiveCostChart(rows);
-      renderLiveHoursChart();
     }
 
-    // Ranking (image 3) — orange gradient bars, high → low
+    // Graph 1: overall totals (sales / ads / net)
+    function renderLiveTotals(totalSales, totalAds, totalNet) {
+      const ctx = document.getElementById('liveTotalsChart').getContext('2d');
+      if (liveCharts.totals) liveCharts.totals.destroy();
+      const vals = [totalSales, totalAds, totalNet];
+      liveCharts.totals = new Chart(ctx, {
+        type:'bar',
+        data:{ labels:['ยอดขายรวม','ค่าโฆษณารวม','กำไรสุทธิ'], datasets:[{ data: vals, backgroundColor:['#4361ee','#ef4444','#22c55e'], borderRadius:8 }] },
+        options:{ responsive:true, maintainAspectRatio:false,
+          layout:{ padding:{ top:24, bottom:20 } },
+          plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:14}, color:'#333' } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:13}} }, y:{ ...headroom(vals, 0.18), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+        }
+      });
+    }
+
+    // Graph 2: sales ranking — orange gradient, high → low
     function renderLiveRank(rows) {
       const ctx = document.getElementById('liveRankChart').getContext('2d');
       if (liveCharts.rank) liveCharts.rank.destroy();
@@ -1880,7 +1913,7 @@
       });
     }
 
-    // Sales vs Ads grouped (image 2 left) + total column, supports negatives
+    // Graph 3: sales + ads per seller + total column
     function renderLiveSalesAds(rows, totalSales, totalAds) {
       const ctx = document.getElementById('liveSalesAdsChart').getContext('2d');
       if (liveCharts.salesAds) liveCharts.salesAds.destroy();
@@ -1891,19 +1924,19 @@
       liveCharts.salesAds = new Chart(ctx, {
         type:'bar',
         data:{ labels, datasets:[
-          { label:'ยอดขาย', data: salesArr, backgroundColor: labels.map(l=>l==='รวม'?'#1d4ed8':'#4361ee'), borderRadius:{topLeft:5,topRight:5} },
-          { label:'ค่าโฆษณา', data: adsArr, backgroundColor: labels.map(l=>l==='รวม'?'#ea580c':'#f97316'), borderRadius:{topLeft:5,topRight:5} }
+          { label:'ยอดขาย', data: salesArr, backgroundColor: labels.map(l=>l==='รวม'?'#4c51bf':'#667eea'), borderRadius:{topLeft:5,topRight:5} },
+          { label:'ค่าโฆษณา', data: adsArr, backgroundColor: labels.map(l=>l==='รวม'?'#e53e3e':'#ff6b6b'), borderRadius:{topLeft:5,topRight:5} }
         ]},
         options:{ responsive:true, maintainAspectRatio:false,
           layout: { padding: { top: 28 } },
           plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}},
             datalabels:{ anchor:dynAnchor, align:dynAlign, rotation:-90, formatter:v=>v!==0?fmt(v):'', font:{family:'Kanit',weight:'600',size:10}, color:'#333' } },
           scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ...headroom(salesArr.concat(adsArr), 0.28), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
-        }
+        },
+        plugins: [categorySeparatorPlugin]
       });
     }
 
-    // Donuts (image 2 right)
     function makeDonut(canvasId, labels, values, colors, isPercent) {
       const ctx = document.getElementById(canvasId).getContext('2d');
       return new Chart(ctx, {
@@ -1921,24 +1954,65 @@
       const labels = ['ยอดขายรวม '+sp.toFixed(0)+'% ('+fmt(totalSales)+')', 'ค่าโฆษณารวม '+ap.toFixed(0)+'% ('+fmt(totalAds)+')'];
       if (liveCharts.donutNum) liveCharts.donutNum.destroy();
       if (liveCharts.donutPct) liveCharts.donutPct.destroy();
-      liveCharts.donutNum = makeDonut('liveDonutNum', labels, [totalSales,totalAds], ['#4361ee','#f97316'], false);
-      liveCharts.donutPct = makeDonut('liveDonutPct', labels, [sp,ap], ['#4361ee','#f97316'], true);
+      liveCharts.donutNum = makeDonut('liveDonutNum', labels, [totalSales,totalAds], ['#667eea','#ff6b6b'], false);
+      liveCharts.donutPct = makeDonut('liveDonutPct', labels, [sp,ap], ['#667eea','#ff6b6b'], true);
     }
 
-    // %ต้นทุน per seller (bar, colored by threshold)
-    function renderLiveCostChart(rows) {
-      const ctx = document.getElementById('liveCostChart').getContext('2d');
-      if (liveCharts.cost) liveCharts.cost.destroy();
-      const sorted = rows.slice().sort((a,b)=>b.pct-a.pct);
-      liveCharts.cost = new Chart(ctx, {
-        type:'bar',
-        data:{ labels: sorted.map(r=>r.seller), datasets:[{ label:'% ต้นทุน', data: sorted.map(r=>Number(r.pct.toFixed(2))), backgroundColor: sorted.map(r=>r.pct<=45?'#22c55e':'#f97316'), borderRadius:6 }] },
-        options:{ responsive:true, maintainAspectRatio:false,
-          layout: { padding: { top: 22 } },
-          plugins:{ legend:{display:false}, datalabels:{ anchor:'end', align:'top', formatter:v=>v.toFixed(2)+'%', font:{family:'Kanit',weight:'bold',size:12}, color:'#333' } },
-          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ...headroom(sorted.map(r=>r.pct), 0.15), ticks:{callback:v=>v+'%',font:{family:'Kanit'}}, grid:{color:'#eee'} } }
-        }
-      });
+    // Graph 5: live hours per DAY (selected date) — high → low
+    async function renderLiveHoursDayChart(dateStr) {
+      const ctx = document.getElementById('liveHoursDayChart').getContext('2d');
+      if (liveCharts.hoursDay) liveCharts.hoursDay.destroy();
+      const d = parseInt(dateStr.slice(8,10),10);
+      const my = thaiMonthYear(dateStr);
+      const t = document.getElementById('liveHoursDayTitle2'); if (t) t.textContent = '⏱️ ชั่วโมงไลฟ์สดประจำวันที่ ' + d + ' เดือน ' + my;
+      try {
+        const snap = await db.collection('live_hours').where('date','==',dateStr).get();
+        const rows = [];
+        snap.forEach(doc => { const x = doc.data(); rows.push({ seller:x.seller, hours: dayHours(x) }); });
+        rows.sort((a,b)=>b.hours-a.hours);
+        if (!rows.length) { liveCharts.hoursDay = null; ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
+        const grad = ctx.createLinearGradient(0,0,0,380); grad.addColorStop(0,'#ec4899'); grad.addColorStop(1,'#fbcfe8');
+        liveCharts.hoursDay = new Chart(ctx, {
+          type:'bar',
+          data:{ labels: rows.map(r=>r.seller), datasets:[{ data: rows.map(r=>Number(r.hours.toFixed(4))), backgroundColor: grad, borderRadius:6 }] },
+          options:{ responsive:true, maintainAspectRatio:false,
+            layout:{ padding:{ top:24 } },
+            plugins:{ legend:{display:false},
+              tooltip:{ callbacks:{ label:(c)=> fmtHM(c.parsed.y) } },
+              datalabels:{ anchor:'end', align:'top', formatter:v=>fmtHM(v), font:{family:'Kanit',weight:'bold',size:11}, color:'#be185d' } },
+            scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ...headroom(rows.map(r=>r.hours),0.18), ticks:{callback:v=>v+' ชม.',font:{family:'Kanit'}}, grid:{color:'#fce7f3'} } }
+          }
+        });
+      } catch (err) { console.error(err); }
+    }
+
+    // Graph 6: total live hours per MONTH (calendar month of selected date) — high → low
+    async function renderLiveHoursMonthChart(dateStr) {
+      const ctx = document.getElementById('liveHoursMonthChart').getContext('2d');
+      if (liveCharts.hoursMonth) liveCharts.hoursMonth.destroy();
+      const monthPrefix = dateStr.slice(0,7);
+      const my = thaiMonthYear(dateStr);
+      const t = document.getElementById('liveHoursMonthTitle'); if (t) t.textContent = '⏱️ ชั่วโมงไลฟ์สดประจำเดือน ' + my;
+      try {
+        // fetch all hours docs up to selected date, filter to this calendar month
+        const snap = await db.collection('live_hours').where('date','<=',dateStr).get();
+        const bySeller = {};
+        snap.forEach(doc => { const x = doc.data(); if (x.date.slice(0,7)===monthPrefix) bySeller[x.seller] = (bySeller[x.seller]||0) + dayHours(x); });
+        const rows = Object.entries(bySeller).map(([seller,h])=>({seller,hours:h})).sort((a,b)=>b.hours-a.hours);
+        if (!rows.length) { liveCharts.hoursMonth = null; ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
+        const grad = ctx.createLinearGradient(0,0,0,380); grad.addColorStop(0,'#8b5cf6'); grad.addColorStop(1,'#ddd6fe');
+        liveCharts.hoursMonth = new Chart(ctx, {
+          type:'bar',
+          data:{ labels: rows.map(r=>r.seller), datasets:[{ data: rows.map(r=>Number(r.hours.toFixed(4))), backgroundColor: grad, borderRadius:6 }] },
+          options:{ responsive:true, maintainAspectRatio:false,
+            layout:{ padding:{ top:24 } },
+            plugins:{ legend:{display:false},
+              tooltip:{ callbacks:{ label:(c)=> fmtHM(c.parsed.y) } },
+              datalabels:{ anchor:'end', align:'top', formatter:v=>fmtHM(v), font:{family:'Kanit',weight:'bold',size:11}, color:'#6d28d9' } },
+            scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ...headroom(rows.map(r=>r.hours),0.18), ticks:{callback:v=>v+' ชม.',font:{family:'Kanit'}}, grid:{color:'#f3e8ff'} } }
+          }
+        });
+      } catch (err) { console.error(err); }
     }
 
     // =====================================================
@@ -2212,39 +2286,6 @@
         renderLiveHoursCalendar();
         showToast('ล้างข้อมูลวันนี้แล้ว', 'success');
       } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
-    }
-
-    // Dashboard chart: average live hours/day per seller for the current cycle (based on dashboard date)
-    async function renderLiveHoursChart() {
-      const ctx = document.getElementById('liveHoursChart').getContext('2d');
-      if (liveCharts.hours) liveCharts.hours.destroy();
-      const dateStr = document.getElementById('liveFilterDate').value || todayStr();
-      const cs = cycleStartForDate(new Date(dateStr));
-      const cycle = cs.y + '-' + pad2(cs.m+1);
-      const totalDays = (new Date(cs.y, cs.m+1, 25) - new Date(cs.y, cs.m, 26)) / 86400000 + 1;
-      document.getElementById('liveHoursChartSubtitle').textContent =
-        'รอบ 26 ' + TH_MONTHS[cs.m] + ' – 25 ' + TH_MONTHS[(cs.m+1)%12] + ' ' + (cs.y+543) + ' (÷' + totalDays + ' วัน)';
-      try {
-        const snap = await db.collection('live_hours').where('cycle','==',cycle).get();
-        const bySeller = {};
-        snap.forEach(doc => { const d = doc.data(); bySeller[d.seller] = (bySeller[d.seller]||0) + (d.hours||0); });
-        const rows = Object.entries(bySeller).map(([seller,tot]) => ({ seller, avg: tot/totalDays, total: tot }))
-                          .sort((a,b)=>b.avg-a.avg);
-        if (!rows.length) { liveCharts.hours = null; ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
-        const grad = ctx.createLinearGradient(0,0,0,380);
-        grad.addColorStop(0,'#8b5cf6'); grad.addColorStop(1,'#c4b5fd');
-        liveCharts.hours = new Chart(ctx, {
-          type:'bar',
-          data:{ labels: rows.map(r=>r.seller), datasets:[{ label:'เฉลี่ย ชม./วัน', data: rows.map(r=>Number(r.avg.toFixed(2))), backgroundColor: grad, borderRadius:6 }] },
-          options:{ responsive:true, maintainAspectRatio:false,
-            layout:{ padding:{ top:24 } },
-            plugins:{ legend:{display:false},
-              tooltip:{ callbacks:{ label:(c)=> 'เฉลี่ย ' + fmtHM(c.parsed.y) + '/วัน', afterLabel:(c)=> 'รวมทั้งเดือน ' + fmtHM(rows[c.dataIndex].total) } },
-              datalabels:{ anchor:'end', align:'top', formatter:v=>fmtHM(v), font:{family:'Kanit',weight:'bold',size:11}, color:'#6d28d9' } },
-            scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ...headroom(rows.map(r=>r.avg),0.18), ticks:{callback:v=>v+' ชม.',font:{family:'Kanit'}}, grid:{color:'#f3e8ff'} } }
-          }
-        });
-      } catch (err) { console.error(err); }
     }
 
     // =====================================================
