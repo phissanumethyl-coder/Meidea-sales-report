@@ -488,11 +488,11 @@
         <div class="medium-chart-wrapper"><canvas id="itTodayChart"></canvas></div>
         <div class="summary-pies">
           <div class="summary-pie-item">
-            <div class="summary-pie-title">📊 สัดส่วนยอดขายรวม vs ค่าโฆษณารวม (ตัวเลข)</div>
+            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม ทุกสาขา (ตัวเลข)</div>
             <div class="summary-pie-canvas"><canvas id="itSummaryPieNum"></canvas></div>
           </div>
           <div class="summary-pie-item">
-            <div class="summary-pie-title">📊 สัดส่วนยอดขายรวม vs ค่าโฆษณารวม (เปอร์เซ็นต์)</div>
+            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม ทุกสาขา (เปอร์เซ็นต์)</div>
             <div class="summary-pie-canvas"><canvas id="itSummaryPiePct"></canvas></div>
           </div>
         </div>
@@ -1433,7 +1433,10 @@
       renderItMainChart(chartData);
       renderItTopChart(itSalesData);
       renderItTodayChart(dailyData, adsByBranch, selectedDate);
-      renderItSummaryPies(totalSales, totalAds);
+      // Summary pies always reflect ALL branches (ignore the branch filter)
+      const allSales = itSalesData.reduce((s,x)=>s+(x.totalSales||0),0);
+      const allAds = itSalesData.reduce((s,x)=>s+(x.totalAdsCost||0),0);
+      renderItSummaryPies(allSales, allAds);
       renderItBranchPies();
     }
 
@@ -1443,10 +1446,12 @@
     // Give vertical bar charts headroom so top datalabels don't clip the frame/title.
     // maxOfAll = largest bar value; ratio = extra fraction on top (0.22 = +22%)
     function headroom(values, ratio) {
+      const r = ratio || 0.18;
       const mx = Math.max(0, ...values.map(v => Number(v)||0));
       const mn = Math.min(0, ...values.map(v => Number(v)||0));
-      return { suggestedMax: mx > 0 ? mx * (1 + (ratio||0.18)) : undefined,
-               suggestedMin: mn < 0 ? mn * (1 + (ratio||0.18)) : undefined };
+      return { suggestedMax: mx > 0 ? mx * (1 + r) : undefined,
+               // negatives need a bit more room because the rotated label sits below the bar
+               suggestedMin: mn < 0 ? mn * (1 + r + 0.12) : undefined };
     }
 
     function renderItMainChart(data) {
@@ -1467,12 +1472,12 @@
           { label:'กำไรสุทธิ (หัก ค่าโฆษณา)', data:data.map(d=>d.netAfterAds!=null?d.netAfterAds:((d.netProfit||0)-(d.totalAdsCost||0))), backgroundColor:'#22c55e', borderRadius:4 }
         ]},
         options: { responsive:true, maintainAspectRatio:false,
-          layout: { padding: { top: 28 } },
+          layout: { padding: { top: 28, bottom: 24 } },
           plugins: {
             legend: { position:'top', labels:{ usePointStyle:true, padding:15, font:{family:'Kanit',size:11} } },
             datalabels: { display:true, rotation:-90, anchor:dynAnchor, align:dynAlign, formatter:v=>v!==0?fmt(v):'', font:{family:'Kanit',size:9,weight:'bold'}, color:'#333' }
           },
-          scales: { x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ...headroom([].concat(...data.map(d=>[d.salesFacebook,d.salesShopee,d.salesLazada,d.salesLineOA,d.adsFacebook,d.adsShopee,d.adsLazada,d.totalSales,d.totalAdsCost,d.netProfit])), 0.30), ticks:{callback:v=>fmt(v),font:{family:'Kanit',size:10}}, grid:{color:'#eee'} } }
+          scales: { x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:11}} }, y:{ ...headroom([].concat(...data.map(d=>[d.salesFacebook,d.salesShopee,d.salesLazada,d.salesLineOA,d.adsFacebook,d.adsShopee,d.adsLazada,d.totalSales,d.totalAdsCost, (d.netAfterAds!=null?d.netAfterAds:((d.netProfit||0)-(d.totalAdsCost||0)))])), 0.32), ticks:{callback:v=>fmt(v),font:{family:'Kanit',size:10}}, grid:{color:'#eee'} } }
         },
         plugins: [categorySeparatorPlugin]
       });
@@ -1557,13 +1562,13 @@
       rows.push({ name:'รวมทั้งหมด', sales:ts, ads:ta });
 
       const sub = document.querySelector('#itTodayChartContainer .chart-title');
-      if (sub) sub.textContent = '📊 ยอดขายวันนี้ และค่าโฆษณาวันนี้ (ค่าโฆษณารวมเดือน ÷ ' + dayNum + ')';
+      if (sub) sub.textContent = '📊 ยอดขายวันนี้ และค่าโฆษณาวันนี้';
 
       itCharts.today = new Chart(ctx, {
         type:'bar',
         data:{ labels: rows.map(r=>r.name), datasets:[
-          { label:'ยอดขายวันนี้', data: rows.map(r=>r.sales), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#1d4ed8':'#3b82f6'), borderRadius:{topLeft:6,topRight:6} },
-          { label:'ค่าโฆษณาวันนี้', data: rows.map(r=>r.ads), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#ea580c':'#f97316'), borderRadius:{topLeft:6,topRight:6} }
+          { label:'ยอดขายวันนี้', data: rows.map(r=>r.sales), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#4c51bf':'#667eea'), borderRadius:{topLeft:6,topRight:6} },
+          { label:'ค่าโฆษณาวันนี้', data: rows.map(r=>r.ads), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#e53e3e':'#ff6b6b'), borderRadius:{topLeft:6,topRight:6} }
         ]},
         options:{ responsive:true, maintainAspectRatio:false,
           layout: { padding: { top: 22 } },
