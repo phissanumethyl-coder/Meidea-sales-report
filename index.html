@@ -195,6 +195,13 @@
     .cal-cell.has-leave { background: #f0fdf4; border-color: #bbf7d0; }
     .cal-slot-line { font-size: 9.5px; color: #475569; line-height: 1.35; margin-bottom: 2px; }
     .cal-slot-line.leave { color: #16a34a; }
+    .cal-slot-line.off { color: #6b7280; }
+    .slot-block.is-done { background: #f0fdf4; border-color: #86efac; }
+    .slot-block.is-off { background: #f3f4f6; border-color: #d1d5db; }
+    .slot-block.is-locked { opacity: 0.55; }
+    .slot-time.time-valid { border-color: #22c55e; background: #f0fdf4; color: #15803d; font-weight: 600; }
+    .slot-time.time-invalid { border-color: #ef4444; background: #fef2f2; color: #b91c1c; }
+    .chip-off-on { background: #6b7280; color: #fff; border-color: #6b7280; }
     .cal-slot-line b { color: #c2410c; }
     .cal-note { color: #7c3aed; font-size: 9px; }
     /* Slot editor blocks */
@@ -2000,14 +2007,18 @@
     async function renderLiveHoursMonthChart(dateStr) {
       const ctx = document.getElementById('liveHoursMonthChart').getContext('2d');
       if (liveCharts.hoursMonth) liveCharts.hoursMonth.destroy();
-      const monthPrefix = dateStr.slice(0,7);
-      const my = thaiMonthYear(dateStr);
-      const t = document.getElementById('liveHoursMonthTitle'); if (t) t.textContent = '⏱️ ชั่วโมงไลฟ์สดประจำเดือน ' + my;
+      // Live-hours "month" = billing cycle 26 -> 25. The cycle's END month is what we label.
+      const cs = cycleStartForDate(new Date(dateStr));            // start month of the cycle
+      const cycle = cs.y + '-' + pad2(cs.m+1);                    // stored cycle key (start month)
+      const endM = (cs.m+1) % 12, endY = cs.m===11 ? cs.y+1 : cs.y;
+      const t = document.getElementById('liveHoursMonthTitle');
+      if (t) t.textContent = '⏱️ ชั่วโมงไลฟ์สดประจำเดือน ' + TH_MONTHS[endM] + ' ' + (endY+543) +
+        ' (26 ' + TH_MONTHS[cs.m] + ' – 25 ' + TH_MONTHS[endM] + ')';
       try {
-        // fetch all hours docs up to selected date, filter to this calendar month
-        const snap = await db.collection('live_hours').where('date','<=',dateStr).get();
+        // query by the cycle field so it always spans 26 -> 25
+        const snap = await db.collection('live_hours').where('cycle','==',cycle).get();
         const bySeller = {};
-        snap.forEach(doc => { const x = doc.data(); if (x.date.slice(0,7)===monthPrefix) bySeller[x.seller] = (bySeller[x.seller]||0) + dayHours(x); });
+        snap.forEach(doc => { const x = doc.data(); bySeller[x.seller] = (bySeller[x.seller]||0) + dayHours(x); });
         const rows = Object.entries(bySeller).map(([seller,h])=>({seller,hours:h})).sort((a,b)=>b.hours-a.hours);
         if (!rows.length) { liveCharts.hoursMonth = null; ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
         const grad = ctx.createLinearGradient(0,0,0,380); grad.addColorStop(0,'#8b5cf6'); grad.addColorStop(1,'#ddd6fe');
@@ -2105,7 +2116,7 @@
     }
     function dayHours(doc) {
       if (!doc || !doc.slots) return 0;
-      return doc.slots.reduce((s,sl)=> s + (sl.leave ? 0 : slotHours(sl.start, sl.end)), 0);
+      return doc.slots.reduce((s,sl)=> s + ((sl.leave||sl.off) ? 0 : slotHours(sl.start, sl.end)), 0);
     }
 
     async function loadLiveHours() {
@@ -2142,18 +2153,20 @@
         const doc = liveHoursDocs[key];
         const h = dayHours(doc);
         const hasAnyLeave = doc && doc.slots && doc.slots.some(s=>s.leave);
+        const hasAnyOff = doc && doc.slots && doc.slots.some(s=>s.off);
         if (h > 0) { totalHours += h; liveDays++; }
         let slotsTxt = '';
         if (doc && doc.slots) {
           slotsTxt = doc.slots.map((s,i) => {
             if (s.leave) return '<div class="cal-slot-line leave">ช่วง ' + (i+1) + ': 🌴 ลา' + (s.note?(' · '+escapeHtml(s.note)):'') + '</div>';
+            if (s.off) return '<div class="cal-slot-line off">ช่วง ' + (i+1) + ': ⛔ ว่าง' + (s.note?(' · '+escapeHtml(s.note)):'') + '</div>';
             if (!s.start || !s.end) return '';
             const sh = slotHours(s.start,s.end);
             return '<div class="cal-slot-line">ช่วง ' + (i+1) + ': ' + fmtThaiTime(s.start) + '–' + fmtThaiTime(s.end) + ' <b>(' + fmtHM(sh) + ')</b>' + (s.note?('<br><span class="cal-note">📝 '+escapeHtml(s.note)+'</span>'):'') + '</div>';
           }).join('');
         }
         html += '<div class="cal-cell ' + (h>0?'has-live':(hasAnyLeave?'has-leave':'')) + (key===todayKey?' today':'') + '" onclick="openLiveHoursDay(\'' + key + '\')">';
-        html += '<div class="cal-daynum">' + dt.getDate() + ' <small>' + TH_MONTHS[dt.getMonth()] + '</small>' + (hasAnyLeave?' 🌴':'') + '</div>';
+        html += '<div class="cal-daynum">' + dt.getDate() + ' <small>' + TH_MONTHS[dt.getMonth()] + '</small>' + (hasAnyLeave?' 🌴':'') + (hasAnyOff?' ⛔':'') + '</div>';
         html += '<div class="cal-slots">' + slotsTxt + '</div>';
         html += '<div class="cal-hours">' + (h>0 ? 'รวม ' + fmtHM(h) : '') + '</div>';
         html += '</div>';
@@ -2170,19 +2183,22 @@
 
     let liveHoursEditSlots = [];   // working copy while editing
 
+    function blankSlot() { return { start:'', end:'', note:'', leave:false, off:false }; }
+
     function openLiveHoursDay(dateKey) {
       liveHoursEditingDate = dateKey;
       const doc = liveHoursDocs[dateKey];
-      // deep copy existing slots, or start with 3 empty ones
       if (doc && doc.slots && doc.slots.length) {
-        liveHoursEditSlots = doc.slots.map(s => ({ start:s.start||'', end:s.end||'', note:s.note||'', leave:!!s.leave }));
+        liveHoursEditSlots = doc.slots.map(s => ({ start:s.start||'', end:s.end||'', note:s.note||'', leave:!!s.leave, off:!!s.off }));
       } else {
-        liveHoursEditSlots = [{start:'',end:'',note:'',leave:false},{start:'',end:'',note:'',leave:false},{start:'',end:'',note:'',leave:false}];
+        liveHoursEditSlots = [blankSlot(), blankSlot(), blankSlot()];
       }
       const [y,m,d] = dateKey.split('-').map(Number);
       document.getElementById('liveHoursDayTitle').textContent = '⏱️ ' + d + ' ' + TH_MONTHS[m-1] + ' ' + (y+543);
       renderLiveHoursSlots();
       openModal('liveHoursDayModal');
+      // focus the first time input of slot 1
+      setTimeout(() => { const el = document.getElementById('lhStart0'); if (el && !el.disabled) el.focus(); }, 60);
     }
 
     function syncLiveHoursSlotsFromDOM() {
@@ -2193,45 +2209,72 @@
         if (nt) s.note = nt.value;
       });
     }
+    // a slot is "complete" if it's leave, off, or has both valid times
+    function slotComplete(s) {
+      if (s.leave || s.off) return true;
+      return parseThaiTime(s.start) != null && parseThaiTime(s.end) != null;
+    }
+    // index of the first editable slot (all previous slots must be complete)
+    function firstIncompleteIndex() {
+      for (let i=0;i<liveHoursEditSlots.length;i++) if (!slotComplete(liveHoursEditSlots[i])) return i;
+      return liveHoursEditSlots.length;
+    }
+
     function addLiveHoursSlot() {
       syncLiveHoursSlotsFromDOM();
-      liveHoursEditSlots.push({start:'',end:'',note:'',leave:false});
+      // block adding a new slot until the current last one is complete
+      const last = liveHoursEditSlots[liveHoursEditSlots.length-1];
+      if (last && !slotComplete(last)) { showToast('กรอกช่วงก่อนหน้าให้ครบก่อน หรือทำเป็นลา/ว่าง', 'error'); return; }
+      liveHoursEditSlots.push(blankSlot());
       renderLiveHoursSlots();
+      setTimeout(()=>{ const el=document.getElementById('lhStart'+(liveHoursEditSlots.length-1)); if(el) el.focus(); },40);
     }
     function removeLiveHoursSlot(i) {
       syncLiveHoursSlotsFromDOM();
       liveHoursEditSlots.splice(i,1);
-      if (!liveHoursEditSlots.length) liveHoursEditSlots.push({start:'',end:'',note:'',leave:false});
+      if (!liveHoursEditSlots.length) liveHoursEditSlots.push(blankSlot());
       renderLiveHoursSlots();
     }
     function toggleLiveHoursLeave(i) {
       syncLiveHoursSlotsFromDOM();
       liveHoursEditSlots[i].leave = !liveHoursEditSlots[i].leave;
+      if (liveHoursEditSlots[i].leave) liveHoursEditSlots[i].off = false;
+      renderLiveHoursSlots();
+    }
+    function toggleLiveHoursOff(i) {
+      syncLiveHoursSlotsFromDOM();
+      liveHoursEditSlots[i].off = !liveHoursEditSlots[i].off;
+      if (liveHoursEditSlots[i].off) liveHoursEditSlots[i].leave = false;
       renderLiveHoursSlots();
     }
 
     function renderLiveHoursSlots() {
+      const firstEditable = firstIncompleteIndex();
       let html = '';
       liveHoursEditSlots.forEach((s,i) => {
-        html += '<div class="slot-block ' + (s.leave?'is-leave':'') + '">';
-        html += '<div class="slot-block-head"><span class="slot-label">ช่วง ' + (i+1) + '</span>';
+        // a slot is locked if a previous slot is still incomplete
+        const locked = i > firstEditable;
+        const stateClass = s.leave ? 'is-leave' : (s.off ? 'is-off' : (slotComplete(s) ? 'is-done' : ''));
+        html += '<div class="slot-block ' + stateClass + (locked?' is-locked':'') + '">';
+        html += '<div class="slot-block-head"><span class="slot-label">ช่วง ' + (i+1) + (locked?' 🔒':'') + '</span>';
         html += '<div class="slot-block-actions">';
-        html += '<button type="button" class="chip-btn ' + (s.leave?'chip-leave-on':'') + '" onclick="toggleLiveHoursLeave(' + i + ')">' + (s.leave?'🌴 ลา (คลิกยกเลิก)':'🌴 ทำเครื่องหมายลา') + '</button>';
-        html += '<button type="button" class="chip-btn chip-del" onclick="removeLiveHoursSlot(' + i + ')">🗑️ ลบช่วง</button>';
+        html += '<button type="button" class="chip-btn ' + (s.leave?'chip-leave-on':'') + '" onclick="toggleLiveHoursLeave(' + i + ')">' + (s.leave?'🌴 ลา (ยกเลิก)':'🌴 ลา') + '</button>';
+        html += '<button type="button" class="chip-btn ' + (s.off?'chip-off-on':'') + '" onclick="toggleLiveHoursOff(' + i + ')">' + (s.off?'⛔ ว่าง (ยกเลิก)':'⛔ ไม่ได้ไลฟ์') + '</button>';
+        html += '<button type="button" class="chip-btn chip-del" onclick="removeLiveHoursSlot(' + i + ')">🗑️ ลบ</button>';
         html += '</div></div>';
-        if (s.leave) {
-          html += '<div class="slot-leave-note">ช่วงนี้ = ลา (ไม่นับชั่วโมง)</div>';
-          html += '<input type="text" id="lhNote'+i+'" class="slot-note-input" placeholder="หมายเหตุ เช่น ลากิจ / ใบเตยไลฟ์แทน" value="'+escapeHtml(s.note)+'">';
-          // keep hidden time holders so sync works uniformly
+        if (s.leave || s.off) {
+          html += '<div class="slot-leave-note">' + (s.leave?'ช่วงนี้ = ลา':'ช่วงนี้ = ว่าง/ไม่ได้ไลฟ์') + ' (ไม่นับชั่วโมง)</div>';
+          html += '<input type="text" id="lhNote'+i+'" class="slot-note-input" autocomplete="off" placeholder="หมายเหตุ (ถ้ามี)" value="'+escapeHtml(s.note)+'">';
           html += '<input type="hidden" id="lhStart'+i+'" value="'+escapeHtml(s.start)+'"><input type="hidden" id="lhEnd'+i+'" value="'+escapeHtml(s.end)+'">';
         } else {
+          const dis = locked ? ' disabled' : '';
           html += '<div class="slot-time-row">';
-          html += '<input type="text" inputmode="decimal" id="lhStart'+i+'" class="slot-time" placeholder="เริ่ม 13.00" value="'+escapeHtml(s.start)+'" oninput="updateLiveHoursDayTotal()">';
+          html += '<input type="text" inputmode="decimal" autocomplete="off" id="lhStart'+i+'" class="slot-time" placeholder="เริ่ม 13.00" value="'+escapeHtml(s.start)+'"'+dis+' oninput="onLiveHoursTimeInput()" onblur="normalizeLiveHoursField(this)" onkeydown="liveHoursKey(event,'+i+',0)">';
           html += '<span class="slot-dash">–</span>';
-          html += '<input type="text" inputmode="decimal" id="lhEnd'+i+'" class="slot-time" placeholder="จบ 15.30" value="'+escapeHtml(s.end)+'" oninput="updateLiveHoursDayTotal()">';
+          html += '<input type="text" inputmode="decimal" autocomplete="off" id="lhEnd'+i+'" class="slot-time" placeholder="จบ 15.30" value="'+escapeHtml(s.end)+'"'+dis+' oninput="onLiveHoursTimeInput()" onblur="normalizeLiveHoursField(this)" onkeydown="liveHoursKey(event,'+i+',1)">';
           html += '<span class="slot-unit">น.</span>';
           html += '<span class="slot-dur" id="lhDur'+i+'"></span></div>';
-          html += '<input type="text" id="lhNote'+i+'" class="slot-note-input" placeholder="หมายเหตุ (ถ้ามี) เช่น ใบเตยไลฟ์แทน" value="'+escapeHtml(s.note)+'">';
+          html += '<input type="text" id="lhNote'+i+'" class="slot-note-input" autocomplete="off" placeholder="หมายเหตุ (ถ้ามี) เช่น ใบเตยไลฟ์แทน" value="'+escapeHtml(s.note)+'"'+dis+'>';
         }
         html += '</div>';
       });
@@ -2239,10 +2282,64 @@
       updateLiveHoursDayTotal();
     }
 
+    // validate time format live: only digits and one dot, HH.MM
+    function isValidThaiTimeStr(str) { return parseThaiTime(str) != null; }
+
+    function onLiveHoursTimeInput() {
+      // mark each visible time field valid/invalid + recompute total
+      liveHoursEditSlots.forEach((s,i) => {
+        const st = document.getElementById('lhStart'+i), en = document.getElementById('lhEnd'+i);
+        if (st && st.type==='text') st.classList.toggle('time-valid', isValidThaiTimeStr(st.value));
+        if (en && en.type==='text') en.classList.toggle('time-valid', isValidThaiTimeStr(en.value));
+      });
+      updateLiveHoursDayTotal();
+    }
+    function normalizeLiveHoursField(el) {
+      const v = el.value.trim();
+      if (v === '') { el.classList.remove('time-valid','time-invalid'); return; }
+      const t = parseThaiTime(v);
+      if (t == null) { el.classList.add('time-invalid'); el.classList.remove('time-valid'); }
+      else { el.value = fmtThaiTime(v); el.classList.add('time-valid'); el.classList.remove('time-invalid'); }
+    }
+
+    // Enter navigation: start -> end -> next slot's start ... last -> save
+    function liveHoursKey(e, i, which) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const el = e.target;
+      // validate current field first
+      if (el.value.trim() !== '' && parseThaiTime(el.value) == null) {
+        showToast('รูปแบบเวลาไม่ถูกต้อง เช่น 00.30, 7.31, 22.04', 'error');
+        el.classList.add('time-invalid'); el.focus(); return;
+      }
+      if (el.value.trim() !== '') el.value = fmtThaiTime(el.value);
+      syncLiveHoursSlotsFromDOM();
+
+      if (which === 0) {
+        // move to end of same slot
+        const en = document.getElementById('lhEnd'+i); if (en) { en.focus(); en.select && en.select(); }
+        return;
+      }
+      // which === 1 (end field): this slot must be complete to proceed
+      const s = liveHoursEditSlots[i];
+      if (parseThaiTime(s.start) == null || parseThaiTime(s.end) == null) {
+        showToast('กรอกเวลาช่วงนี้ให้ครบก่อน', 'error'); return;
+      }
+      // find next slot start
+      const nextStart = document.getElementById('lhStart'+(i+1));
+      if (nextStart) {
+        renderLiveHoursSlots();   // unlock next slot
+        setTimeout(()=>{ const n=document.getElementById('lhStart'+(i+1)); if(n){ n.focus(); } }, 40);
+      } else {
+        // last slot -> save
+        confirmSaveLiveHoursDay();
+      }
+    }
+
     function updateLiveHoursDayTotal() {
       let total = 0;
       liveHoursEditSlots.forEach((s,i) => {
-        if (s.leave) return;
+        if (s.leave || s.off) return;
         const st = document.getElementById('lhStart'+i), en = document.getElementById('lhEnd'+i);
         const h = slotHours(st?st.value:'', en?en.value:'');
         total += h;
@@ -2254,6 +2351,15 @@
 
     function confirmSaveLiveHoursDay() {
       syncLiveHoursSlotsFromDOM();
+      // validate: no partially-filled time slot, and no gap (each slot before a filled one must be complete)
+      for (let i=0;i<liveHoursEditSlots.length;i++) {
+        const s = liveHoursEditSlots[i];
+        if (s.leave || s.off) continue;
+        const hasStart = s.start.trim()!=='', hasEnd = s.end.trim()!=='';
+        if (hasStart !== hasEnd) { showToast('ช่วง ' + (i+1) + ' กรอกเวลาไม่ครบ', 'error'); return; }
+        if (hasStart && parseThaiTime(s.start)==null) { showToast('ช่วง ' + (i+1) + ' เวลาเริ่มผิดรูปแบบ', 'error'); return; }
+        if (hasEnd && parseThaiTime(s.end)==null) { showToast('ช่วง ' + (i+1) + ' เวลาจบผิดรูปแบบ', 'error'); return; }
+      }
       showConfirm({ icon:'💾', title:'ยืนยันการบันทึก', message:'บันทึกชั่วโมงไลฟ์ของวันนี้ใช่หรือไม่?', okText:'บันทึก', onOk: saveLiveHoursDay });
     }
     function confirmClearLiveHoursDay() {
@@ -2264,13 +2370,12 @@
       const seller = document.getElementById('liveHoursSeller').value;
       if (!seller || !liveHoursEditingDate) return;
       syncLiveHoursSlotsFromDOM();
-      // keep only meaningful slots: has time OR is leave OR has note
       const slots = liveHoursEditSlots
-        .map(s => ({ start: fmtThaiTime(s.start), end: fmtThaiTime(s.end), note: (s.note||'').trim(), leave: !!s.leave }))
-        .filter(s => s.leave || (s.start && s.end) || s.note);
+        .map(s => ({ start: fmtThaiTime(s.start), end: fmtThaiTime(s.end), note: (s.note||'').trim(), leave: !!s.leave, off: !!s.off }))
+        .filter(s => s.leave || s.off || (s.start && s.end) || s.note);
       const cs = cycleStartForDate(new Date(liveHoursEditingDate));
       const cycle = cs.y + '-' + pad2(cs.m+1);
-      const hours = slots.reduce((a,sl)=> a + (sl.leave?0:slotHours(sl.start,sl.end)), 0);
+      const hours = slots.reduce((a,sl)=> a + ((sl.leave||sl.off)?0:slotHours(sl.start,sl.end)), 0);
       const docId = safeId(seller) + '_' + liveHoursEditingDate;
       const data = { seller, date: liveHoursEditingDate, cycle, slots, hours, updatedAt: new Date().toISOString() };
       const btns = document.querySelectorAll('#liveHoursDayModal button');
