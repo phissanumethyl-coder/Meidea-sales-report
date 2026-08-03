@@ -1873,25 +1873,35 @@
       const st = document.getElementById('liveSalesAdsTitle'); if (st) st.textContent = 'ยอดขายและค่าโฆษณา รายเซลล์ เดือน ' + my;
       const tt = document.getElementById('liveTotalsTitle'); if (tt) tt.textContent = 'ยอดขายรวม ค่าโฆษณา และกำไรสุทธิ เดือน ' + my;
 
-      renderLiveTotals(totalSales, totalAds, totalNet);
+      renderLiveTotals(rows);
       renderLiveRank(rows);
       renderLiveSalesAds(rows, totalSales, totalAds);
       renderLiveDonuts(totalSales, totalAds);
     }
 
     // Graph 1: overall totals (sales / ads / net)
-    function renderLiveTotals(totalSales, totalAds, totalNet) {
+    // Graph 1: per-seller — ยอดขายรวม Tiktok / ค่าโฆษณารวม / กำไรสุทธิ (grouped, like IT main chart)
+    function renderLiveTotals(rows) {
       const ctx = document.getElementById('liveTotalsChart').getContext('2d');
       if (liveCharts.totals) liveCharts.totals.destroy();
-      const vals = [totalSales, totalAds, totalNet];
+      const sorted = rows.slice().sort((a,b)=>b.sales-a.sales);
+      const salesArr = sorted.map(r=>r.sales);
+      const adsArr = sorted.map(r=>r.ads);
+      const netArr = sorted.map(r=>(r.sales||0)-(r.cost||0)-(r.ads||0));
       liveCharts.totals = new Chart(ctx, {
         type:'bar',
-        data:{ labels:['ยอดขายรวม','ค่าโฆษณารวม','กำไรสุทธิ'], datasets:[{ data: vals, backgroundColor:['#4361ee','#ef4444','#22c55e'], borderRadius:8 }] },
+        data:{ labels: sorted.map(r=>r.seller), datasets:[
+          { label:'ยอดขายรวม Tiktok', data: salesArr, backgroundColor:'#f59e0b', borderRadius:4 },
+          { label:'ค่าโฆษณารวม', data: adsArr, backgroundColor:'#ef4444', borderRadius:4 },
+          { label:'กำไรสุทธิ', data: netArr, backgroundColor:'#22c55e', borderRadius:4 }
+        ]},
         options:{ responsive:true, maintainAspectRatio:false,
-          layout:{ padding:{ top:24, bottom:20 } },
-          plugins:{ legend:{display:false}, datalabels:{ anchor:dynAnchor, align:dynAlign, formatter:v=>fmt(v), font:{family:'Kanit',weight:'bold',size:14}, color:'#333' } },
-          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:13}} }, y:{ ...headroom(vals, 0.18), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
-        }
+          layout:{ padding:{ top:28, bottom:24 } },
+          plugins:{ legend:{position:'top',labels:{usePointStyle:true,padding:15,font:{family:'Kanit',size:12}}},
+            datalabels:{ rotation:-90, anchor:dynAnchor, align:dynAlign, formatter:v=>v!==0?fmt(v):'', font:{family:'Kanit',weight:'bold',size:10}, color:'#333' } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ...headroom(salesArr.concat(adsArr, netArr), 0.30), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#eee'} } }
+        },
+        plugins: [categorySeparatorPlugin]
       });
     }
 
