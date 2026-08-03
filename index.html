@@ -754,6 +754,13 @@
       const d = new Date();
       return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     }
+    // day before a given YYYY-MM-DD (defaults to today)
+    function prevDateStr(dateStr) {
+      const [y,m,d] = (dateStr || todayStr()).split('-').map(Number);
+      const dt = new Date(y, m-1, d);
+      dt.setDate(dt.getDate() - 1);
+      return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+    }
     function showToast(msg, type) {
       const t = document.getElementById('toast');
       t.textContent = msg;
@@ -1979,11 +1986,13 @@
     async function renderLiveHoursDayChart(dateStr) {
       const ctx = document.getElementById('liveHoursDayChart').getContext('2d');
       if (liveCharts.hoursDay) liveCharts.hoursDay.destroy();
-      const d = parseInt(dateStr.slice(8,10),10);
-      const my = thaiMonthYear(dateStr);
+      // show YESTERDAY's hours (today's live hours aren't finished yet)
+      const targetDate = prevDateStr(dateStr);
+      const d = parseInt(targetDate.slice(8,10),10);
+      const my = thaiMonthYear(targetDate);
       const t = document.getElementById('liveHoursDayTitle2'); if (t) t.textContent = '⏱️ ชั่วโมงไลฟ์สดประจำวันที่ ' + d + ' เดือน ' + my;
       try {
-        const snap = await db.collection('live_hours').where('date','==',dateStr).get();
+        const snap = await db.collection('live_hours').where('date','==',targetDate).get();
         const rows = [];
         snap.forEach(doc => { const x = doc.data(); rows.push({ seller:x.seller, hours: dayHours(x) }); });
         rows.sort((a,b)=>b.hours-a.hours);
@@ -2015,10 +2024,11 @@
       if (t) t.textContent = '⏱️ ชั่วโมงไลฟ์สดประจำเดือน ' + TH_MONTHS[endM] + ' ' + (endY+543) +
         ' (26 ' + TH_MONTHS[cs.m] + ' – 25 ' + TH_MONTHS[endM] + ')';
       try {
-        // query by the cycle field so it always spans 26 -> 25
+        // query by the cycle field so it always spans 26 -> 25, but only count up to YESTERDAY
+        const cutoff = prevDateStr(dateStr);   // yesterday
         const snap = await db.collection('live_hours').where('cycle','==',cycle).get();
         const bySeller = {};
-        snap.forEach(doc => { const x = doc.data(); bySeller[x.seller] = (bySeller[x.seller]||0) + dayHours(x); });
+        snap.forEach(doc => { const x = doc.data(); if (x.date <= cutoff) bySeller[x.seller] = (bySeller[x.seller]||0) + dayHours(x); });
         const rows = Object.entries(bySeller).map(([seller,h])=>({seller,hours:h})).sort((a,b)=>b.hours-a.hours);
         if (!rows.length) { liveCharts.hoursMonth = null; ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
         const grad = ctx.createLinearGradient(0,0,0,380); grad.addColorStop(0,'#8b5cf6'); grad.addColorStop(1,'#ddd6fe');
