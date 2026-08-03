@@ -1811,9 +1811,16 @@
     function renderLiveTable() {
       const byDate = {};
       liveTableList.forEach(d => { (byDate[d.date] = byDate[d.date] || []).push(d); });
-      const dates = Object.keys(byDate).sort().reverse();
-      const todayDate = dates[0], yDate = dates[1] || null;
-      document.getElementById('liveDateRangeInfo').textContent = '📅 ล่าสุด: ' + todayDate;
+
+      // Use the date selected in the dashboard filter as the "latest" column.
+      // Fall back to the newest date with data if the filter is empty.
+      const selDate = (document.getElementById('liveFilterDate') && document.getElementById('liveFilterDate').value) || null;
+      const allDates = Object.keys(byDate).sort();       // ascending
+      const todayDate = selDate || (allDates.length ? allDates[allDates.length-1] : todayStr());
+      // yesterday = calendar day before the selected date (may or may not have data)
+      const yDate = prevDateStr(todayDate);
+
+      document.getElementById('liveDateRangeInfo').textContent = '📅 วันที่เลือก: ' + todayDate + '  (เทียบกับ ' + yDate + ')';
 
       // month-to-date totals per seller (sum of daily records, same month, up to todayDate)
       const monthPrefix = todayDate.slice(0,7);
