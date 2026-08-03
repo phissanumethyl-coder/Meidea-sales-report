@@ -35,8 +35,8 @@
       --radius-md: 12px;
       --radius-lg: 16px;
       /* Team accent (switched dynamically) */
-      --team-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --team-color: #667eea;
+      --team-gradient: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+      --team-color: #2563eb;
     }
     html { overflow-y: scroll; scrollbar-gutter: stable; }
     body { font-family: 'Kanit', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
@@ -223,6 +223,7 @@
     .live-cum-summary .cum-item { background: #fff; border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
     .live-cum-summary .cum-item span { font-size: 11px; color: var(--text-secondary); }
     .live-cum-summary .cum-item b { font-size: 17px; color: #c2410c; }
+    .danger-zone { border: 1px solid #fecaca; background: #fef2f2; }
 
     /* Remove number spinner arrows -> plain empty box */
     .no-spin::-webkit-outer-spin-button, .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -251,6 +252,16 @@
     .input-lineoa .form-label { color: #06663b; font-weight: 600; }
     .input-total .form-input { border-left: 5px solid #f59e0b; background: #fffbeb; font-weight: 700; color: #b45309; }
     .input-total .form-label { color: #b45309; font-weight: 700; }
+    /* Live daily input colors */
+    .input-sales .form-input { border-left: 5px solid #22c55e; background: #f0fdf4; }
+    .input-sales .form-input:focus { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
+    .input-sales .form-label { color: #16a34a; font-weight: 600; }
+    .input-cost .form-input { border-left: 5px solid #eab308; background: #fefce8; }
+    .input-cost .form-input:focus { border-color: #eab308; box-shadow: 0 0 0 3px rgba(234,179,8,0.15); }
+    .input-cost .form-label { color: #a16207; font-weight: 600; }
+    .input-adsblue .form-input { border-left: 5px solid #2563eb; background: #eff6ff; }
+    .input-adsblue .form-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+    .input-adsblue .form-label { color: #1d4ed8; font-weight: 600; }
 
     /* Prominent "pull latest" button */
     .pull-latest-wrap { margin: 16px 0 8px; }
@@ -300,6 +311,7 @@
         <button class="nav-tab active" data-page="live-input">กรอกยอดไลฟ์</button>
         <button class="nav-tab" data-page="live-hours">⏱️ ชั่วโมงไลฟ์</button>
         <button class="nav-tab" data-page="live-dashboard">Dashboard ไลฟ์</button>
+        <button class="nav-tab" data-page="live-manage">👥 จัดการเซลล์</button>
       </nav>
     </div>
   </header>
@@ -393,6 +405,16 @@
         </div>
         <p class="hint" style="margin-bottom:16px;">💡 เมื่อพนักงานลาออก กด "ปิดใช้งาน" — ชื่อจะหายจาก dropdown กรอกยอด แต่ข้อมูลยอดขายเดิมยังอยู่ครบ กู้คืนได้ทุกเมื่อ</p>
         <div id="itManageContainer"><div class="loading active"><div class="spinner"></div></div></div>
+      </div>
+
+      <div class="card danger-zone">
+        <div class="card-header"><h2 class="card-title" style="color:#dc2626;">⚠️ ล้างข้อมูลยอด (Danger Zone)</h2></div>
+        <p class="hint" style="margin-bottom:16px;">ล้างเฉพาะ <b>ยอดขาย/ต้นทุน/ชั่วโมงไลฟ์</b> ทั้งหมด — <b>เก็บรายชื่อสาขา/พนักงาน/เซลล์ไว้</b> · ใช้ตอนขึ้นเดือน/ปีใหม่หรือเริ่มใช้จริง · ทำแล้วย้อนกลับไม่ได้</p>
+        <div class="btn-group" style="margin-top:0;">
+          <button class="btn btn-outline" style="border-color:#fca5a5;color:#dc2626;" onclick="confirmResetData('it')">🗑️ ล้างยอดฝ่ายไอที</button>
+          <button class="btn btn-outline" style="border-color:#fca5a5;color:#dc2626;" onclick="confirmResetData('live')">🗑️ ล้างยอดฝ่ายไลฟ์สด</button>
+          <button class="btn btn-outline" style="border-color:#dc2626;color:#dc2626;background:#fef2f2;" onclick="confirmResetData('all')">🗑️ ล้างยอดทั้งหมด (ทุกฝ่าย)</button>
+        </div>
       </div>
     </div>
 
@@ -500,10 +522,9 @@
         <div class="form-grid">
           <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="liveDate" class="form-input" onchange="onLiveSellerPicked()"><small class="hint">เว้นว่าง = วันนี้</small></div>
           <div class="form-group"><label class="form-label">เซลล์</label><select id="liveSeller" class="form-select" onchange="onLiveSellerPicked()"><option value="">เลือกเซลล์</option></select></div>
-          <div class="form-group"><label class="form-label">💰 ยอดขายวันนี้ (บาท)</label><input type="number" id="liveSales" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
-          <div class="form-group"><label class="form-label">📦 ต้นทุนวันนี้ (บาท)</label><input type="number" id="liveCost" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
-          <div class="form-group"><label class="form-label">📣 ค่าโฆษณาวันนี้ (บาท)</label><input type="number" id="liveAds" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
-          <div class="form-group"><label class="form-label">% ต้นทุนวันนี้</label><input type="text" id="liveCostPct" class="form-input" disabled></div>
+          <div class="form-group input-sales"><label class="form-label">💰 ยอดขายวันนี้ (บาท)</label><input type="text" inputmode="decimal" id="liveSales" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group input-cost"><label class="form-label">📦 ต้นทุนวันนี้ (บาท)</label><input type="text" inputmode="decimal" id="liveCost" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group input-adsblue"><label class="form-label">📣 ค่าโฆษณาวันนี้ (บาท)</label><input type="text" inputmode="decimal" id="liveAds" class="form-input no-spin" placeholder="0" oninput="calcLiveTotals()"></div>
         </div>
         <div id="liveCumSummary" class="live-cum-summary" style="display:none;"></div>
         <div class="btn-group">
@@ -597,6 +618,22 @@
           <p class="chart-subtitle" id="liveHoursChartSubtitle"></p>
         </div>
         <div class="medium-chart-wrapper"><canvas id="liveHoursChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- LIVE Page: Manage sellers -->
+    <div id="page-live-manage" class="page">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">👥 จัดการเซลล์ไลฟ์ (เปิด/ปิดการใช้งาน)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);"><input type="checkbox" id="liveShowInactive" onchange="renderLiveManage()"> แสดงคนที่ปิดใช้งานด้วย</label>
+            <button class="btn btn-secondary btn-sm" onclick="openModal('liveAddSellerModal')">+ เพิ่มเซลล์</button>
+            <button class="btn btn-outline btn-sm" onclick="loadLiveManageForce()">🔄 รีเฟรช</button>
+          </div>
+        </div>
+        <p class="hint" style="margin-bottom:16px;">💡 เมื่อเซลล์ลาออก กด "ปิดใช้งาน" — ชื่อจะหายจาก dropdown กรอกยอด/ชั่วโมง แต่ข้อมูลเดิมยังอยู่ครบ กู้คืนได้ทุกเมื่อ</p>
+        <div id="liveManageContainer"><div class="loading active"><div class="spinner"></div></div></div>
       </div>
     </div>
   </section>
@@ -748,8 +785,8 @@
       // switch theme color
       const root = document.documentElement.style;
       if (team === 'it') {
-        root.setProperty('--team-gradient', 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)');
-        root.setProperty('--team-color', '#667eea');
+        root.setProperty('--team-gradient', 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)');
+        root.setProperty('--team-color', '#2563eb');
       } else {
         root.setProperty('--team-gradient', 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)');
         root.setProperty('--team-color', '#f97316');
@@ -777,6 +814,7 @@
           else if (page === 'live-dashboard') loadLiveDashboard();
           else if (page === 'live-input') loadLiveTable();
           else if (page === 'live-hours') loadLiveHours();
+          else if (page === 'live-manage') renderLiveManage();
         });
       });
     }
@@ -1451,7 +1489,7 @@
       itCharts.today = new Chart(ctx, {
         type:'bar',
         data:{ labels: rows.map(r=>r.name), datasets:[
-          { label:'ยอดขายวันนี้', data: rows.map(r=>r.sales), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#1877f2':'#667eea'), borderRadius:{topLeft:6,topRight:6} },
+          { label:'ยอดขายวันนี้', data: rows.map(r=>r.sales), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#1d4ed8':'#3b82f6'), borderRadius:{topLeft:6,topRight:6} },
           { label:'ต้นทุนวันนี้', data: rows.map(r=>r.cost), backgroundColor: rows.map(r=>r.name==='รวมทั้งหมด'?'#ff4757':'#ff6b6b'), borderRadius:{topLeft:6,topRight:6} }
         ]},
         options:{ responsive:true, maintainAspectRatio:false,
@@ -1480,8 +1518,8 @@
       const labels = ['ยอดขายรวม '+sp.toFixed(0)+'% ('+fmt(totalSales)+')', 'ค่าโฆษณารวม '+cp.toFixed(0)+'% ('+fmt(totalAds)+')'];
       if (itCharts.pieNum) itCharts.pieNum.destroy();
       if (itCharts.piePct) itCharts.piePct.destroy();
-      itCharts.pieNum = makePie('itSummaryPieNum', labels, [totalSales,totalAds], ['#667eea','#ef4444'], false);
-      itCharts.piePct = makePie('itSummaryPiePct', labels, [sp,cp], ['#667eea','#ef4444'], true);
+      itCharts.pieNum = makePie('itSummaryPieNum', labels, [totalSales,totalAds], ['#2563eb','#ef4444'], false);
+      itCharts.piePct = makePie('itSummaryPiePct', labels, [sp,cp], ['#2563eb','#ef4444'], true);
     }
 
     function renderItBranchPies() {
@@ -1501,25 +1539,28 @@
         div.innerHTML = '<div class="pie-chart-title">📊 '+branch+': ยอดขาย vs ค่าโฆษณา</div><canvas id="itBranchPie'+idx+'" width="390" height="390"></canvas>';
         container.appendChild(div);
         const labels = ['ยอดขาย '+sp.toFixed(0)+'% ('+fmt(d.totalSales)+')', 'ค่าโฆษณา '+cp.toFixed(0)+'% ('+fmt(d.totalAdsCost)+')'];
-        itCharts.branchPies.push(makePie('itBranchPie'+idx, labels, [sp,cp], ['#667eea','#ef4444'], true));
+        itCharts.branchPies.push(makePie('itBranchPie'+idx, labels, [sp,cp], ['#2563eb','#ef4444'], true));
       });
     }
 
     // =====================================================
     // ================= LIVE TEAM =========================
     // =====================================================
-    let liveSellers = [];
+    let liveSellers = [];        // active names only (for dropdowns)
+    let liveSellerList = [];     // [{id, name, active}]
     let liveData = [];
 
     async function loadLiveSellers() {
       try {
-        if (isCacheValid('liveMeta') && cache.liveSellers) { liveSellers = cache.liveSellers; populateLiveSellerSelect(); return; }
+        if (isCacheValid('liveMeta') && cache.liveSellers) { liveSellerList = cache.liveSellers; refreshLiveSellerNames(); populateLiveSellerSelect(); return; }
         const snap = await db.collection('live_sellers').orderBy('order').get();
-        liveSellers = []; snap.forEach(d => liveSellers.push(d.data().name));
-        cache.liveSellers = liveSellers; touchCache('liveMeta');
+        liveSellerList = []; snap.forEach(d => { const s = d.data(); liveSellerList.push({ id:d.id, name:s.name, active: s.active !== false }); });
+        cache.liveSellers = liveSellerList; touchCache('liveMeta');
+        refreshLiveSellerNames();
         populateLiveSellerSelect();
       } catch (err) { console.error(err); showToast('โหลดข้อมูล Live ผิดพลาด', 'error'); }
     }
+    function refreshLiveSellerNames() { liveSellers = liveSellerList.filter(s => s.active !== false).map(s => s.name); }
     function populateLiveSellerSelect() {
       ['liveSeller','liveHoursSeller'].forEach(id => {
         const sel = document.getElementById(id); if (!sel) return;
@@ -1533,20 +1574,55 @@
       const name = document.getElementById('liveNewSellerName').value.trim();
       if (!name) { showToast('กรอกชื่อเซลล์', 'error'); return; }
       try {
-        await db.collection('live_sellers').doc(safeId(name)).set({ name, order: liveSellers.length+1, createdAt:new Date().toISOString() });
-        liveSellers.push(name); cache.liveSellers = liveSellers;
+        const id = safeId(name);
+        await db.collection('live_sellers').doc(id).set({ name, order: liveSellerList.length+1, active:true, createdAt:new Date().toISOString() });
+        const ex = liveSellerList.find(s => s.id === id);
+        if (ex) ex.active = true; else liveSellerList.push({ id, name, active:true });
+        cache.liveSellers = liveSellerList; refreshLiveSellerNames();
         populateLiveSellerSelect(); closeModal('liveAddSellerModal');
         document.getElementById('liveNewSellerName').value = '';
+        renderLiveManage();
         showToast('เพิ่มเซลล์สำเร็จ', 'success');
       } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
     }
 
-    function calcLiveTotals() {
-      const s = num('liveSales'), c = num('liveCost');
-      document.getElementById('liveCostPct').value = (s>0 ? (c/s*100).toFixed(2) : '0.00') + '%';
+    // ===== Manage live sellers =====
+    function loadLiveManageForce() { delete cache.lastFetch['liveMeta']; loadLiveSellers().then(renderLiveManage); }
+    function renderLiveManage() {
+      const container = document.getElementById('liveManageContainer');
+      if (!container) return;
+      const showInactive = document.getElementById('liveShowInactive').checked;
+      if (!liveSellerList.length) { container.innerHTML = '<p class="empty-msg">ยังไม่มีเซลล์</p>'; return; }
+      const list = liveSellerList.filter(e => showInactive || e.active !== false)
+                                 .sort((a,b) => (b.active?1:0)-(a.active?1:0) || a.name.localeCompare(b.name,'th'));
+      if (!list.length) { container.innerHTML = '<p class="empty-msg">ไม่มีเซลล์ที่แสดง</p>'; return; }
+      let html = '';
+      list.forEach(e => {
+        const active = e.active !== false;
+        html += '<div class="manage-row">';
+        html += '<span class="manage-name">' + e.name + '</span>';
+        html += '<span class="' + (active?'badge-active':'badge-inactive') + '">' + (active?'ทำงานอยู่':'ลาออก/ปิดใช้งาน') + '</span>';
+        html += '<span class="manage-actions">';
+        if (active) html += '<button class="btn btn-outline btn-sm" onclick="setLiveSellerActive(\'' + e.id.replace(/'/g,"\\'") + '\', false)">🚫 ปิดใช้งาน</button>';
+        else html += '<button class="btn btn-primary btn-sm" onclick="setLiveSellerActive(\'' + e.id.replace(/'/g,"\\'") + '\', true)">↩️ กู้คืน</button>';
+        html += '</span></div>';
+      });
+      container.innerHTML = html;
     }
+    async function setLiveSellerActive(id, active) {
+      try {
+        await db.collection('live_sellers').doc(id).update({ active });
+        const e = liveSellerList.find(x => x.id === id);
+        if (e) e.active = active;
+        cache.liveSellers = liveSellerList; refreshLiveSellerNames();
+        populateLiveSellerSelect(); renderLiveManage();
+        showToast(active ? 'กู้คืนเซลล์แล้ว' : 'ปิดใช้งานเซลล์แล้ว', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
+    }
+
+    function calcLiveTotals() { /* live totals are shown in the cumulative summary box */ }
     function clearLiveForm() {
-      ['liveSales','liveCost','liveAds','liveCostPct'].forEach(id => document.getElementById(id).value = '');
+      ['liveSales','liveCost','liveAds'].forEach(id => document.getElementById(id).value = '');
     }
 
     // Show cumulative (month-to-date) totals for the chosen seller, and prefill if today already saved
@@ -2091,6 +2167,50 @@
           }
         });
       } catch (err) { console.error(err); }
+    }
+
+    // =====================================================
+    // RESET / CLEAR SALES DATA (keeps employees/branches/sellers)
+    // =====================================================
+    function confirmResetData(scope) {
+      const label = scope==='it' ? 'ฝ่ายไอที' : scope==='live' ? 'ฝ่ายไลฟ์สด' : 'ทุกฝ่าย';
+      showConfirm({
+        icon:'⚠️', danger:true,
+        title:'ยืนยันการล้างยอด (' + label + ')',
+        message:'จะลบยอดขาย/ต้นทุน/ชั่วโมงไลฟ์ทั้งหมดของ' + label + ' แต่เก็บรายชื่อพนักงาน/สาขา/เซลล์ไว้ · ทำแล้วย้อนกลับไม่ได้ แน่ใจหรือไม่?',
+        okText:'ล้างข้อมูล',
+        onOk: () => resetData(scope)
+      });
+    }
+
+    async function deleteAllDocs(collName) {
+      let total = 0;
+      // page through the collection deleting in batches of 400
+      while (true) {
+        const snap = await db.collection(collName).limit(400).get();
+        if (snap.empty) break;
+        const batch = db.batch();
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+        total += snap.size;
+        if (snap.size < 400) break;
+      }
+      return total;
+    }
+
+    async function resetData(scope) {
+      const collections = [];
+      if (scope==='it' || scope==='all') collections.push('it_sales','it_daily');
+      if (scope==='live' || scope==='all') collections.push('live_sales','live_hours');
+      showToast('กำลังล้างข้อมูล... อย่าปิดหน้านี้', '');
+      try {
+        let total = 0;
+        for (const c of collections) total += await deleteAllDocs(c);
+        // clear caches
+        cache.itSales = {}; cache.itDaily = {}; cache.liveSales = {}; cache.lastFetch = {};
+        itDailyList = null; liveTableList = null; liveHoursDocs = {};
+        showToast('ล้างข้อมูลเรียบร้อย (' + total + ' รายการ) เก็บรายชื่อไว้ครบ', 'success');
+      } catch (err) { console.error(err); showToast('ผิดพลาด: ' + err.message, 'error'); }
     }
 
     // =====================================================
