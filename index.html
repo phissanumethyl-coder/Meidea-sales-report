@@ -115,9 +115,9 @@
     .data-table .highlight-success { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important; color: #047857; font-weight: 600; }
     .data-table .total-row { background: var(--bg-tertiary) !important; font-weight: 600; }
 
-    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
     .modal-overlay.active { display: flex; }
-    .modal-content { background: var(--bg-secondary); border-radius: var(--radius-lg); padding: 28px; max-width: 400px; width: 90%; }
+    .modal-content { background: var(--bg-secondary); border-radius: var(--radius-lg); padding: 28px; max-width: 400px; width: 90%; max-height: 90vh; overflow-y: auto; }
     .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .modal-title { font-size: 18px; font-weight: 600; }
     .modal-close { width: 32px; height: 32px; border: none; background: var(--bg-tertiary); border-radius: 50%; cursor: pointer; }
@@ -216,6 +216,13 @@
     .slot-note-input { width: 100%; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-family: 'Kanit', sans-serif; font-size: 13px; }
     .slot-note-input:focus { outline: none; border-color: var(--team-color); }
     .slot-leave-note { font-size: 12px; color: #16a34a; margin-bottom: 6px; }
+    .modal-sticky-footer { position: sticky; bottom: 0; background: var(--bg-secondary); padding: 8px 0 20px; border-top: 1px solid var(--border-color); margin-top: 8px; }
+    .live-cum-summary { background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--radius-md); padding: 14px 16px; margin: 4px 0 16px; }
+    .live-cum-summary .cum-title { font-size: 13px; font-weight: 600; color: #c2410c; margin-bottom: 10px; }
+    .live-cum-summary .cum-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 10px; }
+    .live-cum-summary .cum-item { background: #fff; border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+    .live-cum-summary .cum-item span { font-size: 11px; color: var(--text-secondary); }
+    .live-cum-summary .cum-item b { font-size: 17px; color: #c2410c; }
 
     /* Remove number spinner arrows -> plain empty box */
     .no-spin::-webkit-outer-spin-button, .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -393,13 +400,12 @@
     <div id="page-it-daily" class="page">
       <div class="card">
         <div class="card-header"><h2 class="card-title">📈 กรอกยอดขายและต้นทุนรายวัน (ฝ่ายไอที)</h2></div>
+        <p class="hint" style="margin-bottom:14px;">💡 กรอกแค่ยอด/ต้นทุน "ของวันนี้" — ยอดรวมเดือนระบบรวมให้เองจากวันที่ 1 ถึงวันปัจจุบัน</p>
         <div class="form-grid">
           <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="itDailyDate" class="form-input"><small class="hint">เว้นว่าง = วันนี้</small></div>
           <div class="form-group"><label class="form-label">สาขา</label><select id="itDailyBranch" class="form-select"><option value="">เลือกสาขา</option></select></div>
           <div class="form-group"><label class="form-label">ยอดขายวันนี้</label><input type="number" id="itSalesToday" class="form-input" placeholder="0"></div>
           <div class="form-group"><label class="form-label">ต้นทุนวันนี้</label><input type="number" id="itCostToday" class="form-input" placeholder="0"></div>
-          <div class="form-group"><label class="form-label">ยอดขายรวมเดือน</label><input type="number" id="itSalesMonth" class="form-input" placeholder="0"></div>
-          <div class="form-group"><label class="form-label">ต้นทุนรวมเดือน</label><input type="number" id="itCostMonth" class="form-input" placeholder="0"></div>
         </div>
         <div class="btn-group"><button class="btn btn-primary" onclick="submitItDaily()">💾 บันทึกข้อมูล</button></div>
       </div>
@@ -490,18 +496,19 @@
           <h2 class="card-title">🎥 กรอกยอดไลฟ์สด (รายเซลล์)</h2>
           <div><button class="btn btn-secondary btn-sm" onclick="openModal('liveAddSellerModal')">+ เพิ่มเซลล์</button></div>
         </div>
+        <p class="hint" style="margin-bottom:14px;">💡 กรอกยอด "ของวันนี้" — ระบบรวมยอดตั้งแต่วันที่ 1 ถึงปัจจุบันให้เอง</p>
         <div class="form-grid">
-          <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="liveDate" class="form-input"><small class="hint">เว้นว่าง = วันนี้</small></div>
-          <div class="form-group"><label class="form-label">เซลล์</label><select id="liveSeller" class="form-select"><option value="">เลือกเซลล์</option></select></div>
-          <div class="form-group"><label class="form-label">💰 ยอดขาย (บาท)</label><input type="number" id="liveSales" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
-          <div class="form-group"><label class="form-label">📦 ต้นทุน (บาท)</label><input type="number" id="liveCost" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
-          <div class="form-group"><label class="form-label">📣 ค่าโฆษณารวม (บาท)</label><input type="number" id="liveAds" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
-          <div class="form-group"><label class="form-label">% ต้นทุน</label><input type="text" id="liveCostPct" class="form-input" disabled></div>
+          <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="liveDate" class="form-input" onchange="onLiveSellerPicked()"><small class="hint">เว้นว่าง = วันนี้</small></div>
+          <div class="form-group"><label class="form-label">เซลล์</label><select id="liveSeller" class="form-select" onchange="onLiveSellerPicked()"><option value="">เลือกเซลล์</option></select></div>
+          <div class="form-group"><label class="form-label">💰 ยอดขายวันนี้ (บาท)</label><input type="number" id="liveSales" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group"><label class="form-label">📦 ต้นทุนวันนี้ (บาท)</label><input type="number" id="liveCost" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group"><label class="form-label">📣 ค่าโฆษณาวันนี้ (บาท)</label><input type="number" id="liveAds" class="form-input" placeholder="0" oninput="calcLiveTotals()"></div>
+          <div class="form-group"><label class="form-label">% ต้นทุนวันนี้</label><input type="text" id="liveCostPct" class="form-input" disabled></div>
         </div>
+        <div id="liveCumSummary" class="live-cum-summary" style="display:none;"></div>
         <div class="btn-group">
           <button class="btn btn-primary" onclick="submitLive()">💾 บันทึกข้อมูล</button>
           <button class="btn btn-secondary" onclick="clearLiveForm()">🗑️ ล้างฟอร์ม</button>
-          <button class="btn btn-outline" onclick="loadLiveLastRecord()">🔄 ดึงข้อมูลล่าสุด</button>
         </div>
       </div>
 
@@ -621,16 +628,18 @@
   </div>
 
   <div id="liveHoursDayModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:520px;">
+    <div class="modal-content" style="max-width:520px;padding-bottom:0;">
       <div class="modal-header"><h3 class="modal-title" id="liveHoursDayTitle">บันทึกชั่วโมงไลฟ์</h3><button class="modal-close" onclick="closeModal('liveHoursDayModal')">✕</button></div>
       <p class="hint" style="margin-bottom:12px;">กรอกเวลาแบบไทย เช่น <b>13.00</b> หรือ <b>22.30</b> (น.) · ไลฟ์ข้ามวันได้ · เพิ่มช่วงได้ไม่จำกัด</p>
       <div id="liveHoursSlots"></div>
       <button class="btn btn-outline btn-sm" style="margin-top:4px;" onclick="addLiveHoursSlot()">➕ เพิ่มช่วงไลฟ์</button>
-      <div id="liveHoursDayTotal" style="text-align:center;font-weight:600;color:var(--team-color);margin:14px 0;"></div>
-      <div class="btn-group">
-        <button class="btn btn-primary" onclick="confirmSaveLiveHoursDay()">💾 บันทึก</button>
-        <button class="btn btn-outline" onclick="confirmClearLiveHoursDay()">🗑️ ล้างวันนี้</button>
-        <button class="btn btn-secondary" onclick="closeModal('liveHoursDayModal')">ยกเลิก</button>
+      <div class="modal-sticky-footer">
+        <div id="liveHoursDayTotal" style="text-align:center;font-weight:600;color:var(--team-color);margin:10px 0;"></div>
+        <div class="btn-group" style="margin-top:0;">
+          <button class="btn btn-primary" onclick="confirmSaveLiveHoursDay()">💾 บันทึก</button>
+          <button class="btn btn-outline" onclick="confirmClearLiveHoursDay()">🗑️ ล้างวันนี้</button>
+          <button class="btn btn-secondary" onclick="closeModal('liveHoursDayModal')">ยกเลิก</button>
+        </div>
       </div>
     </div>
   </div>
@@ -778,7 +787,7 @@
     function initEnterKeyNavigation() {
       const groups = [
         { ids: ['itDate','itBranch','itEmployee','itSalesFacebook','itSalesShopee','itSalesLazada','itSalesLineOA','itAdsFacebook','itAdsShopee','itAdsLazada','itNetProfit'], submit: submitItSales },
-        { ids: ['itDailyDate','itDailyBranch','itSalesToday','itCostToday','itSalesMonth','itCostMonth'], submit: submitItDaily },
+        { ids: ['itDailyDate','itDailyBranch','itSalesToday','itCostToday'], submit: submitItDaily },
         { ids: ['liveDate','liveSeller','liveSales','liveCost','liveAds'], submit: submitLive }
       ];
       groups.forEach(g => {
@@ -1136,7 +1145,6 @@
       const data = {
         date, branch,
         salesToday: num('itSalesToday'), costToday: num('itCostToday'),
-        salesMonth: num('itSalesMonth'), costMonth: num('itCostMonth'),
         updatedAt: new Date().toISOString()
       };
       setFormDisabled('#page-it-daily', true);
@@ -1145,7 +1153,7 @@
         await db.collection('it_daily').doc(date + '_' + safeId(branch)).set(data);
         setFormDisabled('#page-it-daily', false);
         showToast('บันทึกสำเร็จ! กำลังอัพเดทตาราง...', 'success');
-        ['itSalesToday','itCostToday','itSalesMonth','itCostMonth'].forEach(id => document.getElementById(id).value = '');
+        ['itSalesToday','itCostToday'].forEach(id => document.getElementById(id).value = '');
         itDailyList = null;
         // รอ 1.5 วินาทีก่อนโหลดตารางใหม่
         setTimeout(async () => { await loadItDailyComparison(); showToast('อัพเดทตารางเรียบร้อย!', 'success'); }, 1500);
@@ -1176,7 +1184,24 @@
       const dates = Object.keys(byDate).sort().reverse();
       const todayDate = dates[0], yDate = dates[1] || null;
       document.getElementById('itDateRangeInfo').textContent = '📅 ล่าสุด: ' + todayDate;
-      buildCostTable('itCostComparisonTable', 'สาขา', byDate[todayDate], byDate[yDate] || [], todayDate, yDate, 'branch');
+
+      // Month-to-date totals: sum every daily record from the 1st of todayDate's month up to todayDate (per branch)
+      const monthPrefix = todayDate.slice(0,7);        // "YYYY-MM"
+      const monthAgg = {};                              // branch -> {sales, cost}
+      itDailyList.forEach(d => {
+        if (d.date.slice(0,7) === monthPrefix && d.date <= todayDate) {
+          if (!monthAgg[d.branch]) monthAgg[d.branch] = { sales:0, cost:0 };
+          monthAgg[d.branch].sales += d.salesToday||0;
+          monthAgg[d.branch].cost += d.costToday||0;
+        }
+      });
+      // attach computed month totals onto each of today's records
+      const todayRows = (byDate[todayDate]||[]).map(d => ({
+        ...d,
+        salesMonth: (monthAgg[d.branch]||{}).sales || 0,
+        costMonth:  (monthAgg[d.branch]||{}).cost  || 0
+      }));
+      buildCostTable('itCostComparisonTable', 'สาขา', todayRows, byDate[yDate] || [], todayDate, yDate, 'branch');
     }
 
     // Generic cost-% comparison table (used by IT branch & Live seller)
@@ -1261,7 +1286,12 @@
 
       // One query: all records up to and including the selected date (single-field range = no composite index)
       const snap = await db.collection('it_sales').where('date','<=',date).get();
-      const all = []; snap.forEach(d => all.push(d.data()));
+      const allRaw = []; snap.forEach(d => allRaw.push(d.data()));
+
+      // Only consider records within the SAME calendar month as the selected date.
+      // (Sales are cumulative from the 1st and reset each month, so last month's totals must NOT carry over.)
+      const monthPrefix = date.slice(0,7);   // "YYYY-MM"
+      const all = allRaw.filter(s => s.date.slice(0,7) === monthPrefix);
 
       // records ON the selected date
       const todayArr = all.filter(s => s.date === date);
@@ -1274,7 +1304,7 @@
         return result;
       }
 
-      // latest record per employee (from anything strictly before the date)
+      // latest record per employee THIS MONTH (from before the selected date)
       const latest = {};   // key -> record
       all.forEach(s => {
         if (s.date === date) return;
@@ -1519,6 +1549,44 @@
       ['liveSales','liveCost','liveAds','liveCostPct'].forEach(id => document.getElementById(id).value = '');
     }
 
+    // Show cumulative (month-to-date) totals for the chosen seller, and prefill if today already saved
+    async function onLiveSellerPicked() {
+      const seller = document.getElementById('liveSeller').value;
+      const box = document.getElementById('liveCumSummary');
+      if (!seller) { box.style.display = 'none'; return; }
+      const date = document.getElementById('liveDate').value || todayStr();
+      const monthPrefix = date.slice(0,7);
+      box.style.display = 'block';
+      box.innerHTML = '⏳ กำลังโหลด...';
+      try {
+        const snap = await db.collection('live_sales').where('seller','==',seller).get();
+        let sales=0, cost=0, ads=0, todayDoc=null;
+        snap.forEach(doc => {
+          const d = doc.data();
+          if (d.date.slice(0,7) === monthPrefix && d.date <= date) {
+            sales += d.salesToday||0; cost += d.costToday||0; ads += (d.adsToday!=null?d.adsToday:d.ads)||0;
+          }
+          if (d.date === date) todayDoc = d;
+        });
+        // prefill today's fields if already saved
+        if (todayDoc) {
+          document.getElementById('liveSales').value = todayDoc.salesToday||0;
+          document.getElementById('liveCost').value = todayDoc.costToday||0;
+          document.getElementById('liveAds').value = (todayDoc.adsToday!=null?todayDoc.adsToday:todayDoc.ads)||0;
+          calcLiveTotals();
+        }
+        const pct = sales>0 ? (cost/sales*100).toFixed(2) : '0.00';
+        box.innerHTML =
+          '<div class="cum-title">📊 ยอดสะสมเดือนนี้ (1 → ' + date + ')' + (todayDoc?' · <span style="color:#16a34a;">วันนี้กรอกแล้ว (กรอกใหม่=ทับ)</span>':'') + '</div>' +
+          '<div class="cum-grid">' +
+          '<div class="cum-item"><span>ยอดขายรวม</span><b>' + fmt(sales) + '</b></div>' +
+          '<div class="cum-item"><span>ต้นทุนรวม</span><b>' + fmt(cost) + '</b></div>' +
+          '<div class="cum-item"><span>ค่าโฆษณารวม</span><b>' + fmt(ads) + '</b></div>' +
+          '<div class="cum-item"><span>% ต้นทุนสะสม</span><b>' + pct + '%</b></div>' +
+          '</div>';
+      } catch (err) { console.error(err); box.innerHTML = '⚠️ โหลดยอดสะสมไม่สำเร็จ'; }
+    }
+
     async function submitLive() {
       const seller = document.getElementById('liveSeller').value;
       if (!seller) { showToast('เลือกเซลล์', 'error'); return; }
@@ -1526,8 +1594,7 @@
       const sales = num('liveSales'), cost = num('liveCost'), ads = num('liveAds');
       const data = {
         date, seller,
-        salesToday: sales, costToday: cost, ads,
-        salesMonth: sales, costMonth: cost,   // สะสมตั้งแต่วันที่ 1 ถึงปัจจุบัน (ยอดที่รายงานมา)
+        salesToday: sales, costToday: cost, adsToday: ads,
         costPercent: sales>0 ? cost/sales*100 : 0,
         updatedAt: new Date().toISOString()
       };
@@ -1540,25 +1607,11 @@
         clearLiveForm();
         delete cache.liveSales[date]; delete cache.lastFetch['liveSales_' + date];
         liveTableList = null;
+        onLiveSellerPicked();
         setTimeout(async () => { await loadLiveTable(); showToast('อัพเดทตารางเรียบร้อย!', 'success'); }, 1500);
       } catch (err) {
         console.error(err); setFormDisabled('#page-live-input', false); showToast('ผิดพลาด: ' + err.message, 'error');
       }
-    }
-
-    async function loadLiveLastRecord() {
-      const seller = document.getElementById('liveSeller').value;
-      if (!seller) { showToast('เลือกเซลล์ก่อน', 'error'); return; }
-      try {
-        const snap = await db.collection('live_sales').where('seller','==',seller).get();
-        if (snap.empty) { showToast('ไม่พบข้อมูลเดิม', 'error'); return; }
-        let d = null; snap.forEach(doc => { const x = doc.data(); if (!d || x.date > d.date) d = x; });
-        document.getElementById('liveSales').value = d.salesToday || 0;
-        document.getElementById('liveCost').value = d.costToday || 0;
-        document.getElementById('liveAds').value = d.ads || 0;
-        calcLiveTotals();
-        showToast('ดึงข้อมูลสำเร็จ', 'success');
-      } catch (err) { console.error(err); showToast('ผิดพลาด', 'error'); }
     }
 
     // Live cost table (input page)
@@ -1582,7 +1635,21 @@
       const dates = Object.keys(byDate).sort().reverse();
       const todayDate = dates[0], yDate = dates[1] || null;
       document.getElementById('liveDateRangeInfo').textContent = '📅 ล่าสุด: ' + todayDate;
-      buildCostTable('liveCostTable', 'เซลล์', byDate[todayDate], byDate[yDate] || [], todayDate, yDate, 'seller');
+
+      // month-to-date totals per seller (sum of daily records, same month, up to todayDate)
+      const monthPrefix = todayDate.slice(0,7);
+      const agg = {};
+      liveTableList.forEach(d => {
+        if (d.date.slice(0,7) === monthPrefix && d.date <= todayDate) {
+          if (!agg[d.seller]) agg[d.seller] = { sales:0, cost:0 };
+          agg[d.seller].sales += d.salesToday||0;
+          agg[d.seller].cost += d.costToday||0;
+        }
+      });
+      const todayRows = (byDate[todayDate]||[]).map(d => ({
+        ...d, salesMonth:(agg[d.seller]||{}).sales||0, costMonth:(agg[d.seller]||{}).cost||0
+      }));
+      buildCostTable('liveCostTable', 'เซลล์', todayRows, byDate[yDate] || [], todayDate, yDate, 'seller');
     }
 
     // Live data fetch (cached)
@@ -1599,26 +1666,27 @@
     let liveCharts = { rank:null, salesAds:null, donutNum:null, donutPct:null, cost:null, hours:null };
 
     async function loadLiveDashboard() {
-      const date = document.getElementById('liveFilterDate').value;
-      if (!date) return;
+      const date = document.getElementById('liveFilterDate').value || todayStr();
       try {
-        liveData = await getLiveSales(date);
-        if (!liveData.length) {
-          // fall back to latest available date
-          const snap = await db.collection('live_sales').orderBy('date','desc').limit(50).get();
-          const all = []; snap.forEach(d=>all.push(d.data()));
-          if (all.length) {
-            const latest = all[0].date;
-            document.getElementById('liveFilterDate').value = latest;
-            liveData = all.filter(d => d.date === latest);
-          }
-        }
-        renderLiveDashboard();
+        const monthPrefix = date.slice(0,7);
+        // fetch this month's records up to the selected date
+        const snap = await db.collection('live_sales').where('date','<=',date).get();
+        const all = []; snap.forEach(d => { const x=d.data(); if (x.date.slice(0,7)===monthPrefix) all.push(x); });
+        // aggregate per seller
+        const agg = {};
+        all.forEach(d => {
+          if (!agg[d.seller]) agg[d.seller] = { seller:d.seller, sales:0, cost:0, ads:0 };
+          agg[d.seller].sales += d.salesToday||0;
+          agg[d.seller].cost += d.costToday||0;
+          agg[d.seller].ads += (d.adsToday!=null?d.adsToday:d.ads)||0;
+        });
+        liveData = Object.values(agg);
+        renderLiveDashboard(date);
       } catch (err) { console.error(err); showToast('โหลด Dashboard ไลฟ์ผิดพลาด', 'error'); }
     }
 
-    function renderLiveDashboard() {
-      const rows = liveData.map(d => ({ seller:d.seller, sales:d.salesToday||0, cost:d.costToday||0, ads:d.ads||0, pct:d.costPercent||0 }));
+    function renderLiveDashboard(dateStr) {
+      const rows = liveData.map(d => ({ seller:d.seller, sales:d.sales||0, cost:d.cost||0, ads:d.ads||0, pct: d.sales>0 ? d.cost/d.sales*100 : 0 }));
       const totalSales = rows.reduce((s,r)=>s+r.sales,0);
       const totalCost = rows.reduce((s,r)=>s+r.cost,0);
       const totalAds = rows.reduce((s,r)=>s+r.ads,0);
@@ -1627,6 +1695,11 @@
       document.getElementById('liveStatCost').textContent = fmt(totalCost);
       document.getElementById('liveStatAds').textContent = fmt(totalAds);
       document.getElementById('liveStatPct').textContent = avgPct.toFixed(2) + '%';
+
+      const dt = dateStr || todayStr();
+      const rangeTxt = 'สะสม 1 → ' + dt.slice(8) + ' ' + TH_MONTHS[parseInt(dt.slice(5,7))-1];
+      const rt = document.getElementById('liveRankTitle'); if (rt) rt.textContent = 'อันดับยอดขายรวม (' + rangeTxt + ')';
+      const st = document.getElementById('liveSalesAdsTitle'); if (st) st.textContent = 'ยอดขาย / ค่าโฆษณาไลฟ์สด (' + rangeTxt + ')';
 
       renderLiveRank(rows);
       renderLiveSalesAds(rows, totalSales, totalAds);
@@ -1776,6 +1849,15 @@
       if (t == null) return '';
       return pad2(Math.floor(t/60)) + '.' + pad2(t%60);
     }
+    // decimal hours -> "X ชม. Y นาที" (human readable)
+    function fmtHM(hours) {
+      const totalMin = Math.round((Number(hours)||0) * 60);
+      const h = Math.floor(totalMin / 60), m = totalMin % 60;
+      if (h > 0 && m > 0) return h + ' ชม. ' + m + ' นาที';
+      if (h > 0) return h + ' ชม.';
+      if (m > 0) return m + ' นาที';
+      return '0 นาที';
+    }
     function slotHours(start, end) {
       const a = parseThaiTime(start), b = parseThaiTime(end);
       if (a == null || b == null) return 0;
@@ -1829,13 +1911,13 @@
             if (s.leave) return '<div class="cal-slot-line leave">ช่วง ' + (i+1) + ': 🌴 ลา' + (s.note?(' · '+escapeHtml(s.note)):'') + '</div>';
             if (!s.start || !s.end) return '';
             const sh = slotHours(s.start,s.end);
-            return '<div class="cal-slot-line">ช่วง ' + (i+1) + ': ' + fmtThaiTime(s.start) + '–' + fmtThaiTime(s.end) + ' <b>(' + sh.toFixed(1) + ' ชม.)</b>' + (s.note?('<br><span class="cal-note">📝 '+escapeHtml(s.note)+'</span>'):'') + '</div>';
+            return '<div class="cal-slot-line">ช่วง ' + (i+1) + ': ' + fmtThaiTime(s.start) + '–' + fmtThaiTime(s.end) + ' <b>(' + fmtHM(sh) + ')</b>' + (s.note?('<br><span class="cal-note">📝 '+escapeHtml(s.note)+'</span>'):'') + '</div>';
           }).join('');
         }
         html += '<div class="cal-cell ' + (h>0?'has-live':(hasAnyLeave?'has-leave':'')) + (key===todayKey?' today':'') + '" onclick="openLiveHoursDay(\'' + key + '\')">';
         html += '<div class="cal-daynum">' + dt.getDate() + ' <small>' + TH_MONTHS[dt.getMonth()] + '</small>' + (hasAnyLeave?' 🌴':'') + '</div>';
         html += '<div class="cal-slots">' + slotsTxt + '</div>';
-        html += '<div class="cal-hours">' + (h>0 ? 'รวม ' + h.toFixed(1)+' ชม.' : '') + '</div>';
+        html += '<div class="cal-hours">' + (h>0 ? 'รวม ' + fmtHM(h) : '') + '</div>';
         html += '</div>';
       });
       cal.innerHTML = html;
@@ -1843,9 +1925,9 @@
       const totalDays = dates.length;
       const avg = totalDays>0 ? totalHours/totalDays : 0;
       document.getElementById('liveHoursSummary').innerHTML =
-        '<div class="hours-stat hl"><div class="hours-stat-num">' + totalHours.toFixed(1) + '</div><div class="hours-stat-label">ชั่วโมงไลฟ์รวมทั้งเดือน</div></div>' +
+        '<div class="hours-stat hl"><div class="hours-stat-num">' + fmtHM(totalHours) + '</div><div class="hours-stat-label">ชั่วโมงไลฟ์รวมทั้งเดือน</div></div>' +
         '<div class="hours-stat"><div class="hours-stat-num">' + liveDays + '/' + totalDays + '</div><div class="hours-stat-label">วันที่ไลฟ์ / วันทั้งรอบ</div></div>' +
-        '<div class="hours-stat"><div class="hours-stat-num">' + avg.toFixed(2) + '</div><div class="hours-stat-label">เฉลี่ย ชม./วัน (÷' + totalDays + ')</div></div>';
+        '<div class="hours-stat"><div class="hours-stat-num">' + fmtHM(avg) + '</div><div class="hours-stat-label">เฉลี่ย/วัน (÷' + totalDays + ')</div></div>';
     }
 
     let liveHoursEditSlots = [];   // working copy while editing
@@ -1927,9 +2009,9 @@
         const h = slotHours(st?st.value:'', en?en.value:'');
         total += h;
         const dur = document.getElementById('lhDur'+i);
-        if (dur) dur.textContent = h>0 ? h.toFixed(2)+' ชม.' : '';
+        if (dur) dur.textContent = h>0 ? fmtHM(h) : '';
       });
-      document.getElementById('liveHoursDayTotal').textContent = 'รวมทั้งวัน: ' + total.toFixed(2) + ' ชม.';
+      document.getElementById('liveHoursDayTotal').textContent = 'รวมทั้งวัน: ' + fmtHM(total);
     }
 
     function confirmSaveLiveHoursDay() {
@@ -2003,8 +2085,8 @@
           options:{ responsive:true, maintainAspectRatio:false,
             layout:{ padding:{ top:24 } },
             plugins:{ legend:{display:false},
-              tooltip:{ callbacks:{ afterLabel:(c)=> 'รวมทั้งเดือน ' + rows[c.dataIndex].total.toFixed(1) + ' ชม.' } },
-              datalabels:{ anchor:'end', align:'top', formatter:v=>v.toFixed(2)+' ชม.', font:{family:'Kanit',weight:'bold',size:12}, color:'#6d28d9' } },
+              tooltip:{ callbacks:{ label:(c)=> 'เฉลี่ย ' + fmtHM(c.parsed.y) + '/วัน', afterLabel:(c)=> 'รวมทั้งเดือน ' + fmtHM(rows[c.dataIndex].total) } },
+              datalabels:{ anchor:'end', align:'top', formatter:v=>fmtHM(v), font:{family:'Kanit',weight:'bold',size:11}, color:'#6d28d9' } },
             scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ beginAtZero:true, ...headroom(rows.map(r=>r.avg),0.18), ticks:{callback:v=>v+' ชม.',font:{family:'Kanit'}}, grid:{color:'#f3e8ff'} } }
           }
         });
