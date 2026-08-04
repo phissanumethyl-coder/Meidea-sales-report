@@ -83,27 +83,37 @@
     /* seller progress section */
     .seller-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:22px; box-shadow:var(--shadow); margin-bottom:40px; }
     .seller-head { display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:20px; }
-    .seller-card { border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; margin-bottom:16px; }
-    .seller-card-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
-    .seller-name { font-size:16px; font-weight:600; }
-    .seller-name .rk { display:inline-flex; width:24px; height:24px; border-radius:50%; background:var(--grad); color:#fff; align-items:center; justify-content:center; font-size:12px; margin-right:8px; }
-    .seller-sales { font-size:15px; font-weight:700; color:var(--blue); }
-    .pbar-row { margin-bottom:11px; position:relative; }
-    .pbar-row.has-tip .pbar-label .lb { cursor:help; }
-    .info-i { color:var(--blue); font-size:11px; }
-    .pbar-tip { display:none; position:absolute; z-index:20; left:0; top:100%; margin-top:4px; background:#1e293b; color:#fff; border-radius:8px; padding:10px 12px; min-width:200px; box-shadow:0 6px 20px rgba(0,0,0,0.25); font-size:12px; }
-    .pbar-row.has-tip:hover .pbar-tip { display:block; }
-    .pbar-tip .tt-line { display:flex; justify-content:space-between; gap:14px; padding:3px 0; }
-    .pbar-tip .tt-line:not(:last-child) { border-bottom:1px solid rgba(255,255,255,0.12); }
-    .pbar-label { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px; }
-    .pbar-label .lb { color:var(--muted); font-weight:500; }
-    .pbar-label .vv { font-weight:600; }
-    .pbar { height:16px; background:var(--tertiary); border-radius:8px; overflow:hidden; position:relative; }
-    .pbar > div { height:100%; border-radius:8px; display:flex; align-items:center; justify-content:flex-end; padding-right:6px; color:#fff; font-size:10px; font-weight:600; min-width:2px; transition:width .5s ease; }
-    .net-badge { font-weight:700; padding:3px 12px; border-radius:999px; font-size:13px; }
-    .net-pos { background:#dcfce7; color:#15803d; }
-    .net-neg { background:#fee2e2; color:#b91c1c; }
-    @media(max-width:600px){ .cards{grid-template-columns:1fr;} .filters,.seller-head,.fee-row{flex-direction:column;align-items:stretch;} }
+    /* new seller card layout (matches reference image) */
+    .scard { border:1px solid var(--border); border-radius:var(--r); padding:0; margin-bottom:16px; overflow:hidden; box-shadow:var(--shadow); }
+    .scard-top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:14px 20px; border-bottom:1px solid var(--border); background:var(--tertiary); }
+    .scard-id { display:flex; align-items:center; gap:12px; }
+    .scard-rk { width:34px; height:34px; border-radius:10px; background:var(--grad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
+    .scard-name { font-size:16px; font-weight:600; }
+    .scard-branch { font-size:12px; color:var(--muted); }
+    .scard-deltas { display:flex; gap:8px; flex-wrap:wrap; }
+    .mini-delta { font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; }
+    .mini-delta.up { background:#dcfce7; color:#15803d; }
+    .mini-delta.down { background:#fee2e2; color:#b91c1c; }
+    .mini-delta.flat { background:#f1f5f9; color:var(--muted); }
+    .scard-body { display:grid; grid-template-columns:1.1fr 1fr; gap:0; }
+    .scard-metrics { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; padding:18px 20px; align-content:start; }
+    .mbox { border:1px solid var(--border); border-left:4px solid var(--blue); border-radius:9px; padding:12px 14px; background:#fff; }
+    .mb-label { font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .mb-value { font-size:20px; font-weight:700; }
+    .mb-pct { display:inline-block; margin-top:6px; font-size:12px; font-weight:600; padding:2px 10px; border-radius:999px; }
+    .mb-prev { font-size:11px; color:var(--muted); margin:2px 0 4px; }
+    .scard-exp { padding:18px 20px; border-left:1px solid var(--border); background:#fcfcfd; }
+    .exp-title { font-size:13px; font-weight:600; margin-bottom:12px; }
+    .exp-row { display:grid; grid-template-columns:110px 1fr auto; align-items:center; gap:10px; margin-bottom:9px; }
+    .exp-lb { font-size:12px; color:var(--text); }
+    .exp-track { height:6px; background:var(--tertiary); border-radius:4px; overflow:hidden; }
+    .exp-fill { height:100%; border-radius:4px; transition:width .5s ease; min-width:0; }
+    .exp-vl { font-size:12px; white-space:nowrap; }
+    .exp-baht { color:var(--muted); font-size:11px; }
+    .net-pos { color:#15803d; }
+    .net-neg { color:#b91c1c; }
+    @media(max-width:760px){ .scard-body{grid-template-columns:1fr;} .scard-exp{border-left:none;border-top:1px solid var(--border);} }
+    @media(max-width:600px){ .cards{grid-template-columns:1fr;} .filters,.seller-head,.fee-row{flex-direction:column;align-items:stretch;} .scard-metrics{grid-template-columns:1fr;} }
     /* commission modal */
     .modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; padding:20px; }
     .modal-ov.on { display:flex; }
@@ -475,17 +485,26 @@
       const sortKey = document.getElementById('sSort').value;
       const dir = document.getElementById('sDir').value;
       const list = document.getElementById('sellerList');
+
+      // previous-month lookup by employee name (same branch)
+      const prevByName = {};
+      prevMonthRows.filter(r=>r.branch===branch).forEach(r => { prevByName[r.employeeName] = r; });
+
       let rows = monthRows.filter(r => r.branch===branch).map(r => {
         const sales = r.totalSales||0;
         const ads = r.totalAdsCost||0;
-        const cost = sales - (r.netProfit||0);        // ต้นทุน = ยอดขาย − กำไร(ก่อนหักโฆษณา ที่เซลล์กรอก)
-        const net = (r.netProfit||0) - ads;           // กำไรสุทธิ = ยอดขาย − ต้นทุน − ค่าโฆษณา
+        const cost = sales - (r.netProfit||0);   // ต้นทุน = ยอดขาย − กำไรที่กรอก
+        const net = (r.netProfit||0) - ads;       // กำไรสุทธิ = ยอดขาย − ต้นทุน − ค่าโฆษณา
+        const p = prevByName[r.employeeName];
+        const pSales = p ? (p.totalSales||0) : null;
+        const pNet = p ? ((p.netProfit||0)-(p.totalAdsCost||0)) : null;
         return {
           name:r.employeeName, sales, cost, ads, net,
           salesFacebook:r.salesFacebook||0, salesShopee:r.salesShopee||0, salesLazada:r.salesLazada||0, salesLineOA:r.salesLineOA||0,
           adsFacebook:r.adsFacebook||0, adsShopee:r.adsShopee||0, adsLazada:r.adsLazada||0,
+          feeShopee:0, feeLazada:0,
           costPct: sales>0 ? cost/sales*100 : 0,
-          netProfit: net
+          pSales, pNet
         };
       });
       if (!rows.length) { list.innerHTML = '<div class="empty">ไม่มีข้อมูลของสาขานี้ในเดือนที่เลือก</div>'; return; }
@@ -498,45 +517,68 @@
         return dir==='asc' ? av-bv : bv-av;
       });
 
-      // one metric row: label, value, %ofSales, color, and hover breakdown lines [{lb,vl}]
-      const metricBar = (label, value, sales, color, breakdown) => {
-        const pct = sales>0 ? value/sales*100 : 0;
-        const width = Math.max(0, Math.min(100, Math.abs(pct)));
-        const tip = breakdown ? breakdown.map(b=>`<span class="tt-line"><span>${b.lb}</span><span>${fmt(b.vl)}</span></span>`).join('') : '';
-        return `<div class="pbar-row ${breakdown?'has-tip':''}">
-          <div class="pbar-label">
-            <span class="lb">${label}${breakdown?' <span class="info-i">ⓘ</span>':''}</span>
-            <span class="vv">${fmt(value)} <span style="color:var(--muted)">(${pct.toFixed(1)}%)</span></span>
-          </div>
-          <div class="pbar"><div style="width:${width}%;background:${color}">${width>=8?pct.toFixed(0)+'%':''}</div></div>
-          ${breakdown?`<div class="pbar-tip">${tip}</div>`:''}
+      const pctOf = (v,base) => base>0 ? v/base*100 : 0;
+      // small delta badge vs previous month
+      const deltaBadge = (cur, prev, label) => {
+        if (prev===null || prev===undefined) return '';
+        const diff = cur - prev;
+        const pct = prev!==0 ? diff/Math.abs(prev)*100 : (cur!==0?100:0);
+        const cls = diff>0?'up':(diff<0?'down':'flat');
+        const ar = diff>0?'▲':(diff<0?'▼':'—');
+        return `<span class="mini-delta ${cls}">${ar} ${Math.abs(pct).toFixed(1)}% ${label}</span>`;
+      };
+      // metric box (left side)
+      const box = (label, value, color, showPct, sales, prevLine) => {
+        const pctHtml = showPct ? `<span class="mb-pct" style="background:${color}22;color:${color}">${pctOf(value,sales).toFixed(1)}%</span>` : '';
+        const prevHtml = prevLine ? `<div class="mb-prev">${prevLine}</div>` : '';
+        return `<div class="mbox" style="border-left-color:${color}">
+          <div class="mb-label">${label}</div>
+          <div class="mb-value" style="color:${color}">${fmt(value)}</div>
+          ${prevHtml}${pctHtml}
+        </div>`;
+      };
+      // expense proportion row (right side)
+      const expRow = (label, value, sales, color) => {
+        const pct = pctOf(value, sales);
+        const w = Math.max(0, Math.min(100, pct));
+        return `<div class="exp-row">
+          <span class="exp-lb">${label}</span>
+          <div class="exp-track"><div class="exp-fill" style="width:${w}%;background:${color}"></div></div>
+          <span class="exp-vl"><b>${pct.toFixed(1)}%</b> <span class="exp-baht">(฿${fmt(value)})</span></span>
         </div>`;
       };
 
       list.innerHTML = rows.map((r,i) => {
-        const salesBd = [
-          {lb:'Facebook', vl:r.salesFacebook}, {lb:'Shopee', vl:r.salesShopee},
-          {lb:'Lazada', vl:r.salesLazada}, {lb:'LineOA', vl:r.salesLineOA}
-        ];
-        const adsBd = [
-          {lb:'Facebook', vl:r.adsFacebook}, {lb:'Shopee', vl:r.adsShopee}, {lb:'Lazada', vl:r.adsLazada}
-        ];
-        const costBd = [
-          {lb:'ยอดขายรวม', vl:r.sales}, {lb:'− กำไร(ก่อนหักโฆษณา)', vl:r.sales-r.cost}, {lb:'= ต้นทุนรวม', vl:r.cost}
-        ];
-        const netBd = [
-          {lb:'ยอดขายรวม', vl:r.sales}, {lb:'− ต้นทุนรวม', vl:r.cost},
-          {lb:'− ค่าโฆษณารวม', vl:r.ads}, {lb:'= กำไรสุทธิ', vl:r.net}
-        ];
-        return `<div class="seller-card">
-          <div class="seller-card-head">
-            <div class="seller-name"><span class="rk">${i+1}</span>${r.name}</div>
-            <span class="net-badge ${r.net>=0?'net-pos':'net-neg'}">กำไรสุทธิ ${fmt(r.net)}</span>
+        const salesColor='var(--blue)', costColor='#ef4444', adsColor='#f59e0b', netColor= r.net>=0?'#22c55e':'#ef4444';
+        return `<div class="scard">
+          <div class="scard-top">
+            <div class="scard-id">
+              <span class="scard-rk">${i+1}</span>
+              <div><div class="scard-name">${r.name}</div><div class="scard-branch">สาขา ${branch}</div></div>
+            </div>
+            <div class="scard-deltas">
+              ${deltaBadge(r.sales, r.pSales, 'ยอดขาย')}
+              ${deltaBadge(r.net, r.pNet, 'กำไร')}
+            </div>
           </div>
-          ${metricBar('ยอดขายรวม', r.sales, r.sales, 'var(--blue)', salesBd)}
-          ${metricBar('ต้นทุนรวม', r.cost, r.sales, '#64748b', costBd)}
-          ${metricBar('ค่าโฆษณารวม', r.ads, r.sales, '#ef4444', adsBd)}
-          ${metricBar('กำไรสุทธิ', r.net, r.sales, r.net>=0?'#22c55e':'#ef4444', netBd)}
+          <div class="scard-body">
+            <div class="scard-metrics">
+              ${box('ยอดขาย', r.sales, salesColor, false, r.sales, r.pSales!==null?('เดือนก่อน '+fmt(r.pSales)):'')}
+              ${box('ต้นทุน', r.cost, costColor, true, r.sales)}
+              ${box('ค่าโฆษณารวม', r.ads, adsColor, true, r.sales)}
+              ${box('กำไรสุทธิ', r.net, netColor, true, r.sales)}
+            </div>
+            <div class="scard-exp">
+              <div class="exp-title">สัดส่วนค่าใช้จ่าย (ต่อยอดขาย)</div>
+              ${expRow('ต้นทุน', r.cost, r.sales, '#ef4444')}
+              ${expRow('โฆษณารวม', r.ads, r.sales, '#f59e0b')}
+              ${expRow('โฆษณาเพจ (Facebook)', r.adsFacebook, r.sales, '#1877f2')}
+              ${expRow('โฆษณา Shopee', r.adsShopee, r.sales, '#ee4d2d')}
+              ${expRow('โฆษณา Lazada', r.adsLazada, r.sales, '#8b5cf6')}
+              ${expRow('ธรรมเนียม Shopee', r.feeShopee, r.sales, '#f97316')}
+              ${expRow('ธรรมเนียม Lazada', r.feeLazada, r.sales, '#a855f7')}
+            </div>
+          </div>
         </div>`;
       }).join('');
     }
