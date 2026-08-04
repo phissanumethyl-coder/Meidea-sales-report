@@ -265,6 +265,7 @@
     }
 
     function renderAll(month) {
+      const [y,m] = month.split('-').map(Number);
       const my = TH_MONTHS[m-1] + ' ' + (y+543);
       document.getElementById('monthLabel').textContent = '· ' + my;
       document.getElementById('overallMonthLabel').textContent = '· ' + my;
