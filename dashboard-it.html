@@ -110,6 +110,15 @@
     .exp-fill { height:100%; border-radius:4px; transition:width .5s ease; min-width:0; }
     .exp-vl { font-size:12px; white-space:nowrap; }
     .exp-baht { color:var(--muted); font-size:11px; }
+    .exp-note { color:#94a3b8; font-size:10px; }
+    .info-i { color:var(--blue); font-size:11px; cursor:help; }
+    /* hover tooltips */
+    .ccard, .mbox { position:relative; }
+    .cc-tip, .mb-tip { display:none; position:absolute; z-index:30; left:0; top:100%; margin-top:6px; background:#1e293b; color:#fff; border-radius:8px; padding:10px 12px; min-width:210px; box-shadow:0 8px 24px rgba(0,0,0,0.25); font-size:12px; }
+    .has-cctip:hover .cc-tip, .mbox.has-tip:hover .mb-tip { display:block; }
+    .cc-tip .tt-line, .mb-tip .tt-line { display:flex; justify-content:space-between; gap:14px; padding:3px 0; }
+    .cc-tip .tt-line:not(:last-child), .mb-tip .tt-line:not(:last-child) { border-bottom:1px solid rgba(255,255,255,0.12); }
+    .mbox.has-tip { cursor:help; }
     .net-pos { color:#15803d; }
     .net-neg { color:#b91c1c; }
     @media(max-width:760px){ .scard-body{grid-template-columns:1fr;} .scard-exp{border-left:none;border-top:1px solid var(--border);} }
@@ -178,13 +187,23 @@
 
       <!-- Fee editor -->
       <div class="fee-box">
-        <h3>💳 ค่าธรรมเนียมรวม (กรอกเองต่อสาขา/เดือน)</h3>
+        <h3>💳 ค่าธรรมเนียม (กรอกรายเซลล์ + แพลตฟอร์ม)</h3>
         <div class="fee-row">
-          <div class="fg"><label>สาขา</label><select id="feeBranch"></select></div>
-          <div class="fg"><label>ค่าธรรมเนียมรวม (บาท)</label><input type="number" id="feeValue" placeholder="0"></div>
-          <button class="btn btn-primary btn-sm" onclick="saveFee()">💾 บันทึกค่าธรรมเนียม</button>
+          <div class="fg"><label>สาขา</label><select id="feeBranch" onchange="fillFeeSellers()"></select></div>
+          <div class="fg"><label>เซลล์</label><select id="feeSeller" onchange="prefillFee()"></select></div>
+          <div class="fg"><label>แพลตฟอร์ม</label>
+            <select id="feePlatform" onchange="prefillFee()">
+              <option value="Shopee">Shopee</option>
+              <option value="Lazada">Lazada</option>
+              <option value="Facebook">Facebook</option>
+              <option value="TikTok">TikTok</option>
+            </select>
+          </div>
+          <div class="fg"><label>ค่าธรรมเนียม (บาท)</label><input type="number" id="feeValue" placeholder="0"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveFee()">💾 บันทึก</button>
           <span id="feeMsg" style="font-size:13px;color:var(--muted);"></span>
         </div>
+        <div class="fee-hint" id="feeHint" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
       </div>
 
       <!-- Seller progress -->
@@ -259,7 +278,20 @@
 
     let branches = [];
     let monthRows = [];   // per-employee month-end cumulative records
-    let feeMap = {};      // branch -> fee (for selected month)
+    let feeData = {};     // "branch||employee||platform" -> fee (for selected month)
+
+    const feeKey = (b,e,p) => b + '||' + e + '||' + p;
+    function feeForEmpPlatform(branch, emp, platform) { return feeData[feeKey(branch,emp,platform)] || 0; }
+    function feeForEmp(branch, emp) {
+      let s = 0;
+      for (const k in feeData) { const [b,e] = k.split('||'); if (b===branch && e===emp) s += feeData[k]||0; }
+      return s;
+    }
+    function feeForBranch(branch) {
+      let s = 0;
+      for (const k in feeData) { if (k.split('||')[0]===branch) s += feeData[k]||0; }
+      return s;
+    }
 
     function currentMonth() { const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1); }
 
@@ -318,10 +350,18 @@
         prevMonthRows = await fetchMonthRows(prevMonthStr(month));
 
         // fetch fees for the month
-        feeMap = {};
+        feeData = {};
         try {
           const fSnap = await db.collection('it_fees').where('month','==',month).get();
-          fSnap.forEach(d => { const x=d.data(); feeMap[x.branch] = x.fee||0; });
+          fSnap.forEach(d => {
+            const x = d.data();
+            if (x.employeeName && x.platform) {
+              feeData[feeKey(x.branch, x.employeeName, x.platform)] = x.fee||0;
+            } else if (x.branch) {
+              // legacy branch-level fee -> keep under a generic bucket so totals still show
+              feeData[feeKey(x.branch, '(รวมสาขาเดิม)', 'รวม')] = x.fee||0;
+            }
+          });
         } catch(e){ console.warn('fees', e); }
 
         renderAll(month);
@@ -346,12 +386,29 @@
       const b = document.getElementById('fBranch').value;
       document.getElementById('branchNote').textContent =
         (b==='all' ? 'แสดงทุกสาขา' : 'แสดงเฉพาะสาขา ' + b) + ' · แต่ละการ์ดเรียงเซลล์จากมากไปน้อย';
-      // fee prefill
-      document.getElementById('feeValue').value = feeMap[document.getElementById('feeBranch').value] || '';
+      // fee editor: refresh seller dropdown + prefill
+      fillFeeSellers();
       renderOverall(month);
       renderPlatforms();
       renderCards();
       renderSellers();
+    }
+
+    // ---- fee editor ----
+    function fillFeeSellers() {
+      const branch = document.getElementById('feeBranch').value;
+      const sel = document.getElementById('feeSeller');
+      const names = [...new Set(monthRows.filter(r=>!branch||r.branch===branch).map(r=>r.employeeName))].sort((a,b)=>a.localeCompare(b,'th'));
+      sel.innerHTML = names.length ? names.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option value="">— ไม่มีเซลล์ —</option>';
+      prefillFee();
+    }
+    function prefillFee() {
+      const b = document.getElementById('feeBranch').value;
+      const e = document.getElementById('feeSeller').value;
+      const p = document.getElementById('feePlatform').value;
+      const v = feeForEmpPlatform(b,e,p);
+      document.getElementById('feeValue').value = v || '';
+      document.getElementById('feeHint').textContent = e ? `ค่าธรรมเนียมรวมของ ${e}: ${fmt(feeForEmp(b,e))} บาท (ทุกแพลตฟอร์ม)` : '';
     }
 
     // sum a set of rows into totals (respecting the branch filter)
@@ -377,26 +434,43 @@
              `<span class="ccard-prev">เดือนก่อน ${fmt(prev)}</span>`;
     }
 
+    // per-branch breakdown for a metric fn -> tooltip HTML
+    function branchTip(rows, valFn) {
+      const b = document.getElementById('fBranch').value;
+      const list = b==='all' ? branches : [b];
+      const parts = list.map(br => ({ br, v: valFn(rows.filter(r=>r.branch===br)) })).filter(x=>x.v!==0);
+      parts.sort((a,b2)=>b2.v-a.v);
+      const tot = parts.reduce((s,x)=>s+x.v,0) || 1;
+      if (!parts.length) return '';
+      return '<div class="cc-tip">' + parts.map(x=>{
+        const p = x.v/tot*100;
+        return `<span class="tt-line"><span>${x.br}</span><span>${fmt(x.v)} <b>${p.toFixed(1)}%</b></span></span>`;
+      }).join('') + '</div>';
+    }
+
     // Section: overall totals (all/branch-filtered) vs previous month
     function renderOverall() {
-      const cur = sumRows(applyBranchFilter(monthRows));
+      const curRows = applyBranchFilter(monthRows);
+      const cur = sumRows(curRows);
       const prev = sumRows(applyBranchFilter(prevMonthRows));
       const defs = [
-        { k:'totalSales',   t:'ยอดขายรวม',   ic:'💰', c:'#f59e0b' },
-        { k:'totalAdsCost', t:'ค่าโฆษณารวม',  ic:'📣', c:'#ef4444' },
-        { k:'net',          t:'กำไรสุทธิ',    ic:'📈', c:'#22c55e' }
+        { k:'totalSales',   t:'ยอดขายรวม',   ic:'💰', c:'#f59e0b', fn:rs=>sumRows(rs).totalSales },
+        { k:'totalAdsCost', t:'ค่าโฆษณารวม',  ic:'📣', c:'#ef4444', fn:rs=>sumRows(rs).totalAdsCost },
+        { k:'net',          t:'กำไรสุทธิ',    ic:'📈', c:'#22c55e', fn:rs=>sumRows(rs).net }
       ];
       document.getElementById('overallGrid').innerHTML = defs.map(d => `
-        <div class="ccard">
-          <div class="ccard-title"><span class="mcard-ic" style="width:28px;height:28px;font-size:15px;background:${d.c}">${d.ic}</span>${d.t}</div>
+        <div class="ccard has-cctip">
+          <div class="ccard-title"><span class="mcard-ic" style="width:28px;height:28px;font-size:15px;background:${d.c}">${d.ic}</span>${d.t} <span class="info-i">ⓘ</span></div>
           <div class="ccard-big" style="color:${d.c}">${fmt(cur[d.k])}</div>
           <div class="ccard-sub">${deltaHtml(cur[d.k], prev[d.k])}</div>
+          ${branchTip(curRows, d.fn)}
         </div>`).join('');
     }
 
     // Section: platform breakdown (sales / ads / net per platform) vs previous month
     function renderPlatforms() {
-      const cur = sumRows(applyBranchFilter(monthRows));
+      const curRows = applyBranchFilter(monthRows);
+      const cur = sumRows(curRows);
       const prev = sumRows(applyBranchFilter(prevMonthRows));
       const plats = [
         { name:'Facebook', ic:'📘', col:'#1877f2', s:'salesFacebook', a:'adsFacebook' },
@@ -406,14 +480,15 @@
       document.getElementById('platformGrid').innerHTML = plats.map(p => {
         const sales = cur[p.s], ads = cur[p.a], net = sales - ads;
         const pSales = prev[p.s], pAds = prev[p.a], pNet = pSales - pAds;
-        return `<div class="ccard" style="border-top:4px solid ${p.col}">
-          <div class="ccard-title"><span class="mcard-ic" style="width:28px;height:28px;font-size:15px;background:${p.col}">${p.ic}</span>${p.name}</div>
+        return `<div class="ccard has-cctip" style="border-top:4px solid ${p.col}">
+          <div class="ccard-title"><span class="mcard-ic" style="width:28px;height:28px;font-size:15px;background:${p.col}">${p.ic}</span>${p.name} <span class="info-i">ⓘ</span></div>
           <div class="ccard-big" style="color:${p.col}">${fmt(sales)}</div>
           <div class="ccard-sub">ยอดขาย ${deltaHtml(sales, pSales)}</div>
           <div class="plat-lines">
             <div class="plat-line"><span class="pl-lb">ค่าโฆษณา</span><span class="pl-vl">${fmt(ads)} ${deltaHtml(ads, pAds)}</span></div>
             <div class="plat-line"><span class="pl-lb">กำไรสุทธิ</span><span class="pl-vl" style="color:${net>=0?'#15803d':'#b91c1c'}">${fmt(net)} ${deltaHtml(net, pNet)}</span></div>
           </div>
+          ${branchTip(curRows, rs=>sumRows(rs)[p.s])}
         </div>`;
       }).join('');
     }
@@ -429,7 +504,7 @@
       { key:'adsFacebook',  title:'ค่าโฆษณา Facebook', ic:'📘', col:'#38bdf8' },
       { key:'adsShopee',    title:'ค่าโฆษณา Shopee',   ic:'🛒', col:'#fbbf24' },
       { key:'adsLazada',    title:'ค่าโฆษณา Lazada',   ic:'🛍️', col:'#f472b6' },
-      { key:'fee',          title:'ค่าธรรมเนียมรวม',  ic:'💳', col:'#0ea5e9', branchFee:true }
+      { key:'fee',          title:'ค่าธรรมเนียมรวม',  ic:'💳', col:'#0ea5e9', empFee:true }
     ];
 
     function rowValue(r, key) {
@@ -444,13 +519,11 @@
       let html = '';
       METRICS.forEach(mt => {
         let items, total;
-        if (mt.branchFee) {
-          // fee is per-branch; show per branch (respecting filter)
-          const b = document.getElementById('fBranch').value;
-          const branchList = b==='all' ? branches : [b];
-          items = branchList.map(br => ({ name:br, branch:br, val: feeMap[br]||0 }))
-                            .filter(x => x.val!==0 || b!=='all');
-          items.sort((a,b2)=>b2.val-a.val);
+        if (mt.empFee) {
+          // fee is per employee (sum across platforms), respecting branch filter
+          items = rows.map(r => ({ name:r.employeeName, branch:r.branch, val: feeForEmp(r.branch, r.employeeName) }))
+                      .filter(x => x.val !== 0)
+                      .sort((a,b2)=>b2.val-a.val);
           total = items.reduce((s,x)=>s+x.val,0);
         } else {
           items = rows.map(r => ({ name:r.employeeName, branch:r.branch, val: rowValue(r, mt.key) }))
@@ -502,7 +575,8 @@
           name:r.employeeName, sales, cost, ads, net,
           salesFacebook:r.salesFacebook||0, salesShopee:r.salesShopee||0, salesLazada:r.salesLazada||0, salesLineOA:r.salesLineOA||0,
           adsFacebook:r.adsFacebook||0, adsShopee:r.adsShopee||0, adsLazada:r.adsLazada||0,
-          feeShopee:0, feeLazada:0,
+          feeShopee: feeForEmpPlatform(branch, r.employeeName, 'Shopee'),
+          feeLazada: feeForEmpPlatform(branch, r.employeeName, 'Lazada'),
           costPct: sales>0 ? cost/sales*100 : 0,
           pSales, pNet
         };
@@ -528,21 +602,29 @@
         return `<span class="mini-delta ${cls}">${ar} ${Math.abs(pct).toFixed(1)}% ${label}</span>`;
       };
       // metric box (left side)
-      const box = (label, value, color, showPct, sales, prevLine) => {
+      const box = (label, value, color, showPct, sales, prevLine, breakdown) => {
         const pctHtml = showPct ? `<span class="mb-pct" style="background:${color}22;color:${color}">${pctOf(value,sales).toFixed(1)}%</span>` : '';
         const prevHtml = prevLine ? `<div class="mb-prev">${prevLine}</div>` : '';
-        return `<div class="mbox" style="border-left-color:${color}">
-          <div class="mb-label">${label}</div>
+        let tip = '';
+        if (breakdown && breakdown.length) {
+          const tot = breakdown.reduce((s,b)=>s+b.vl,0) || value || 1;
+          tip = '<div class="mb-tip">' + breakdown.map(b=>{
+            const p = (Math.abs(tot)>0) ? (b.vl/tot*100) : 0;
+            return `<span class="tt-line"><span>${b.lb}</span><span>${fmt(b.vl)} <b>${p.toFixed(1)}%</b></span></span>`;
+          }).join('') + '</div>';
+        }
+        return `<div class="mbox ${breakdown?'has-tip':''}" style="border-left-color:${color}">
+          <div class="mb-label">${label}${breakdown?' <span class="info-i">ⓘ</span>':''}</div>
           <div class="mb-value" style="color:${color}">${fmt(value)}</div>
-          ${prevHtml}${pctHtml}
+          ${prevHtml}${pctHtml}${tip}
         </div>`;
       };
-      // expense proportion row (right side)
-      const expRow = (label, value, sales, color) => {
-        const pct = pctOf(value, sales);
+      // expense proportion row (right side) — base defaults to sales, override for per-platform
+      const expRow = (label, value, base, color, baseNote) => {
+        const pct = base>0 ? value/base*100 : 0;
         const w = Math.max(0, Math.min(100, pct));
         return `<div class="exp-row">
-          <span class="exp-lb">${label}</span>
+          <span class="exp-lb">${label}${baseNote?` <span class="exp-note">${baseNote}</span>`:''}</span>
           <div class="exp-track"><div class="exp-fill" style="width:${w}%;background:${color}"></div></div>
           <span class="exp-vl"><b>${pct.toFixed(1)}%</b> <span class="exp-baht">(฿${fmt(value)})</span></span>
         </div>`;
@@ -550,6 +632,20 @@
 
       list.innerHTML = rows.map((r,i) => {
         const salesColor='var(--blue)', costColor='#ef4444', adsColor='#f59e0b', netColor= r.net>=0?'#22c55e':'#ef4444';
+        // breakdowns for hover
+        const salesBd = [
+          {lb:'Facebook', vl:r.salesFacebook}, {lb:'Shopee', vl:r.salesShopee},
+          {lb:'Lazada', vl:r.salesLazada}, {lb:'LineOA', vl:r.salesLineOA}
+        ];
+        const adsBd = [
+          {lb:'Facebook', vl:r.adsFacebook}, {lb:'Shopee', vl:r.adsShopee}, {lb:'Lazada', vl:r.adsLazada}
+        ];
+        const costBd = [
+          {lb:'ยอดขายรวม', vl:r.sales}, {lb:'− กำไร (ก่อนหักโฆษณา)', vl:r.sales-r.cost}, {lb:'= ต้นทุน', vl:r.cost}
+        ];
+        const netBd = [
+          {lb:'ยอดขายรวม', vl:r.sales}, {lb:'− ต้นทุน', vl:r.cost}, {lb:'− ค่าโฆษณารวม', vl:r.ads}, {lb:'= กำไรสุทธิ', vl:r.net}
+        ];
         return `<div class="scard">
           <div class="scard-top">
             <div class="scard-id">
@@ -563,20 +659,20 @@
           </div>
           <div class="scard-body">
             <div class="scard-metrics">
-              ${box('ยอดขาย', r.sales, salesColor, false, r.sales, r.pSales!==null?('เดือนก่อน '+fmt(r.pSales)):'')}
-              ${box('ต้นทุน', r.cost, costColor, true, r.sales)}
-              ${box('ค่าโฆษณารวม', r.ads, adsColor, true, r.sales)}
-              ${box('กำไรสุทธิ', r.net, netColor, true, r.sales)}
+              ${box('ยอดขาย', r.sales, salesColor, false, r.sales, r.pSales!==null?('เดือนก่อน '+fmt(r.pSales)):'', salesBd)}
+              ${box('ต้นทุน', r.cost, costColor, true, r.sales, '', costBd)}
+              ${box('ค่าโฆษณารวม', r.ads, adsColor, true, r.sales, '', adsBd)}
+              ${box('กำไรสุทธิ', r.net, netColor, true, r.sales, '', netBd)}
             </div>
             <div class="scard-exp">
-              <div class="exp-title">สัดส่วนค่าใช้จ่าย (ต่อยอดขาย)</div>
-              ${expRow('ต้นทุน', r.cost, r.sales, '#ef4444')}
-              ${expRow('โฆษณารวม', r.ads, r.sales, '#f59e0b')}
-              ${expRow('โฆษณาเพจ (Facebook)', r.adsFacebook, r.sales, '#1877f2')}
-              ${expRow('โฆษณา Shopee', r.adsShopee, r.sales, '#ee4d2d')}
-              ${expRow('โฆษณา Lazada', r.adsLazada, r.sales, '#8b5cf6')}
-              ${expRow('ธรรมเนียม Shopee', r.feeShopee, r.sales, '#f97316')}
-              ${expRow('ธรรมเนียม Lazada', r.feeLazada, r.sales, '#a855f7')}
+              <div class="exp-title">สัดส่วนค่าใช้จ่าย</div>
+              ${expRow('ต้นทุน', r.cost, r.sales, '#ef4444', '/ ยอดขายรวม')}
+              ${expRow('โฆษณารวม', r.ads, r.sales, '#f59e0b', '/ ยอดขายรวม')}
+              ${expRow('โฆษณาเพจ (Facebook)', r.adsFacebook, r.sales, '#1877f2', '/ ยอดขายรวม')}
+              ${expRow('โฆษณา Shopee', r.adsShopee, r.salesShopee, '#ee4d2d', '/ ยอดขาย Shopee')}
+              ${expRow('โฆษณา Lazada', r.adsLazada, r.salesLazada, '#8b5cf6', '/ ยอดขาย Lazada')}
+              ${expRow('ธรรมเนียม Shopee', r.feeShopee, r.salesShopee, '#f97316', '/ ยอดขาย Shopee')}
+              ${expRow('ธรรมเนียม Lazada', r.feeLazada, r.salesLazada, '#a855f7', '/ ยอดขาย Lazada')}
             </div>
           </div>
         </div>`;
@@ -586,22 +682,23 @@
     async function saveFee() {
       const month = document.getElementById('fMonth').value;
       const branch = document.getElementById('feeBranch').value;
+      const emp = document.getElementById('feeSeller').value;
+      const platform = document.getElementById('feePlatform').value;
       const fee = parseFloat(document.getElementById('feeValue').value) || 0;
-      if (!month || !branch) return;
+      if (!month || !branch || !emp || !platform) { document.getElementById('feeMsg').textContent='กรอกข้อมูลให้ครบ'; return; }
       const msg = document.getElementById('feeMsg');
       msg.textContent = 'กำลังบันทึก...';
       try {
-        await db.collection('it_fees').doc(month + '_' + safeId(branch)).set({ month, branch, fee, updatedAt:new Date().toISOString() });
-        feeMap[branch] = fee;
+        const docId = [month, safeId(branch), safeId(emp), platform].join('__');
+        await db.collection('it_fees').doc(docId).set({ month, branch, employeeName:emp, platform, fee, updatedAt:new Date().toISOString() });
+        feeData[feeKey(branch,emp,platform)] = fee;
         msg.textContent = '✅ บันทึกแล้ว';
+        prefillFee();
         renderCards();
+        renderSellers();
         setTimeout(()=>msg.textContent='', 2500);
       } catch (err) { console.error(err); msg.textContent = '❌ ผิดพลาด: '+err.message; }
     }
-
-    document.getElementById('feeBranch').addEventListener('change', function(){
-      document.getElementById('feeValue').value = feeMap[this.value] || '';
-    });
 
     // =========================================================
     // COMMISSION CALCULATOR
@@ -635,7 +732,7 @@
       if (!r) return;
       document.getElementById('commNet').value = r.netProfit || 0;
       document.getElementById('commAds').value = r.totalAdsCost || 0;
-      document.getElementById('commFee').value = feeMap[r.branch] || 0;
+      document.getElementById('commFee').value = feeForEmp(r.branch, r.employeeName) || 0;
       calcComm();
     }
 
