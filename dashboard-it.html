@@ -96,6 +96,28 @@
     .net-pos { background:#dcfce7; color:#15803d; }
     .net-neg { background:#fee2e2; color:#b91c1c; }
     @media(max-width:600px){ .cards{grid-template-columns:1fr;} .filters,.seller-head,.fee-row{flex-direction:column;align-items:stretch;} }
+    /* commission modal */
+    .modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; padding:20px; }
+    .modal-ov.on { display:flex; }
+    .modal-bx { background:#fff; border-radius:var(--r); padding:24px; width:560px; max-width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,0.2); }
+    .modal-hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .modal-hd h3 { font-size:18px; color:var(--blue); }
+    .modal-x { width:32px; height:32px; border:none; background:var(--tertiary); border-radius:50%; cursor:pointer; font-size:14px; }
+    .comm-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
+    .comm-grid .fg input, .comm-grid .fg select { padding:9px 12px; }
+    .comm-result { background:var(--tertiary); border-radius:var(--rs); padding:16px 18px; }
+    .comm-line { display:flex; justify-content:space-between; font-size:13.5px; padding:5px 0; }
+    .comm-line.sub { color:var(--muted); }
+    .comm-line.total { border-top:2px solid var(--border); margin-top:6px; padding-top:10px; font-weight:700; font-size:16px; }
+    .comm-adj { background:#eff6ff; border:1px solid #bfdbfe; border-radius:var(--rs); padding:10px 14px; margin:10px 0; font-weight:600; color:var(--blue); display:flex; justify-content:space-between; }
+    .comm-tier { display:flex; justify-content:space-between; font-size:13px; padding:5px 10px; border-radius:6px; margin-bottom:4px; }
+    .comm-tier.active { background:#dcfce7; }
+    .comm-tier.skip { background:#f1f5f9; color:var(--muted); text-decoration:line-through; }
+    .comm-tier .tr-rate { font-weight:600; }
+    .comm-tier-head { font-size:12px; color:var(--muted); margin:12px 0 6px; font-weight:600; }
+    .comm-total-badge { background:var(--grad); color:#fff; border-radius:var(--rs); padding:14px 18px; margin-top:14px; text-align:center; }
+    .comm-total-badge .lbl { font-size:13px; opacity:0.9; }
+    .comm-total-badge .amt { font-size:28px; font-weight:700; }
   </style>
 </head>
 <body>
@@ -105,7 +127,10 @@
         <div class="brand-ic">IT</div>
         <div><h1>Dashboard ฝ่ายไอที</h1><p>MEIDEA Sales Report · อ่านข้อมูลจาก Firebase</p></div>
       </div>
-      <a class="btn btn-outline btn-sm" href="index.html" style="text-decoration:none;">← กลับหน้ากรอกยอด</a>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" style="background:#fff;" onclick="openCommission()">🧮 คำนวณคอมมิชชั่น</button>
+        <a class="btn btn-outline btn-sm" href="index.html" style="text-decoration:none;">← กลับหน้ากรอกยอด</a>
+      </div>
     </div>
   </div>
 
@@ -162,6 +187,37 @@
         </div>
         <div id="sellerList"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Commission Calculator Modal -->
+  <div id="commModal" class="modal-ov">
+    <div class="modal-bx">
+      <div class="modal-hd">
+        <h3>🧮 คำนวณค่าคอมมิชชั่น (ขั้นบันได)</h3>
+        <button class="modal-x" onclick="closeComm()">✕</button>
+      </div>
+
+      <div class="fg" style="margin-bottom:14px;">
+        <label>เลือกเซลล์ (ดึงยอดอัตโนมัติ) — หรือกรอกเองด้านล่าง</label>
+        <select id="commSeller" onchange="fillCommFromSeller()"><option value="">— กรอกเอง —</option></select>
+      </div>
+
+      <div class="comm-grid">
+        <div class="fg"><label>กำไรสุทธิ (ยอดขาย − ต้นทุน)</label><input type="number" id="commNet" placeholder="0" oninput="calcComm()"></div>
+        <div class="fg"><label>ค่าโฆษณารวม (คิด 60%)</label><input type="number" id="commAds" placeholder="0" oninput="calcComm()"></div>
+        <div class="fg"><label>ค่าธรรมเนียม</label><input type="number" id="commFee" placeholder="0" oninput="calcComm()"></div>
+        <div class="fg"><label>ค่ากล่อง</label><input type="number" id="commBox" placeholder="0" oninput="calcComm()"></div>
+        <div class="fg"><label>ค่าส่ง</label><input type="number" id="commShip" placeholder="0" oninput="calcComm()"></div>
+        <div class="fg"><label>ประเภท</label>
+          <select id="commRole" onchange="calcComm()">
+            <option value="staff">พนักงาน</option>
+            <option value="manager">ผู้จัดการ</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="commResult" class="comm-result"></div>
     </div>
   </div>
 
@@ -473,6 +529,104 @@
     document.getElementById('feeBranch').addEventListener('change', function(){
       document.getElementById('feeValue').value = feeMap[this.value] || '';
     });
+
+    // =========================================================
+    // COMMISSION CALCULATOR
+    // =========================================================
+    function openCommission() {
+      // populate seller dropdown from current month's rows
+      const sel = document.getElementById('commSeller');
+      sel.innerHTML = '<option value="">— กรอกเอง —</option>';
+      const rows = monthRows.slice().sort((a,b)=>a.branch.localeCompare(b.branch,'th') || a.employeeName.localeCompare(b.employeeName,'th'));
+      rows.forEach((r,i) => {
+        sel.insertAdjacentHTML('beforeend', `<option value="${i}">${r.employeeName} · ${r.branch}</option>`);
+      });
+      commSourceRows = rows;
+      document.getElementById('commModal').classList.add('on');
+      calcComm();
+    }
+    function closeComm() { document.getElementById('commModal').classList.remove('on'); }
+
+    let commSourceRows = [];
+    function fillCommFromSeller() {
+      const idx = document.getElementById('commSeller').value;
+      if (idx === '') return;
+      const r = commSourceRows[+idx];
+      if (!r) return;
+      // กำไรสุทธิ = ยอดขาย - ต้นทุน. ระบบเก็บ netProfit (กรอกเอง) + totalAdsCost แยก
+      // ใช้ netProfit ที่กรอกไว้เป็น "กำไรสุทธิ" ตั้งต้น, ค่าโฆษณารวมจาก totalAdsCost
+      document.getElementById('commNet').value = r.netProfit || 0;
+      document.getElementById('commAds').value = r.totalAdsCost || 0;
+      // ค่าธรรมเนียม: ดึงจาก it_fees ของสาขา (ถ้ามี) เป็นค่าเริ่มต้น
+      document.getElementById('commFee').value = feeMap[r.branch] || 0;
+      calcComm();
+    }
+
+    function calcCommission(netProfit, totalAds, fee, boxCost, shippingCost, isManager) {
+      const ads60 = Math.round(totalAds * 0.6);
+      const adjustedProfit = netProfit - ads60 - fee - boxCost - shippingCost;
+      const tiers = [];
+      let total = 0;
+      const T1=35000, T2=55000, T3=95000;
+      // tier 1
+      if (isManager) {
+        tiers.push({ tier:1, range:'35,001 - 55,000', rate:0, amount:0, commission:0, skip:true });
+      } else if (adjustedProfit > T1) {
+        const amt = Math.min(adjustedProfit, T2) - T1;
+        const c = amt * 0.05; total += c;
+        tiers.push({ tier:1, range:'35,001 - 55,000', rate:0.05, amount:amt, commission:c });
+      } else {
+        tiers.push({ tier:1, range:'35,001 - 55,000', rate:0.05, amount:0, commission:0 });
+      }
+      // tier 2
+      if (adjustedProfit > T2) {
+        const amt = Math.min(adjustedProfit, T3) - T2;
+        const c = amt * 0.10; total += c;
+        tiers.push({ tier:2, range:'55,001 - 95,000', rate:0.10, amount:amt, commission:c });
+      } else {
+        tiers.push({ tier:2, range:'55,001 - 95,000', rate:0.10, amount:0, commission:0 });
+      }
+      // tier 3
+      if (adjustedProfit > T3) {
+        const amt = adjustedProfit - T3;
+        const c = amt * 0.20; total += c;
+        tiers.push({ tier:3, range:'95,001 ขึ้นไป', rate:0.20, amount:amt, commission:c });
+      } else {
+        tiers.push({ tier:3, range:'95,001 ขึ้นไป', rate:0.20, amount:0, commission:0 });
+      }
+      return { ads60, adjustedProfit, tiers, totalCommission: Math.round(total*100)/100 };
+    }
+
+    function calcComm() {
+      const net = parseFloat(document.getElementById('commNet').value) || 0;
+      const ads = parseFloat(document.getElementById('commAds').value) || 0;
+      const fee = parseFloat(document.getElementById('commFee').value) || 0;
+      const box = parseFloat(document.getElementById('commBox').value) || 0;
+      const ship = parseFloat(document.getElementById('commShip').value) || 0;
+      const isMgr = document.getElementById('commRole').value === 'manager';
+      const r = calcCommission(net, ads, fee, box, ship, isMgr);
+
+      let html = '';
+      html += `<div class="comm-line"><span>กำไรสุทธิ</span><span>${fmt(net)}</span></div>`;
+      html += `<div class="comm-line sub"><span>− ค่าโฆษณา 60% (จาก ${fmt(ads)})</span><span>− ${fmt(r.ads60)}</span></div>`;
+      html += `<div class="comm-line sub"><span>− ค่าธรรมเนียม</span><span>− ${fmt(fee)}</span></div>`;
+      html += `<div class="comm-line sub"><span>− ค่ากล่อง</span><span>− ${fmt(box)}</span></div>`;
+      html += `<div class="comm-line sub"><span>− ค่าส่ง</span><span>− ${fmt(ship)}</span></div>`;
+      html += `<div class="comm-adj"><span>= กำไรหลังหัก</span><span>${fmt(r.adjustedProfit)}</span></div>`;
+
+      html += `<div class="comm-tier-head">คอมมิชชั่นขั้นบันได (${isMgr?'ผู้จัดการ':'พนักงาน'})</div>`;
+      r.tiers.forEach(t => {
+        const cls = t.skip ? 'skip' : (t.commission>0 ? 'active' : '');
+        const rateTxt = t.skip ? '0% (ข้าม)' : (t.rate*100)+'%';
+        const detail = t.commission>0
+          ? `${fmt(t.amount)} × ${t.rate*100}% = <b>${fmt(t.commission)}</b>`
+          : (t.skip ? 'ผู้จัดการไม่ได้ขั้นนี้' : '—');
+        html += `<div class="comm-tier ${cls}"><span class="tr-rate">ขั้น ${t.tier} · ${t.range} · ${rateTxt}</span><span>${detail}</span></div>`;
+      });
+
+      html += `<div class="comm-total-badge"><div class="lbl">คอมมิชชั่นรวม</div><div class="amt">${fmt(r.totalCommission)} บาท</div></div>`;
+      document.getElementById('commResult').innerHTML = html;
+    }
 
     init();
   </script>
