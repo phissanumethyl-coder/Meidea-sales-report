@@ -41,6 +41,8 @@
 
     /* metric cards grid */
     .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:18px; margin-bottom:32px; }
+    .cards-center { display:flex; flex-wrap:wrap; justify-content:center; gap:18px; margin-bottom:24px; }
+    .cards-center > * { flex:1 1 300px; max-width:400px; }
     .mcard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; box-shadow:var(--shadow); }
     .mcard-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
     .mcard-title { font-size:14px; font-weight:600; }
@@ -86,7 +88,13 @@
     .seller-name { font-size:16px; font-weight:600; }
     .seller-name .rk { display:inline-flex; width:24px; height:24px; border-radius:50%; background:var(--grad); color:#fff; align-items:center; justify-content:center; font-size:12px; margin-right:8px; }
     .seller-sales { font-size:15px; font-weight:700; color:var(--blue); }
-    .pbar-row { margin-bottom:11px; }
+    .pbar-row { margin-bottom:11px; position:relative; }
+    .pbar-row.has-tip .pbar-label .lb { cursor:help; }
+    .info-i { color:var(--blue); font-size:11px; }
+    .pbar-tip { display:none; position:absolute; z-index:20; left:0; top:100%; margin-top:4px; background:#1e293b; color:#fff; border-radius:8px; padding:10px 12px; min-width:200px; box-shadow:0 6px 20px rgba(0,0,0,0.25); font-size:12px; }
+    .pbar-row.has-tip:hover .pbar-tip { display:block; }
+    .pbar-tip .tt-line { display:flex; justify-content:space-between; gap:14px; padding:3px 0; }
+    .pbar-tip .tt-line:not(:last-child) { border-bottom:1px solid rgba(255,255,255,0.12); }
     .pbar-label { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px; }
     .pbar-label .lb { color:var(--muted); font-weight:500; }
     .pbar-label .vv { font-weight:600; }
@@ -145,14 +153,14 @@
 
     <div id="content" style="display:none;">
       <!-- Overall totals (all branches) vs last month -->
-      <div class="section-title">🏆 ภาพรวมฝ่ายไอที <span id="overallMonthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
-      <div class="summary-note">เทียบกับเดือนก่อนหน้า (ทุกสาขารวมกัน)</div>
-      <div class="cards" id="overallGrid" style="margin-bottom:24px;"></div>
+      <div class="section-title" style="justify-content:center;">🏆 ภาพรวมฝ่ายไอที <span id="overallMonthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
+      <div class="summary-note" style="text-align:center;">เทียบกับเดือนก่อนหน้า (ทุกสาขารวมกัน)</div>
+      <div class="cards-center" id="overallGrid" style="margin-bottom:24px;"></div>
 
       <!-- Platform breakdown -->
-      <div class="section-title">🧩 แยกตามแพลตฟอร์ม</div>
-      <div class="summary-note">ยอดขาย · ค่าโฆษณา · กำไรสุทธิ (ยอดขาย − ค่าโฆษณา) ของแต่ละแพลตฟอร์ม เทียบเดือนก่อน</div>
-      <div class="cards" id="platformGrid" style="margin-bottom:32px;"></div>
+      <div class="section-title" style="justify-content:center;">🧩 แยกตามแพลตฟอร์ม</div>
+      <div class="summary-note" style="text-align:center;">ยอดขาย · ค่าโฆษณา · กำไรสุทธิ (ยอดขาย − ค่าโฆษณา) ของแต่ละแพลตฟอร์ม เทียบเดือนก่อน</div>
+      <div class="cards-center" id="platformGrid" style="margin-bottom:32px;"></div>
 
       <div class="section-title">📊 สรุปรายเดือน (รายเซลล์) <span id="monthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
       <div class="summary-note" id="branchNote"></div>
@@ -198,9 +206,9 @@
         <button class="modal-x" onclick="closeComm()">✕</button>
       </div>
 
-      <div class="fg" style="margin-bottom:14px;">
-        <label>เลือกเซลล์ (ดึงยอดอัตโนมัติ) — หรือกรอกเองด้านล่าง</label>
-        <select id="commSeller" onchange="fillCommFromSeller()"><option value="">— กรอกเอง —</option></select>
+      <div class="comm-grid" style="margin-bottom:14px;">
+        <div class="fg"><label>เลือกสาขา</label><select id="commBranch" onchange="fillCommSellers()"><option value="">— เลือกสาขา —</option></select></div>
+        <div class="fg"><label>เลือกเซลล์ (ดึงยอดอัตโนมัติ)</label><select id="commSeller" onchange="fillCommFromSeller()"><option value="">— กรอกเอง —</option></select></div>
       </div>
 
       <div class="comm-grid">
@@ -469,43 +477,66 @@
       const list = document.getElementById('sellerList');
       let rows = monthRows.filter(r => r.branch===branch).map(r => {
         const sales = r.totalSales||0;
-        const net = (r.netProfit||0)-(r.totalAdsCost||0);
+        const ads = r.totalAdsCost||0;
+        const cost = sales - (r.netProfit||0);        // ต้นทุน = ยอดขาย − กำไร(ก่อนหักโฆษณา ที่เซลล์กรอก)
+        const net = (r.netProfit||0) - ads;           // กำไรสุทธิ = ยอดขาย − ต้นทุน − ค่าโฆษณา
         return {
-          name:r.employeeName, sales,
+          name:r.employeeName, sales, cost, ads, net,
+          salesFacebook:r.salesFacebook||0, salesShopee:r.salesShopee||0, salesLazada:r.salesLazada||0, salesLineOA:r.salesLineOA||0,
           adsFacebook:r.adsFacebook||0, adsShopee:r.adsShopee||0, adsLazada:r.adsLazada||0,
-          totalAdsCost:r.totalAdsCost||0, netProfit:net,
-          costPct: sales>0 ? (r.totalAdsCost||0)/sales*100 : 0
+          costPct: sales>0 ? cost/sales*100 : 0,
+          netProfit: net
         };
       });
       if (!rows.length) { list.innerHTML = '<div class="empty">ไม่มีข้อมูลของสาขานี้ในเดือนที่เลือก</div>'; return; }
       rows.sort((a,b)=>{
-        const av = sortKey==='costPct'?a.costPct:a[sortKey];
-        const bv = sortKey==='costPct'?b.costPct:b[sortKey];
+        let av, bv;
+        if (sortKey==='costPct') { av=a.costPct; bv=b.costPct; }
+        else if (sortKey==='netProfit') { av=a.net; bv=b.net; }
+        else if (sortKey==='totalAdsCost') { av=a.ads; bv=b.ads; }
+        else { av=a.sales; bv=b.sales; }
         return dir==='asc' ? av-bv : bv-av;
       });
 
-      const pbar = (label, value, base, color) => {
-        const pct = base>0 ? Math.min(100, value/base*100) : 0;
-        return `<div class="pbar-row">
-          <div class="pbar-label"><span class="lb">${label}</span><span class="vv">${fmt(value)} <span style="color:var(--muted)">(${pct.toFixed(1)}%)</span></span></div>
-          <div class="pbar"><div style="width:${pct}%;background:${color}">${pct>=8?pct.toFixed(0)+'%':''}</div></div>
+      // one metric row: label, value, %ofSales, color, and hover breakdown lines [{lb,vl}]
+      const metricBar = (label, value, sales, color, breakdown) => {
+        const pct = sales>0 ? value/sales*100 : 0;
+        const width = Math.max(0, Math.min(100, Math.abs(pct)));
+        const tip = breakdown ? breakdown.map(b=>`<span class="tt-line"><span>${b.lb}</span><span>${fmt(b.vl)}</span></span>`).join('') : '';
+        return `<div class="pbar-row ${breakdown?'has-tip':''}">
+          <div class="pbar-label">
+            <span class="lb">${label}${breakdown?' <span class="info-i">ⓘ</span>':''}</span>
+            <span class="vv">${fmt(value)} <span style="color:var(--muted)">(${pct.toFixed(1)}%)</span></span>
+          </div>
+          <div class="pbar"><div style="width:${width}%;background:${color}">${width>=8?pct.toFixed(0)+'%':''}</div></div>
+          ${breakdown?`<div class="pbar-tip">${tip}</div>`:''}
         </div>`;
       };
 
       list.innerHTML = rows.map((r,i) => {
-        const totalCostPct = r.sales>0 ? r.totalAdsCost/r.sales*100 : 0;
+        const salesBd = [
+          {lb:'Facebook', vl:r.salesFacebook}, {lb:'Shopee', vl:r.salesShopee},
+          {lb:'Lazada', vl:r.salesLazada}, {lb:'LineOA', vl:r.salesLineOA}
+        ];
+        const adsBd = [
+          {lb:'Facebook', vl:r.adsFacebook}, {lb:'Shopee', vl:r.adsShopee}, {lb:'Lazada', vl:r.adsLazada}
+        ];
+        const costBd = [
+          {lb:'ยอดขายรวม', vl:r.sales}, {lb:'− กำไร(ก่อนหักโฆษณา)', vl:r.sales-r.cost}, {lb:'= ต้นทุนรวม', vl:r.cost}
+        ];
+        const netBd = [
+          {lb:'ยอดขายรวม', vl:r.sales}, {lb:'− ต้นทุนรวม', vl:r.cost},
+          {lb:'− ค่าโฆษณารวม', vl:r.ads}, {lb:'= กำไรสุทธิ', vl:r.net}
+        ];
         return `<div class="seller-card">
           <div class="seller-card-head">
             <div class="seller-name"><span class="rk">${i+1}</span>${r.name}</div>
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-              <span class="seller-sales">ยอดขาย ${fmt(r.sales)}</span>
-              <span class="net-badge ${r.netProfit>=0?'net-pos':'net-neg'}">กำไรสุทธิ ${fmt(r.netProfit)}</span>
-            </div>
+            <span class="net-badge ${r.net>=0?'net-pos':'net-neg'}">กำไรสุทธิ ${fmt(r.net)}</span>
           </div>
-          ${pbar('ค่าโฆษณา Facebook', r.adsFacebook, r.sales, 'var(--facebook)')}
-          ${pbar('ค่าโฆษณา Shopee', r.adsShopee, r.sales, 'var(--shopee)')}
-          ${pbar('ค่าโฆษณา Lazada', r.adsLazada, r.sales, 'var(--lazada)')}
-          ${pbar('ต้นทุน/ค่าโฆษณารวม ต่อยอดขาย', r.totalAdsCost, r.sales, totalCostPct<=45?'#22c55e':'#f97316')}
+          ${metricBar('ยอดขายรวม', r.sales, r.sales, 'var(--blue)', salesBd)}
+          ${metricBar('ต้นทุนรวม', r.cost, r.sales, '#64748b', costBd)}
+          ${metricBar('ค่าโฆษณารวม', r.ads, r.sales, '#ef4444', adsBd)}
+          ${metricBar('กำไรสุทธิ', r.net, r.sales, r.net>=0?'#22c55e':'#ef4444', netBd)}
         </div>`;
       }).join('');
     }
@@ -534,30 +565,34 @@
     // COMMISSION CALCULATOR
     // =========================================================
     function openCommission() {
-      // populate seller dropdown from current month's rows
-      const sel = document.getElementById('commSeller');
-      sel.innerHTML = '<option value="">— กรอกเอง —</option>';
-      const rows = monthRows.slice().sort((a,b)=>a.branch.localeCompare(b.branch,'th') || a.employeeName.localeCompare(b.employeeName,'th'));
-      rows.forEach((r,i) => {
-        sel.insertAdjacentHTML('beforeend', `<option value="${i}">${r.employeeName} · ${r.branch}</option>`);
-      });
-      commSourceRows = rows;
+      // populate branch dropdown
+      const bsel = document.getElementById('commBranch');
+      bsel.innerHTML = '<option value="">— เลือกสาขา —</option>';
+      const usedBranches = [...new Set(monthRows.map(r=>r.branch))].sort((a,b)=>a.localeCompare(b,'th'));
+      (usedBranches.length?usedBranches:branches).forEach(b => bsel.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
+      document.getElementById('commSeller').innerHTML = '<option value="">— กรอกเอง —</option>';
+      commSourceRows = [];
       document.getElementById('commModal').classList.add('on');
       calcComm();
     }
     function closeComm() { document.getElementById('commModal').classList.remove('on'); }
 
     let commSourceRows = [];
+    function fillCommSellers() {
+      const branch = document.getElementById('commBranch').value;
+      const sel = document.getElementById('commSeller');
+      sel.innerHTML = '<option value="">— กรอกเอง —</option>';
+      commSourceRows = monthRows.filter(r => !branch || r.branch===branch)
+                                .sort((a,b)=>a.employeeName.localeCompare(b.employeeName,'th'));
+      commSourceRows.forEach((r,i) => sel.insertAdjacentHTML('beforeend', `<option value="${i}">${r.employeeName}</option>`));
+    }
     function fillCommFromSeller() {
       const idx = document.getElementById('commSeller').value;
       if (idx === '') return;
       const r = commSourceRows[+idx];
       if (!r) return;
-      // กำไรสุทธิ = ยอดขาย - ต้นทุน. ระบบเก็บ netProfit (กรอกเอง) + totalAdsCost แยก
-      // ใช้ netProfit ที่กรอกไว้เป็น "กำไรสุทธิ" ตั้งต้น, ค่าโฆษณารวมจาก totalAdsCost
       document.getElementById('commNet').value = r.netProfit || 0;
       document.getElementById('commAds').value = r.totalAdsCost || 0;
-      // ค่าธรรมเนียม: ดึงจาก it_fees ของสาขา (ถ้ามี) เป็นค่าเริ่มต้น
       document.getElementById('commFee').value = feeMap[r.branch] || 0;
       calcComm();
     }
