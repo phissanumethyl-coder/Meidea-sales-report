@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEIDEA · Dashboard ฝ่ายไอที</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232563eb'/%3E%3Cstop offset='1' stop-color='%230ea5e9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='45' font-family='Arial,sans-serif' font-size='34' font-weight='700' fill='white' text-anchor='middle'%3EIT%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#f1f5f9; --card:#fff; --tertiary:#f8fafc; --text:#1e293b; --muted:#64748b; --border:#e2e8f0;
+      --blue:#2563eb; --sky:#0ea5e9; --grad:linear-gradient(135deg,#2563eb 0%,#0ea5e9 100%);
+      --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+      --shopee:#ee4d2d; --lazada:#8b5cf6; --facebook:#1877f2; --lineoa:#06663b;
+      --r:14px; --rs:9px; --shadow:0 2px 10px rgba(0,0,0,0.06);
+    }
+    html { overflow-y:scroll; }
+    body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    .topbar { background:var(--grad); padding:14px 24px; }
+    .topbar-in { max-width:1400px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+    .brand { display:flex; align-items:center; gap:12px; color:#fff; }
+    .brand-ic { width:42px; height:42px; background:rgba(255,255,255,0.2); border-radius:var(--rs); display:flex; align-items:center; justify-content:center; font-weight:700; }
+    .brand h1 { font-size:20px; font-weight:600; }
+    .brand p { font-size:11px; opacity:0.9; }
+    .wrap { max-width:1400px; margin:0 auto; padding:24px; }
+    .filters { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; margin-bottom:24px; display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap; box-shadow:var(--shadow); }
+    .fg { display:flex; flex-direction:column; gap:6px; }
+    .fg label { font-size:12px; font-weight:600; color:var(--muted); }
+    .fg input, .fg select { padding:10px 14px; border:1px solid var(--border); border-radius:var(--rs); font-family:'Kanit',sans-serif; font-size:14px; background:#fff; color:var(--text); }
+    .fg input:focus, .fg select:focus { outline:none; border-color:var(--blue); }
+    .btn { padding:10px 18px; border:none; border-radius:var(--rs); font-family:'Kanit',sans-serif; font-size:14px; font-weight:600; cursor:pointer; }
+    .btn-primary { background:var(--grad); color:#fff; }
+    .btn-outline { background:#fff; border:1px solid var(--border); color:var(--text); }
+    .btn-sm { padding:8px 14px; font-size:13px; }
+    .section-title { font-size:18px; font-weight:600; color:var(--blue); margin:8px 0 16px; display:flex; align-items:center; gap:8px; }
+    .summary-note { font-size:13px; color:var(--muted); margin-bottom:16px; }
+
+    /* metric cards grid */
+    .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:18px; margin-bottom:32px; }
+    .mcard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; box-shadow:var(--shadow); }
+    .mcard-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .mcard-title { font-size:14px; font-weight:600; }
+    .mcard-total { font-size:22px; font-weight:700; }
+    .mcard-ic { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:17px; color:#fff; }
+    .mcard-list { display:flex; flex-direction:column; gap:7px; }
+    .mrow { display:flex; align-items:center; gap:8px; font-size:13px; }
+    .mrow .rank { width:20px; height:20px; border-radius:50%; background:var(--tertiary); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--muted); flex-shrink:0; }
+    .mrow .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mrow .vl { font-weight:600; }
+    .mrow .br { font-size:11px; color:var(--muted); }
+    .mrow.neg .vl { color:var(--red); }
+    .mini-bar { height:5px; background:var(--tertiary); border-radius:3px; overflow:hidden; margin-top:2px; }
+    .mini-bar > div { height:100%; border-radius:3px; }
+    .empty { text-align:center; padding:40px; color:var(--muted); }
+    .loading { text-align:center; padding:50px; }
+    .spinner { width:38px; height:38px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 12px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .ccard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; box-shadow:var(--shadow); }
+    .ccard-title { font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    .ccard-big { font-size:24px; font-weight:700; }
+    .ccard-sub { display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12.5px; flex-wrap:wrap; }
+    .delta { padding:2px 9px; border-radius:999px; font-weight:600; font-size:12px; }
+    .delta.up { background:#dcfce7; color:#15803d; }
+    .delta.down { background:#fee2e2; color:#b91c1c; }
+    .delta.flat { background:var(--tertiary); color:var(--muted); }
+    .ccard-prev { color:var(--muted); }
+    .plat-lines { margin-top:12px; display:flex; flex-direction:column; gap:9px; padding-top:12px; border-top:1px dashed var(--border); }
+    .plat-line { display:flex; align-items:center; justify-content:space-between; font-size:13px; gap:8px; }
+    .plat-line .pl-lb { color:var(--muted); }
+    .plat-line .pl-vl { font-weight:600; }
+
+    /* fee editor */
+    .fee-box { background:#fffbeb; border:1px solid #fde68a; border-radius:var(--r); padding:16px 20px; margin-bottom:32px; }
+    .fee-box h3 { font-size:15px; color:#b45309; margin-bottom:10px; }
+    .fee-row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+
+    /* seller progress section */
+    .seller-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:22px; box-shadow:var(--shadow); margin-bottom:40px; }
+    .seller-head { display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:20px; }
+    .seller-card { border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; margin-bottom:16px; }
+    .seller-card-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+    .seller-name { font-size:16px; font-weight:600; }
+    .seller-name .rk { display:inline-flex; width:24px; height:24px; border-radius:50%; background:var(--grad); color:#fff; align-items:center; justify-content:center; font-size:12px; margin-right:8px; }
+    .seller-sales { font-size:15px; font-weight:700; color:var(--blue); }
+    .pbar-row { margin-bottom:11px; }
+    .pbar-label { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px; }
+    .pbar-label .lb { color:var(--muted); font-weight:500; }
+    .pbar-label .vv { font-weight:600; }
+    .pbar { height:16px; background:var(--tertiary); border-radius:8px; overflow:hidden; position:relative; }
+    .pbar > div { height:100%; border-radius:8px; display:flex; align-items:center; justify-content:flex-end; padding-right:6px; color:#fff; font-size:10px; font-weight:600; min-width:2px; transition:width .5s ease; }
+    .net-badge { font-weight:700; padding:3px 12px; border-radius:999px; font-size:13px; }
+    .net-pos { background:#dcfce7; color:#15803d; }
+    .net-neg { background:#fee2e2; color:#b91c1c; }
+    @media(max-width:600px){ .cards{grid-template-columns:1fr;} .filters,.seller-head,.fee-row{flex-direction:column;align-items:stretch;} }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-in">
+      <div class="brand">
+        <div class="brand-ic">IT</div>
+        <div><h1>Dashboard ฝ่ายไอที</h1><p>MEIDEA Sales Report · อ่านข้อมูลจาก Firebase</p></div>
+      </div>
+      <a class="btn btn-outline btn-sm" href="index.html" style="text-decoration:none;">← กลับหน้ากรอกยอด</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="filters">
+      <div class="fg"><label>📅 เลือกเดือน</label><input type="month" id="fMonth"></div>
+      <div class="fg"><label>🏢 สาขา (การ์ดสรุป)</label><select id="fBranch" onchange="rerender()"><option value="all">ทุกสาขา</option></select></div>
+      <button class="btn btn-primary btn-sm" onclick="reload()">🔄 โหลดข้อมูล</button>
+    </div>
+
+    <div id="loading" class="loading"><div class="spinner"></div><div>กำลังโหลด...</div></div>
+
+    <div id="content" style="display:none;">
+      <!-- Overall totals (all branches) vs last month -->
+      <div class="section-title">🏆 ภาพรวมฝ่ายไอที <span id="overallMonthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
+      <div class="summary-note">เทียบกับเดือนก่อนหน้า (ทุกสาขารวมกัน)</div>
+      <div class="cards" id="overallGrid" style="margin-bottom:24px;"></div>
+
+      <!-- Platform breakdown -->
+      <div class="section-title">🧩 แยกตามแพลตฟอร์ม</div>
+      <div class="summary-note">ยอดขาย · ค่าโฆษณา · กำไรสุทธิ (ยอดขาย − ค่าโฆษณา) ของแต่ละแพลตฟอร์ม เทียบเดือนก่อน</div>
+      <div class="cards" id="platformGrid" style="margin-bottom:32px;"></div>
+
+      <div class="section-title">📊 สรุปรายเดือน (รายเซลล์) <span id="monthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
+      <div class="summary-note" id="branchNote"></div>
+      <div class="cards" id="cardsGrid"></div>
+
+      <!-- Fee editor -->
+      <div class="fee-box">
+        <h3>💳 ค่าธรรมเนียมรวม (กรอกเองต่อสาขา/เดือน)</h3>
+        <div class="fee-row">
+          <div class="fg"><label>สาขา</label><select id="feeBranch"></select></div>
+          <div class="fg"><label>ค่าธรรมเนียมรวม (บาท)</label><input type="number" id="feeValue" placeholder="0"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveFee()">💾 บันทึกค่าธรรมเนียม</button>
+          <span id="feeMsg" style="font-size:13px;color:var(--muted);"></span>
+        </div>
+      </div>
+
+      <!-- Seller progress -->
+      <div class="seller-panel">
+        <div class="section-title">👥 รายละเอียดเซลล์แต่ละคน</div>
+        <div class="seller-head">
+          <div class="fg"><label>🏢 เลือกสาขา</label><select id="sBranch" onchange="renderSellers()"></select></div>
+          <div class="fg"><label>📊 เรียงตาม</label><select id="sSort" onchange="renderSellers()">
+            <option value="totalSales">ยอดขายรวม</option>
+            <option value="netProfit">กำไรสุทธิ</option>
+            <option value="totalAdsCost">ค่าโฆษณารวม</option>
+            <option value="costPct">% ต้นทุนต่อยอดขาย</option>
+          </select></div>
+          <div class="fg"><label>ทิศทาง</label><select id="sDir" onchange="renderSellers()">
+            <option value="desc">มาก → น้อย</option>
+            <option value="asc">น้อย → มาก</option>
+          </select></div>
+        </div>
+        <div id="sellerList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJxqM4SKN9ShZG4k6oseR7yssLy_IOkj8",
+      authDomain: "meidea-sales-report.firebaseapp.com",
+      databaseURL: "https://meidea-sales-report-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "meidea-sales-report",
+      storageBucket: "meidea-sales-report.firebasestorage.app",
+      messagingSenderId: "397059035091",
+      appId: "1:397059035091:web:586b58b969da26e87ba926"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const fmt = n => (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
+    const safeId = s => String(s).replace(/[\/\\]/g,'_');
+    function pad2(n){ return String(n).padStart(2,'0'); }
+
+    let branches = [];
+    let monthRows = [];   // per-employee month-end cumulative records
+    let feeMap = {};      // branch -> fee (for selected month)
+
+    function currentMonth() { const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1); }
+
+    async function init() {
+      document.getElementById('fMonth').value = currentMonth();
+      // load branches
+      try {
+        const bSnap = await db.collection('it_branches').orderBy('order').get();
+        branches = []; bSnap.forEach(d => branches.push(d.data().name));
+      } catch(e){ console.error(e); }
+      fillBranchSelects();
+      reload();
+    }
+    function fillBranchSelects() {
+      const fb = document.getElementById('fBranch');
+      fb.innerHTML = '<option value="all">ทุกสาขา</option>';
+      branches.forEach(b => fb.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
+      ['feeBranch','sBranch'].forEach(id => {
+        const el = document.getElementById(id);
+        el.innerHTML = '';
+        branches.forEach(b => el.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
+      });
+    }
+
+    function prevMonthStr(month) {
+      let [y,m] = month.split('-').map(Number);
+      m -= 1; if (m < 1) { m = 12; y -= 1; }
+      return y + '-' + pad2(m);
+    }
+    async function fetchMonthRows(month) {
+      const snap = await db.collection('it_sales').where('date','<=', month + '-31').get();
+      const latest = {};
+      snap.forEach(doc => {
+        const s = doc.data();
+        if (s.date.slice(0,7) !== month) return;
+        const k = s.branch + '||' + s.employeeName;
+        if (!latest[k] || s.date > latest[k].date) latest[k] = s;
+      });
+      return Object.values(latest);
+    }
+
+    let prevMonthRows = [];
+
+    function rerender() {
+      const month = document.getElementById('fMonth').value;
+      if (month && monthRows) renderAll(month);
+    }
+
+    async function reload() {
+      const month = document.getElementById('fMonth').value;
+      if (!month) return;
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('content').style.display = 'none';
+      try {
+        monthRows = await fetchMonthRows(month);
+        prevMonthRows = await fetchMonthRows(prevMonthStr(month));
+
+        // fetch fees for the month
+        feeMap = {};
+        try {
+          const fSnap = await db.collection('it_fees').where('month','==',month).get();
+          fSnap.forEach(d => { const x=d.data(); feeMap[x.branch] = x.fee||0; });
+        } catch(e){ console.warn('fees', e); }
+
+        renderAll(month);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading').innerHTML = '<div style="color:var(--red)">โหลดข้อมูลผิดพลาด: '+err.message+'</div>';
+      }
+    }
+
+    function filteredRows() {
+      const b = document.getElementById('fBranch').value;
+      return b==='all' ? monthRows : monthRows.filter(r => r.branch===b);
+    }
+
+    function renderAll(month) {
+      const my = TH_MONTHS[m-1] + ' ' + (y+543);
+      document.getElementById('monthLabel').textContent = '· ' + my;
+      document.getElementById('overallMonthLabel').textContent = '· ' + my;
+      const b = document.getElementById('fBranch').value;
+      document.getElementById('branchNote').textContent =
+        (b==='all' ? 'แสดงทุกสาขา' : 'แสดงเฉพาะสาขา ' + b) + ' · แต่ละการ์ดเรียงเซลล์จากมากไปน้อย';
+      // fee prefill
+      document.getElementById('feeValue').value = feeMap[document.getElementById('feeBranch').value] || '';
+      renderOverall(month);
+      renderPlatforms();
+      renderCards();
+      renderSellers();
+    }
+
+    // sum a set of rows into totals (respecting the branch filter)
+    function sumRows(rows) {
+      const t = { totalSales:0, totalAdsCost:0, netProfit:0,
+                  salesFacebook:0, salesShopee:0, salesLazada:0,
+                  adsFacebook:0, adsShopee:0, adsLazada:0 };
+      rows.forEach(r => { for (const k in t) t[k] += r[k]||0; });
+      t.net = t.netProfit - t.totalAdsCost;   // กำไรสุทธิ (หักค่าโฆษณา)
+      return t;
+    }
+    function applyBranchFilter(rows) {
+      const b = document.getElementById('fBranch').value;
+      return b==='all' ? rows : rows.filter(r => r.branch===b);
+    }
+    function deltaHtml(cur, prev) {
+      if (!prev) return '<span class="delta flat">— ไม่มีเดือนก่อน</span>';
+      const diff = cur - prev;
+      const pct = prev !== 0 ? (diff/Math.abs(prev)*100) : (cur!==0?100:0);
+      const cls = diff>0?'up':(diff<0?'down':'flat');
+      const arrow = diff>0?'▲':(diff<0?'▼':'—');
+      return `<span class="delta ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>` +
+             `<span class="ccard-prev">เดือนก่อน ${fmt(prev)}</span>`;
+    }
+
+    // Section: overall totals (all/branch-filtered) vs previous month
+    function renderOverall() {
+      const cur = sumRows(applyBranchFilter(monthRows));
+      const prev = sumRows(applyBranchFilter(prevMonthRows));
+      const defs = [
+        { k:'totalSales',   t:'ยอดขายรวม',   ic:'💰', c:'#f59e0b' },
+        { k:'totalAdsCost', t:'ค่าโฆษณารวม',  ic:'📣', c:'#ef4444' },
+        { k:'net',          t:'กำไรสุทธิ',    ic:'📈', c:'#22c55e' }
+      ];
+      document.getElementById('overallGrid').innerHTML = defs.map(d => `
+        <div class="ccard">
+          <div class="ccard-title"><span class="mcard-ic" style="width:28px;height:28px;font-size:15px;background:${d.c}">${d.ic}</span>${d.t}</div>
+          <div class="ccard-big" style="color:${d.c}">${fmt(cur[d.k])}</div>
+          <div class="ccard-sub">${deltaHtml(cur[d.k], prev[d.k])}</div>
+        </div>`).join('');
+    }
+
+    // Section: platform breakdown (sales / ads / net per platform) vs previous month
+    function renderPlatforms() {
+      const cur = sumRows(applyBranchFilter(monthRows));
+      const prev = sumRows(applyBranchFilter(prevMonthRows));
+      const plats = [
+        { name:'Facebook', ic:'📘', col:'#1877f2', s:'salesFacebook', a:'adsFacebook' },
+        { name:'Shopee',   ic:'🛒', col:'#ee4d2d', s:'salesShopee',   a:'adsShopee' },
+        { name:'Lazada',   ic:'🛍️', col:'#8b5cf6', s:'salesLazada',   a:'adsLazada' }
+      ];
+      document.getElementById('platformGrid').innerHTML = plats.map(p => {
+        const sales = cur[p.s], ads = cur[p.a], net = sales - ads;
+        const pSales = prev[p.s], pAds = prev[p.a], pNet = pSales - pAds;
+        return `<div class="ccard" style="border-top:4px solid ${p.col}">
+          <div class="ccard-title"><span class="mcard-ic" style="width:28px;height:28px;font-size:15px;background:${p.col}">${p.ic}</span>${p.name}</div>
+          <div class="ccard-big" style="color:${p.col}">${fmt(sales)}</div>
+          <div class="ccard-sub">ยอดขาย ${deltaHtml(sales, pSales)}</div>
+          <div class="plat-lines">
+            <div class="plat-line"><span class="pl-lb">ค่าโฆษณา</span><span class="pl-vl">${fmt(ads)} ${deltaHtml(ads, pAds)}</span></div>
+            <div class="plat-line"><span class="pl-lb">กำไรสุทธิ</span><span class="pl-vl" style="color:${net>=0?'#15803d':'#b91c1c'}">${fmt(net)} ${deltaHtml(net, pNet)}</span></div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // metric definitions: key, title, icon, color, isBranchFee
+    const METRICS = [
+      { key:'totalSales',   title:'ยอดขายรวม',       ic:'💰', col:'#f59e0b' },
+      { key:'totalAdsCost', title:'ค่าโฆษณารวม',      ic:'📣', col:'#ef4444' },
+      { key:'net',          title:'กำไรสุทธิ',        ic:'📈', col:'#22c55e' },
+      { key:'salesFacebook',title:'ยอดขาย Facebook',  ic:'📘', col:'#1877f2' },
+      { key:'salesShopee',  title:'ยอดขาย Shopee',    ic:'🛒', col:'#ee4d2d' },
+      { key:'salesLazada',  title:'ยอดขาย Lazada',    ic:'🛍️', col:'#8b5cf6' },
+      { key:'adsFacebook',  title:'ค่าโฆษณา Facebook', ic:'📘', col:'#38bdf8' },
+      { key:'adsShopee',    title:'ค่าโฆษณา Shopee',   ic:'🛒', col:'#fbbf24' },
+      { key:'adsLazada',    title:'ค่าโฆษณา Lazada',   ic:'🛍️', col:'#f472b6' },
+      { key:'fee',          title:'ค่าธรรมเนียมรวม',  ic:'💳', col:'#0ea5e9', branchFee:true }
+    ];
+
+    function rowValue(r, key) {
+      if (key === 'net') return (r.netProfit||0) - (r.totalAdsCost||0);
+      return r[key] || 0;
+    }
+
+    function renderCards() {
+      const rows = filteredRows();
+      const grid = document.getElementById('cardsGrid');
+      if (!rows.length) { grid.innerHTML = '<div class="empty">ไม่มีข้อมูลในเดือนนี้</div>'; return; }
+      let html = '';
+      METRICS.forEach(mt => {
+        let items, total;
+        if (mt.branchFee) {
+          // fee is per-branch; show per branch (respecting filter)
+          const b = document.getElementById('fBranch').value;
+          const branchList = b==='all' ? branches : [b];
+          items = branchList.map(br => ({ name:br, branch:br, val: feeMap[br]||0 }))
+                            .filter(x => x.val!==0 || b!=='all');
+          items.sort((a,b2)=>b2.val-a.val);
+          total = items.reduce((s,x)=>s+x.val,0);
+        } else {
+          items = rows.map(r => ({ name:r.employeeName, branch:r.branch, val: rowValue(r, mt.key) }))
+                      .sort((a,b2)=>b2.val-a.val);
+          total = items.reduce((s,x)=>s+x.val,0);
+        }
+        const maxAbs = Math.max(1, ...items.map(i=>Math.abs(i.val)));
+        html += `<div class="mcard">
+          <div class="mcard-head">
+            <div><div class="mcard-title">${mt.title}</div><div class="mcard-total" style="color:${mt.col}">${fmt(total)}</div></div>
+            <div class="mcard-ic" style="background:${mt.col}">${mt.ic}</div>
+          </div><div class="mcard-list">`;
+        if (!items.length) html += '<div class="br" style="color:var(--muted)">— ยังไม่มีข้อมูล —</div>';
+        items.slice(0,12).forEach((it,i) => {
+          const pct = Math.abs(it.val)/maxAbs*100;
+          const showBranch = document.getElementById('fBranch').value==='all';
+          html += `<div class="mrow ${it.val<0?'neg':''}">
+            <span class="rank">${i+1}</span>
+            <span class="nm">${it.name}${showBranch?` <span class="br">· ${it.branch}</span>`:''}
+              <div class="mini-bar"><div style="width:${pct}%;background:${mt.col}"></div></div>
+            </span>
+            <span class="vl">${fmt(it.val)}</span>
+          </div>`;
+        });
+        html += '</div></div>';
+      });
+      grid.innerHTML = html;
+    }
+
+    function renderSellers() {
+      const branch = document.getElementById('sBranch').value;
+      const sortKey = document.getElementById('sSort').value;
+      const dir = document.getElementById('sDir').value;
+      const list = document.getElementById('sellerList');
+      let rows = monthRows.filter(r => r.branch===branch).map(r => {
+        const sales = r.totalSales||0;
+        const net = (r.netProfit||0)-(r.totalAdsCost||0);
+        return {
+          name:r.employeeName, sales,
+          adsFacebook:r.adsFacebook||0, adsShopee:r.adsShopee||0, adsLazada:r.adsLazada||0,
+          totalAdsCost:r.totalAdsCost||0, netProfit:net,
+          costPct: sales>0 ? (r.totalAdsCost||0)/sales*100 : 0
+        };
+      });
+      if (!rows.length) { list.innerHTML = '<div class="empty">ไม่มีข้อมูลของสาขานี้ในเดือนที่เลือก</div>'; return; }
+      rows.sort((a,b)=>{
+        const av = sortKey==='costPct'?a.costPct:a[sortKey];
+        const bv = sortKey==='costPct'?b.costPct:b[sortKey];
+        return dir==='asc' ? av-bv : bv-av;
+      });
+
+      const pbar = (label, value, base, color) => {
+        const pct = base>0 ? Math.min(100, value/base*100) : 0;
+        return `<div class="pbar-row">
+          <div class="pbar-label"><span class="lb">${label}</span><span class="vv">${fmt(value)} <span style="color:var(--muted)">(${pct.toFixed(1)}%)</span></span></div>
+          <div class="pbar"><div style="width:${pct}%;background:${color}">${pct>=8?pct.toFixed(0)+'%':''}</div></div>
+        </div>`;
+      };
+
+      list.innerHTML = rows.map((r,i) => {
+        const totalCostPct = r.sales>0 ? r.totalAdsCost/r.sales*100 : 0;
+        return `<div class="seller-card">
+          <div class="seller-card-head">
+            <div class="seller-name"><span class="rk">${i+1}</span>${r.name}</div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+              <span class="seller-sales">ยอดขาย ${fmt(r.sales)}</span>
+              <span class="net-badge ${r.netProfit>=0?'net-pos':'net-neg'}">กำไรสุทธิ ${fmt(r.netProfit)}</span>
+            </div>
+          </div>
+          ${pbar('ค่าโฆษณา Facebook', r.adsFacebook, r.sales, 'var(--facebook)')}
+          ${pbar('ค่าโฆษณา Shopee', r.adsShopee, r.sales, 'var(--shopee)')}
+          ${pbar('ค่าโฆษณา Lazada', r.adsLazada, r.sales, 'var(--lazada)')}
+          ${pbar('ต้นทุน/ค่าโฆษณารวม ต่อยอดขาย', r.totalAdsCost, r.sales, totalCostPct<=45?'#22c55e':'#f97316')}
+        </div>`;
+      }).join('');
+    }
+
+    async function saveFee() {
+      const month = document.getElementById('fMonth').value;
+      const branch = document.getElementById('feeBranch').value;
+      const fee = parseFloat(document.getElementById('feeValue').value) || 0;
+      if (!month || !branch) return;
+      const msg = document.getElementById('feeMsg');
+      msg.textContent = 'กำลังบันทึก...';
+      try {
+        await db.collection('it_fees').doc(month + '_' + safeId(branch)).set({ month, branch, fee, updatedAt:new Date().toISOString() });
+        feeMap[branch] = fee;
+        msg.textContent = '✅ บันทึกแล้ว';
+        renderCards();
+        setTimeout(()=>msg.textContent='', 2500);
+      } catch (err) { console.error(err); msg.textContent = '❌ ผิดพลาด: '+err.message; }
+    }
+
+    document.getElementById('feeBranch').addEventListener('change', function(){
+      document.getElementById('feeValue').value = feeMap[this.value] || '';
+    });
+
+    init();
+  </script>
+</body>
+</html>
