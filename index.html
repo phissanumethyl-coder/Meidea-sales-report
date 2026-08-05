@@ -287,6 +287,35 @@
   </style>
 </head>
 <body>
+  <!-- ===== LOGIN GATE ===== -->
+  <div id="loginGate" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#1e293b,#0f172a);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Kanit',sans-serif;">
+    <div style="background:#fff;border-radius:18px;padding:36px 32px;width:360px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);text-align:center;">
+      <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:16px;background:linear-gradient(135deg,#2563eb,#ec4899);display:flex;align-items:center;justify-content:center;font-size:30px;">🔒</div>
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;color:#1e293b;">MEIDEA Sales Report</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:20px;">กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+      <input id="loginInput" type="password" inputmode="numeric" placeholder="รหัสผ่าน" autocomplete="off"
+        style="width:100%;padding:13px 16px;border:1px solid #e2e8f0;border-radius:10px;font-family:'Kanit',sans-serif;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:12px;"
+        onkeydown="if(event.key==='Enter')tryLogin()">
+      <div id="loginErr" style="color:#ef4444;font-size:13px;margin-bottom:12px;min-height:18px;"></div>
+      <button onclick="tryLogin()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#ec4899);color:#fff;font-family:'Kanit',sans-serif;font-size:16px;font-weight:600;cursor:pointer;">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var VALID = ['142542','222888'];
+      var KEY = 'meidea_auth_ok';
+      function unlock(){ var g=document.getElementById('loginGate'); if(g) g.style.display='none'; }
+      if (sessionStorage.getItem(KEY)==='1') { unlock(); }
+      window.tryLogin = function(){
+        var v = (document.getElementById('loginInput').value||'').trim();
+        if (VALID.indexOf(v)>=0){ sessionStorage.setItem(KEY,'1'); unlock(); }
+        else { document.getElementById('loginErr').textContent='รหัสผ่านไม่ถูกต้อง'; document.getElementById('loginInput').value=''; document.getElementById('loginInput').focus(); }
+      };
+      var el=document.getElementById('loginInput'); if(el && sessionStorage.getItem(KEY)!=='1') setTimeout(function(){el.focus();},100);
+    })();
+  </script>
+  <!-- ===== END LOGIN GATE ===== -->
+
   <!-- ================= TEAM SWITCHER ================= -->
   <div class="team-bar">
     <div class="team-bar-content">
@@ -1152,11 +1181,31 @@
       ['itSalesFacebook','itSalesShopee','itSalesLazada','itSalesLineOA','itTotalSales','itAdsFacebook','itAdsShopee','itAdsLazada','itTotalAds','itNetProfit'].forEach(id => document.getElementById(id).value = '');
     }
 
+    // If a Firestore doc already exists, ask the user before overwriting.
+    async function confirmOverwrite(collection, docId, label, onProceed) {
+      try {
+        const snap = await db.collection(collection).doc(docId).get();
+        if (snap.exists) {
+          showConfirm({
+            icon:'⚠️', title:'มีข้อมูลอยู่แล้ว',
+            message: (label||'วันนี้') + ' มีข้อมูลที่บันทึกไว้แล้ว ต้องการบันทึกทับหรือไม่? ข้อมูลเดิมจะถูกแทนที่',
+            okText:'บันทึกทับ', danger:true, onOk: onProceed
+          });
+          return;
+        }
+      } catch(e){ console.warn('exist-check failed, proceeding', e); }
+      onProceed();
+    }
+
     async function submitItSales() {
       const branch = document.getElementById('itBranch').value;
       const emp = document.getElementById('itEmployee').value;
       if (!branch || !emp) { showToast('เลือกสาขาและพนักงาน', 'error'); return; }
       const date = document.getElementById('itDate').value || todayStr();
+      const docId = date + '_' + safeId(branch) + '_' + safeId(emp);
+      confirmOverwrite('it_sales', docId, 'พนักงาน ' + emp + ' วันที่ ' + date, () => doSubmitItSales(date, branch, emp, docId));
+    }
+    async function doSubmitItSales(date, branch, emp, docId) {
       const totalSales = num('itSalesFacebook')+num('itSalesShopee')+num('itSalesLazada')+num('itSalesLineOA');
       const totalAds = num('itAdsFacebook')+num('itAdsShopee')+num('itAdsLazada');
       const data = {
@@ -1171,7 +1220,7 @@
       setFormDisabled('#page-it-input', true);
       showToast('กำลังบันทึก...', '');
       try {
-        await db.collection('it_sales').doc(date + '_' + safeId(branch) + '_' + safeId(emp)).set(data);
+        await db.collection('it_sales').doc(docId).set(data);
         setFormDisabled('#page-it-input', false);
         showToast('บันทึกสำเร็จ!', 'success');
         clearItForm();
@@ -1206,6 +1255,10 @@
       const branch = document.getElementById('itDailyBranch').value;
       if (!branch) { showToast('เลือกสาขา', 'error'); return; }
       const date = document.getElementById('itDailyDate').value || todayStr();
+      const docId = date + '_' + safeId(branch);
+      confirmOverwrite('it_daily', docId, 'สาขา ' + branch + ' วันที่ ' + date, () => doSubmitItDaily(date, branch, docId));
+    }
+    async function doSubmitItDaily(date, branch, docId) {
       const data = {
         date, branch,
         salesToday: num('itSalesToday'), costToday: num('itCostToday'),
@@ -1214,12 +1267,11 @@
       setFormDisabled('#page-it-daily', true);
       showToast('กำลังบันทึก...', '');
       try {
-        await db.collection('it_daily').doc(date + '_' + safeId(branch)).set(data);
+        await db.collection('it_daily').doc(docId).set(data);
         setFormDisabled('#page-it-daily', false);
         showToast('บันทึกสำเร็จ! กำลังอัพเดทตาราง...', 'success');
         ['itSalesToday','itCostToday'].forEach(id => document.getElementById(id).value = '');
         itDailyList = null;
-        // รอ 1.5 วินาทีก่อนโหลดตารางใหม่
         setTimeout(async () => { await loadItDailyComparison(); showToast('อัพเดทตารางเรียบร้อย!', 'success'); }, 1500);
       } catch (err) {
         console.error(err); setFormDisabled('#page-it-daily', false); showToast('ผิดพลาด: ' + err.message, 'error');
@@ -1772,6 +1824,10 @@
       const seller = document.getElementById('liveSeller').value;
       if (!seller) { showToast('เลือกเซลล์', 'error'); return; }
       const date = document.getElementById('liveDate').value || todayStr();
+      const docId = date + '_' + safeId(seller);
+      confirmOverwrite('live_sales', docId, 'เซลล์ ' + seller + ' วันที่ ' + date, () => doSubmitLive(date, seller, docId));
+    }
+    async function doSubmitLive(date, seller, docId) {
       const sales = num('liveSales'), cost = num('liveCost'), ads = num('liveAds');
       const data = {
         date, seller,
@@ -1782,11 +1838,10 @@
       setFormDisabled('#page-live-input', true);
       showToast('กำลังบันทึก...', '');
       try {
-        await db.collection('live_sales').doc(date + '_' + safeId(seller)).set(data);
+        await db.collection('live_sales').doc(docId).set(data);
         setFormDisabled('#page-live-input', false);
         showToast('บันทึกสำเร็จ! กำลังอัพเดทตาราง...', 'success');
         clearLiveForm();
-        // reset for the next seller
         document.getElementById('liveSeller').value = '';
         document.getElementById('liveCumSummary').style.display = 'none';
         document.getElementById('liveSeller').focus();

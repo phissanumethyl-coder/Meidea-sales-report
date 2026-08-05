@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     :root {
@@ -149,15 +150,40 @@
   </style>
 </head>
 <body>
+  <!-- ===== LOGIN GATE ===== -->
+  <div id="loginGate" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#1e293b,#0f172a);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Kanit',sans-serif;">
+    <div style="background:#fff;border-radius:18px;padding:36px 32px;width:360px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);text-align:center;">
+      <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:16px;background:linear-gradient(135deg,#2563eb,#ec4899);display:flex;align-items:center;justify-content:center;font-size:30px;">🔒</div>
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;color:#1e293b;">MEIDEA Sales Report</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:20px;">กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+      <input id="loginInput" type="password" inputmode="numeric" placeholder="รหัสผ่าน" autocomplete="off"
+        style="width:100%;padding:13px 16px;border:1px solid #e2e8f0;border-radius:10px;font-family:'Kanit',sans-serif;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:12px;"
+        onkeydown="if(event.key==='Enter')tryLogin()">
+      <div id="loginErr" style="color:#ef4444;font-size:13px;margin-bottom:12px;min-height:18px;"></div>
+      <button onclick="tryLogin()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#ec4899);color:#fff;font-family:'Kanit',sans-serif;font-size:16px;font-weight:600;cursor:pointer;">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var VALID = ['142542','222888'];
+      var KEY = 'meidea_auth_ok';
+      function unlock(){ var g=document.getElementById('loginGate'); if(g) g.style.display='none'; }
+      if (sessionStorage.getItem(KEY)==='1') { unlock(); }
+      window.tryLogin = function(){
+        var v = (document.getElementById('loginInput').value||'').trim();
+        if (VALID.indexOf(v)>=0){ sessionStorage.setItem(KEY,'1'); unlock(); }
+        else { document.getElementById('loginErr').textContent='รหัสผ่านไม่ถูกต้อง'; document.getElementById('loginInput').value=''; document.getElementById('loginInput').focus(); }
+      };
+      var el=document.getElementById('loginInput'); if(el && sessionStorage.getItem(KEY)!=='1') setTimeout(function(){el.focus();},100);
+    })();
+  </script>
+  <!-- ===== END LOGIN GATE ===== -->
+
   <div class="topbar">
     <div class="topbar-in">
       <div class="brand">
         <div class="brand-ic">LIVE</div>
         <div><h1>Dashboard ฝ่ายไลฟ์สด</h1><p>MEIDEA Sales Report · อ่านข้อมูลจาก Firebase</p></div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a class="btn btn-outline btn-sm" href="dashboard-it.html" style="text-decoration:none;">📊 Dashboard ไอที</a>
-        <a class="btn btn-outline btn-sm" href="index.html" style="text-decoration:none;">← กลับหน้ากรอกยอด</a>
       </div>
     </div>
   </div>
@@ -175,6 +201,13 @@
       <div class="section-title" style="justify-content:center;">🏆 ภาพรวมฝ่ายไลฟ์สด <span id="overallMonthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
       <div class="summary-note" style="text-align:center;">เทียบกับเดือนก่อนหน้า · เอาเมาส์วางการ์ดเพื่อดูแยกรายเซลล์</div>
       <div class="cards-center" id="overallGrid"></div>
+
+      <!-- 6-month trend -->
+      <div class="section-title" style="justify-content:center;">📈 แนวโน้มย้อนหลัง 6 เดือน</div>
+      <div class="summary-note" style="text-align:center;">ยอดขายรวม · ค่าโฆษณา · กำไรสุทธิ แต่ละเดือน</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:32px;">
+        <div style="height:320px;"><canvas id="trendChart"></canvas></div>
+      </div>
 
       <!-- Summary cards per seller -->
       <div class="section-title">📊 สรุปรายเดือน (รายเซลล์)</div>
@@ -357,6 +390,39 @@
       renderCards();
       renderSellers();
       renderHours();
+      renderTrend(month);
+    }
+
+    // ---- 6-month trend ----
+    let trendChart = null;
+    async function renderTrend(month) {
+      const canvas = document.getElementById('trendChart');
+      if (!canvas || typeof Chart==='undefined') return;
+      let [y,m] = month.split('-').map(Number);
+      const months = [];
+      for (let i=5;i>=0;i--){ let mm=m-i, yy=y; while(mm<1){mm+=12;yy--;} months.push(yy+'-'+pad2(mm)); }
+      const labels=[], salesArr=[], adsArr=[], netArr=[];
+      for (const mo of months) {
+        const rows = await fetchSalesMonth(mo);
+        const t = sumRows(rows);
+        const [yy,mm]=mo.split('-').map(Number);
+        labels.push(TH_MONTHS[mm-1]+' '+String((yy+543)).slice(-2));
+        salesArr.push(Math.round(t.sales)); adsArr.push(Math.round(t.ads)); netArr.push(Math.round(t.net));
+      }
+      if (trendChart) trendChart.destroy();
+      trendChart = new Chart(canvas.getContext('2d'), {
+        type:'line',
+        data:{ labels, datasets:[
+          { label:'ยอดขายรวม', data:salesArr, borderColor:'#f59e0b', backgroundColor:'#f59e0b22', tension:0.3, fill:true, borderWidth:2 },
+          { label:'ค่าโฆษณา', data:adsArr, borderColor:'#ef4444', backgroundColor:'transparent', tension:0.3, borderWidth:2 },
+          { label:'กำไรสุทธิ', data:netArr, borderColor:'#22c55e', backgroundColor:'#22c55e22', tension:0.3, fill:true, borderWidth:2 }
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+          plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}},
+            tooltip:{ callbacks:{ label:c=>c.dataset.label+': '+fmt(c.parsed.y) } } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#f4eef1'} } }
+        }
+      });
     }
 
     // ---------- overall ----------

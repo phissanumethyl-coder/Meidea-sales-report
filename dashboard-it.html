@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     :root {
@@ -148,6 +149,35 @@
   </style>
 </head>
 <body>
+  <!-- ===== LOGIN GATE ===== -->
+  <div id="loginGate" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#1e293b,#0f172a);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Kanit',sans-serif;">
+    <div style="background:#fff;border-radius:18px;padding:36px 32px;width:360px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);text-align:center;">
+      <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:16px;background:linear-gradient(135deg,#2563eb,#ec4899);display:flex;align-items:center;justify-content:center;font-size:30px;">🔒</div>
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;color:#1e293b;">MEIDEA Sales Report</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:20px;">กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+      <input id="loginInput" type="password" inputmode="numeric" placeholder="รหัสผ่าน" autocomplete="off"
+        style="width:100%;padding:13px 16px;border:1px solid #e2e8f0;border-radius:10px;font-family:'Kanit',sans-serif;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:12px;"
+        onkeydown="if(event.key==='Enter')tryLogin()">
+      <div id="loginErr" style="color:#ef4444;font-size:13px;margin-bottom:12px;min-height:18px;"></div>
+      <button onclick="tryLogin()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#ec4899);color:#fff;font-family:'Kanit',sans-serif;font-size:16px;font-weight:600;cursor:pointer;">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var VALID = ['142542','222888'];
+      var KEY = 'meidea_auth_ok';
+      function unlock(){ var g=document.getElementById('loginGate'); if(g) g.style.display='none'; }
+      if (sessionStorage.getItem(KEY)==='1') { unlock(); }
+      window.tryLogin = function(){
+        var v = (document.getElementById('loginInput').value||'').trim();
+        if (VALID.indexOf(v)>=0){ sessionStorage.setItem(KEY,'1'); unlock(); }
+        else { document.getElementById('loginErr').textContent='รหัสผ่านไม่ถูกต้อง'; document.getElementById('loginInput').value=''; document.getElementById('loginInput').focus(); }
+      };
+      var el=document.getElementById('loginInput'); if(el && sessionStorage.getItem(KEY)!=='1') setTimeout(function(){el.focus();},100);
+    })();
+  </script>
+  <!-- ===== END LOGIN GATE ===== -->
+
   <div class="topbar">
     <div class="topbar-in">
       <div class="brand">
@@ -175,6 +205,13 @@
       <div class="section-title" style="justify-content:center;">🏆 ภาพรวมฝ่ายไอที <span id="overallMonthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
       <div class="summary-note" style="text-align:center;">เทียบกับเดือนก่อนหน้า (ทุกสาขารวมกัน)</div>
       <div class="cards-center" id="overallGrid" style="margin-bottom:24px;"></div>
+
+      <!-- 6-month trend -->
+      <div class="section-title" style="justify-content:center;">📈 แนวโน้มย้อนหลัง 6 เดือน</div>
+      <div class="summary-note" style="text-align:center;">ยอดขายรวม · ค่าโฆษณา · กำไรสุทธิ แต่ละเดือน (ทุกสาขา)</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:32px;">
+        <div style="height:320px;"><canvas id="trendChart"></canvas></div>
+      </div>
 
       <!-- Platform breakdown -->
       <div class="section-title" style="justify-content:center;">🧩 แยกตามแพลตฟอร์ม</div>
@@ -204,6 +241,18 @@
           <span id="feeMsg" style="font-size:13px;color:var(--muted);"></span>
         </div>
         <div class="fee-hint" id="feeHint" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
+      </div>
+
+      <!-- Target editor -->
+      <div class="fee-box" style="background:#eff6ff;border-color:#bfdbfe;">
+        <h3 style="color:#1d4ed8;">🎯 ตั้งเป้ายอดขายรายเดือน (ต่อสาขา)</h3>
+        <div class="fee-row">
+          <div class="fg"><label>สาขา</label><select id="tgtBranch" onchange="prefillTarget()"></select></div>
+          <div class="fg"><label>เป้ายอดขาย (บาท)</label><input type="number" id="tgtValue" placeholder="0"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveTarget()">💾 บันทึกเป้า</button>
+          <span id="tgtMsg" style="font-size:13px;color:var(--muted);"></span>
+        </div>
+        <div id="tgtProgress" style="margin-top:14px;"></div>
       </div>
 
       <!-- Seller progress -->
@@ -309,7 +358,7 @@
       const fb = document.getElementById('fBranch');
       fb.innerHTML = '<option value="all">ทุกสาขา</option>';
       branches.forEach(b => fb.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
-      ['feeBranch','sBranch'].forEach(id => {
+      ['feeBranch','sBranch','tgtBranch'].forEach(id => {
         const el = document.getElementById(id);
         el.innerHTML = '';
         branches.forEach(b => el.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
@@ -334,6 +383,7 @@
     }
 
     let prevMonthRows = [];
+    let targetMap = {};   // branch -> target sales (selected month)
 
     function rerender() {
       const month = document.getElementById('fMonth').value;
@@ -364,6 +414,13 @@
           });
         } catch(e){ console.warn('fees', e); }
 
+        // fetch targets for the month
+        targetMap = {};
+        try {
+          const tSnap = await db.collection('it_targets').where('month','==',month).get();
+          tSnap.forEach(d => { const x=d.data(); targetMap[x.branch] = x.target||0; });
+        } catch(e){ console.warn('targets', e); }
+
         renderAll(month);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
@@ -388,10 +445,96 @@
         (b==='all' ? 'แสดงทุกสาขา' : 'แสดงเฉพาะสาขา ' + b) + ' · แต่ละการ์ดเรียงเซลล์จากมากไปน้อย';
       // fee editor: refresh seller dropdown + prefill
       fillFeeSellers();
+      prefillTarget();
+      renderTargetProgress();
       renderOverall(month);
       renderPlatforms();
       renderCards();
       renderSellers();
+      renderTrend(month);
+    }
+
+    // ---- 6-month trend ----
+    let trendChart = null;
+    async function renderTrend(month) {
+      const canvas = document.getElementById('trendChart');
+      if (!canvas || typeof Chart==='undefined') return;
+      // build list of last 6 months (including selected)
+      let [y,m] = month.split('-').map(Number);
+      const months = [];
+      for (let i=5;i>=0;i--) {
+        let mm=m-i, yy=y; while(mm<1){mm+=12;yy--;}
+        months.push(yy+'-'+pad2(mm));
+      }
+      // fetch each month's rows (reuse fetchMonthRows), sum totals
+      const labels=[], salesArr=[], adsArr=[], netArr=[];
+      for (const mo of months) {
+        const rows = await fetchMonthRows(mo);
+        let s=0,a=0,n=0;
+        rows.forEach(r=>{ s+=r.totalSales||0; a+=r.totalAdsCost||0; n+=(r.netProfit||0)-(r.totalAdsCost||0); });
+        const [yy,mm]=mo.split('-').map(Number);
+        labels.push(TH_MONTHS[mm-1]+' '+String((yy+543)).slice(-2));
+        salesArr.push(Math.round(s)); adsArr.push(Math.round(a)); netArr.push(Math.round(n));
+      }
+      if (trendChart) trendChart.destroy();
+      trendChart = new Chart(canvas.getContext('2d'), {
+        type:'line',
+        data:{ labels, datasets:[
+          { label:'ยอดขายรวม', data:salesArr, borderColor:'#f59e0b', backgroundColor:'#f59e0b22', tension:0.3, fill:true, borderWidth:2 },
+          { label:'ค่าโฆษณา', data:adsArr, borderColor:'#ef4444', backgroundColor:'transparent', tension:0.3, borderWidth:2 },
+          { label:'กำไรสุทธิ', data:netArr, borderColor:'#22c55e', backgroundColor:'#22c55e22', tension:0.3, fill:true, borderWidth:2 }
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+          plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}},
+            tooltip:{ callbacks:{ label:c=>c.dataset.label+': '+fmt(c.parsed.y) } } },
+          scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Kanit',size:12}} }, y:{ ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}, grid:{color:'#f1f5f9'} } }
+        }
+      });
+    }
+
+    // ---- target editor ----
+    function prefillTarget() {
+      const b = document.getElementById('tgtBranch').value;
+      document.getElementById('tgtValue').value = targetMap[b] || '';
+    }
+    async function saveTarget() {
+      const month = document.getElementById('fMonth').value;
+      const branch = document.getElementById('tgtBranch').value;
+      const target = parseFloat(document.getElementById('tgtValue').value) || 0;
+      if (!month || !branch) return;
+      const msg = document.getElementById('tgtMsg');
+      msg.textContent = 'กำลังบันทึก...';
+      try {
+        await db.collection('it_targets').doc(month + '__' + safeId(branch)).set({ month, branch, target, updatedAt:new Date().toISOString() });
+        targetMap[branch] = target;
+        msg.textContent = '✅ บันทึกแล้ว';
+        renderTargetProgress();
+        setTimeout(()=>msg.textContent='', 2500);
+      } catch (err) { console.error(err); msg.textContent = '❌ ผิดพลาด: '+err.message; }
+    }
+    function renderTargetProgress() {
+      const box = document.getElementById('tgtProgress');
+      // sales per branch (from monthRows)
+      const salesByBranch = {};
+      monthRows.forEach(r => { salesByBranch[r.branch] = (salesByBranch[r.branch]||0) + (r.totalSales||0); });
+      const list = branches.filter(b => (targetMap[b]||0) > 0 || (salesByBranch[b]||0) > 0);
+      if (!list.length) { box.innerHTML = '<div style="font-size:13px;color:var(--muted)">ยังไม่ได้ตั้งเป้า — เลือกสาขาแล้วกรอกเป้ายอดขาย</div>'; return; }
+      box.innerHTML = list.map(b => {
+        const sales = salesByBranch[b]||0, target = targetMap[b]||0;
+        const pct = target>0 ? sales/target*100 : 0;
+        const w = Math.max(0, Math.min(100, pct));
+        const done = pct>=100;
+        const color = done ? '#22c55e' : (pct>=70 ? '#f59e0b' : '#3b82f6');
+        return `<div style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span style="font-weight:600;">${b} ${done?'✅':''}</span>
+            <span>${fmt(sales)} / ${target>0?fmt(target):'— ยังไม่ตั้งเป้า'} ${target>0?`<b style="color:${color}">(${pct.toFixed(1)}%)</b>`:''}</span>
+          </div>
+          <div style="height:14px;background:#e2e8f0;border-radius:7px;overflow:hidden;">
+            <div style="width:${w}%;height:100%;background:${color};border-radius:7px;transition:width .5s;"></div>
+          </div>
+        </div>`;
+      }).join('');
     }
 
     // ---- fee editor ----
