@@ -149,34 +149,6 @@
   </style>
 </head>
 <body>
-  <!-- ===== LOGIN GATE ===== -->
-  <div id="loginGate" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#1e293b,#0f172a);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Kanit',sans-serif;">
-    <div style="background:#fff;border-radius:18px;padding:36px 32px;width:360px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);text-align:center;">
-      <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:16px;background:linear-gradient(135deg,#2563eb,#ec4899);display:flex;align-items:center;justify-content:center;font-size:30px;">🔒</div>
-      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;color:#1e293b;">MEIDEA Sales Report</h2>
-      <p style="font-size:13px;color:#64748b;margin-bottom:20px;">กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
-      <input id="loginInput" type="password" inputmode="numeric" placeholder="รหัสผ่าน" autocomplete="off"
-        style="width:100%;padding:13px 16px;border:1px solid #e2e8f0;border-radius:10px;font-family:'Kanit',sans-serif;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:12px;"
-        onkeydown="if(event.key==='Enter')tryLogin()">
-      <div id="loginErr" style="color:#ef4444;font-size:13px;margin-bottom:12px;min-height:18px;"></div>
-      <button onclick="tryLogin()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#ec4899);color:#fff;font-family:'Kanit',sans-serif;font-size:16px;font-weight:600;cursor:pointer;">เข้าสู่ระบบ</button>
-    </div>
-  </div>
-  <script>
-    (function(){
-      var VALID = ['142542','222888'];
-      var KEY = 'meidea_auth_ok';
-      function unlock(){ var g=document.getElementById('loginGate'); if(g) g.style.display='none'; }
-      if (sessionStorage.getItem(KEY)==='1') { unlock(); }
-      window.tryLogin = function(){
-        var v = (document.getElementById('loginInput').value||'').trim();
-        if (VALID.indexOf(v)>=0){ sessionStorage.setItem(KEY,'1'); unlock(); }
-        else { document.getElementById('loginErr').textContent='รหัสผ่านไม่ถูกต้อง'; document.getElementById('loginInput').value=''; document.getElementById('loginInput').focus(); }
-      };
-      var el=document.getElementById('loginInput'); if(el && sessionStorage.getItem(KEY)!=='1') setTimeout(function(){el.focus();},100);
-    })();
-  </script>
-  <!-- ===== END LOGIN GATE ===== -->
 
   <div class="topbar">
     <div class="topbar-in">
