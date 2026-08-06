@@ -191,6 +191,15 @@
     .th-bar { height:10px; background:var(--tertiary); border-radius:5px; overflow:hidden; }
     .th-fill { height:100%; border-radius:5px; transition:width .5s; }
     .th-vals { font-size:12px; white-space:nowrap; }
+    /* lottie uploader */
+    .lot-slot { border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:14px; display:grid; grid-template-columns:1fr 90px; grid-template-areas:'info preview' 'actions preview'; gap:8px 14px; align-items:center; }
+    .lot-info { grid-area:info; }
+    .lot-title { font-weight:600; font-size:14px; }
+    .lot-status { font-size:12px; color:var(--muted); margin-top:2px; }
+    .lot-preview { grid-area:preview; width:90px; height:90px; border:1px dashed var(--border); border-radius:10px; background:#f8fafc; display:flex; align-items:center; justify-content:center; }
+    .lot-preview svg { width:100% !important; height:100% !important; }
+    .lot-actions { grid-area:actions; display:flex; gap:8px; flex-wrap:wrap; }
+    .lot-file { cursor:pointer; margin:0; }
   </style>
 </head>
 <body>
@@ -247,6 +256,7 @@
             <option value="asc">น้อย → มาก</option>
           </select></div>
           <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="openTargetModal()">🎯 ตั้งเป้ายอดขาย</button>
+          <button class="btn btn-outline btn-sm" onclick="openLottieModal()">🎨 เปลี่ยนตัวการ์ตูน</button>
         </div>
         <div id="sellerList"></div>
       </div>
@@ -274,6 +284,36 @@
         </div>
         <div id="hoursEmpty" class="empty" style="display:none;">ไม่มีข้อมูลชั่วโมงไลฟ์ในรอบนี้</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Lottie uploader modal -->
+  <div id="lottieModal" class="modal-ov">
+    <div class="modal-bx">
+      <div class="modal-hd"><h3>🎨 เปลี่ยนตัวการ์ตูน Progress bar</h3><button class="modal-x" onclick="closeLottieModal()">✕</button></div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">อัปโหลดไฟล์ Lottie (.json) เพื่อเปลี่ยนตัวการ์ตูนที่เดินบนแถบเป้าหมาย · เก็บบน Firebase ทุกเครื่องเห็นเหมือนกัน · ไฟล์ควรเล็กกว่า ~900 KB</p>
+
+      <div class="lot-slot">
+        <div class="lot-info"><div class="lot-title">🎯 แถบเป้ายอดขาย</div><div class="lot-status" id="lotStatusSales">— ใช้ตัว default (Tommy) —</div></div>
+        <div class="lot-preview" id="lotPreviewSales"></div>
+        <div class="lot-actions">
+          <label class="btn btn-outline btn-sm lot-file">เลือกไฟล์<input type="file" accept=".json,application/json" onchange="onLottieFile(event,'sales')" style="display:none;"></label>
+          <button class="btn btn-primary btn-sm" id="lotSaveSales" onclick="saveLottie('sales')" disabled>💾 บันทึก</button>
+          <button class="btn btn-outline btn-sm" onclick="resetLottie('sales')">♻️ กลับเป็น default</button>
+        </div>
+      </div>
+
+      <div class="lot-slot">
+        <div class="lot-info"><div class="lot-title">⏱️ แถบเป้าชั่วโมงไลฟ์</div><div class="lot-status" id="lotStatusHours">— ใช้ตัว default (Tommy) —</div></div>
+        <div class="lot-preview" id="lotPreviewHours"></div>
+        <div class="lot-actions">
+          <label class="btn btn-outline btn-sm lot-file">เลือกไฟล์<input type="file" accept=".json,application/json" onchange="onLottieFile(event,'hours')" style="display:none;"></label>
+          <button class="btn btn-primary btn-sm" id="lotSaveHours" onclick="saveLottie('hours')" disabled>💾 บันทึก</button>
+          <button class="btn btn-outline btn-sm" onclick="resetLottie('hours')">♻️ กลับเป็น default</button>
+        </div>
+      </div>
+
+      <div id="lotMsg" style="font-size:13px;color:var(--muted);min-height:18px;margin-top:6px;"></div>
     </div>
   </div>
 
@@ -388,6 +428,7 @@
         await fetchHoursCycle(month);
         await fetchShops();
         await fetchSalesTargets(month);
+        await fetchLottie();
         renderAll(month);
         document.getElementById('loading').style.display='none';
         document.getElementById('content').style.display='block';
@@ -592,7 +633,7 @@
         return `<div class="exp-row"><span class="exp-lb">${label}</span><div class="exp-track"><div class="exp-fill" style="width:${w}%;background:${color}"></div></div><span class="exp-vl"><b>${pct.toFixed(1)}%</b> <span class="exp-baht">(฿${fmt(value)})</span></span></div>`;
       };
       // cute "swimming to the finish line" goal bar
-      const walkBar=(label, value, target, unit, trackColor)=>{
+      const walkBar=(label, value, target, unit, trackColor, kind)=>{
         const pct = target>0 ? value/target*100 : 0;
         const w = Math.max(0, Math.min(100, pct));
         const done = pct>=100;
@@ -600,7 +641,7 @@
         const tgtTxt = target>0 ? (unit==='฿' ? ('฿'+fmt(target)) : (fmt(target)+' '+unit)) : '— ยังไม่ตั้งเป้า';
         const wid = 'tommy_' + (walkerSeq++);
         // remember which walkers to mount after innerHTML is set
-        pendingWalkers.push({ id: wid, w, done });
+        pendingWalkers.push({ id: wid, w, done, kind });
         return `<div class="goal-row ${done?'goal-done':''}">
           <div class="goal-head"><span class="goal-lb">${label} ${done?'<span class="goal-badge">ถึงเป้าแล้ว! 🎉</span>':''}</span>
             <span class="goal-val">${valTxt} <span class="goal-sep">/</span> ${tgtTxt} <b class="goal-pct" style="color:${trackColor}">${target>0?pct.toFixed(0)+'%':''}</b></span></div>
@@ -636,8 +677,8 @@
               ${expRow('ค่าโฆษณา', r.ads, r.sales, '#ef4444')}
               ${expRow('กำไรสุทธิ', r.net, r.sales, r.net>=0?'#22c55e':'#ef4444')}
               <div class="goal-title">🎯 เป้าหมายรายบุคคล</div>
-              ${walkBar('เป้ายอดขาย', r.sales, salesTargetMap[r.seller]||0, '฿', '#f97316')}
-              ${walkBar('เป้าชั่วโมงไลฟ์ (150 ชม./รอบ)', hoursBySeller[r.seller]||0, HOURS_TARGET, 'ชม.', '#0ea5e9')}
+              ${walkBar('เป้ายอดขาย', r.sales, salesTargetMap[r.seller]||0, '฿', '#f97316', 'sales')}
+              ${walkBar('เป้าชั่วโมงไลฟ์ (150 ชม./รอบ)', hoursBySeller[r.seller]||0, HOURS_TARGET, 'ชม.', '#0ea5e9', 'hours')}
             </div>
           </div>
         </div>`;
@@ -645,7 +686,7 @@
       mountWalkers();
     }
 
-    // load & parse the embedded Tommy lottie once
+    // load & parse the embedded Tommy lottie once (default fallback)
     let TOMMY_DATA = null;
     function getTommyData(){
       if (TOMMY_DATA) return TOMMY_DATA;
@@ -655,21 +696,113 @@
       } catch(e){ console.warn('tommy parse failed', e); TOMMY_DATA = null; }
       return TOMMY_DATA;
     }
+    // custom uploaded animations (from Firestore): { sales: {...}, hours: {...} }
+    let customLottie = { sales:null, hours:null };
+    async function fetchLottie(){
+      try {
+        const snap = await db.collection('live_lottie').get();
+        snap.forEach(d=>{
+          const x = d.data();
+          if ((d.id==='sales' || d.id==='hours') && x.data) {
+            try { customLottie[d.id] = JSON.parse(x.data); } catch(e){ console.warn('parse lottie', d.id, e); }
+          }
+        });
+      } catch(e){ console.warn('lottie fetch', e); }
+    }
+    function animForKind(kind){
+      return customLottie[kind] || getTommyData();
+    }
     function mountWalkers(){
       if (typeof lottie === 'undefined') return;
-      const data = getTommyData();
-      if (!data) return;
       pendingWalkers.forEach(p=>{
         const el = document.getElementById(p.id);
         if (!el) return;
+        const data = animForKind(p.kind);
+        if (!data) return;
         const anim = lottie.loadAnimation({
           container: el, renderer:'svg', loop:true, autoplay:true, animationData: JSON.parse(JSON.stringify(data))
         });
-        // walk a bit slower; celebrate faster when done
         anim.setSpeed(p.done ? 1.4 : 1);
         walkerAnims.push(anim);
       });
       pendingWalkers = [];
+    }
+
+    // ---------- lottie uploader ----------
+    let lotStaged = { sales:null, hours:null };   // parsed data waiting to be saved
+    let lotPreviewAnims = {};
+    function openLottieModal(){
+      document.getElementById('lotMsg').textContent='';
+      lotStaged = { sales:null, hours:null };
+      ['sales','hours'].forEach(k=>{
+        document.getElementById('lotSave'+cap(k)).disabled = true;
+        const has = !!customLottie[k];
+        document.getElementById('lotStatus'+cap(k)).textContent = has ? '✅ ใช้ตัวการ์ตูนที่อัปโหลดไว้' : '— ใช้ตัว default (Tommy) —';
+        previewLottie(k, animForKind(k));
+      });
+      document.getElementById('lottieModal').classList.add('on');
+    }
+    function closeLottieModal(){
+      document.getElementById('lottieModal').classList.remove('on');
+      Object.values(lotPreviewAnims).forEach(a=>{ try{a.destroy();}catch(e){} });
+      lotPreviewAnims = {};
+    }
+    function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+    function previewLottie(kind, data){
+      const el = document.getElementById('lotPreview'+cap(kind));
+      if (!el) return;
+      if (lotPreviewAnims[kind]) { try{lotPreviewAnims[kind].destroy();}catch(e){} }
+      el.innerHTML='';
+      if (typeof lottie==='undefined' || !data) { el.textContent='—'; return; }
+      lotPreviewAnims[kind] = lottie.loadAnimation({ container:el, renderer:'svg', loop:true, autoplay:true, animationData: JSON.parse(JSON.stringify(data)) });
+    }
+    function onLottieFile(ev, kind){
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const msg = document.getElementById('lotMsg');
+      if (file.size > 950*1024) { msg.textContent = '❌ ไฟล์ใหญ่เกินไป ('+Math.round(file.size/1024)+' KB) — ต้องเล็กกว่า 950 KB'; ev.target.value=''; return; }
+      const reader = new FileReader();
+      reader.onload = function(){
+        try {
+          const data = JSON.parse(reader.result);
+          if (!data.layers || !data.v) { msg.textContent='❌ ไม่ใช่ไฟล์ Lottie ที่ถูกต้อง'; return; }
+          lotStaged[kind] = { raw: reader.result, data };
+          previewLottie(kind, data);
+          document.getElementById('lotStatus'+cap(kind)).textContent = '📄 พร้อมบันทึก: ' + file.name;
+          document.getElementById('lotSave'+cap(kind)).disabled = false;
+          msg.textContent = '';
+        } catch(e){ msg.textContent='❌ อ่านไฟล์ไม่ได้ (ต้องเป็น .json ที่ถูกต้อง)'; }
+      };
+      reader.readAsText(file);
+    }
+    async function saveLottie(kind){
+      const staged = lotStaged[kind];
+      if (!staged) return;
+      const msg = document.getElementById('lotMsg');
+      msg.textContent = 'กำลังบันทึก...';
+      try {
+        await db.collection('live_lottie').doc(kind).set({ data: staged.raw, updatedAt:new Date().toISOString() });
+        customLottie[kind] = staged.data;
+        document.getElementById('lotStatus'+cap(kind)).textContent = '✅ ใช้ตัวการ์ตูนที่อัปโหลดไว้';
+        document.getElementById('lotSave'+cap(kind)).disabled = true;
+        lotStaged[kind] = null;
+        msg.textContent = '✅ บันทึกแล้ว — แถบ'+(kind==='sales'?'เป้ายอดขาย':'เป้าชั่วโมง')+'เปลี่ยนตัวการ์ตูนแล้ว';
+        renderSellers();
+      } catch(err){ console.error(err); msg.textContent = '❌ ผิดพลาด: '+err.message + (String(err.message).match(/size|large|exceed/i)?' (ไฟล์อาจใหญ่เกิน 1MB)':''); }
+    }
+    async function resetLottie(kind){
+      const msg = document.getElementById('lotMsg');
+      msg.textContent = 'กำลังรีเซ็ต...';
+      try {
+        await db.collection('live_lottie').doc(kind).delete();
+        customLottie[kind] = null;
+        lotStaged[kind] = null;
+        document.getElementById('lotStatus'+cap(kind)).textContent = '— ใช้ตัว default (Tommy) —';
+        document.getElementById('lotSave'+cap(kind)).disabled = true;
+        previewLottie(kind, getTommyData());
+        msg.textContent = '♻️ กลับไปใช้ตัว default แล้ว';
+        renderSellers();
+      } catch(err){ console.error(err); msg.textContent='❌ ผิดพลาด: '+err.message; }
     }
 
     // ---------- edit shop ----------
