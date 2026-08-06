@@ -85,6 +85,23 @@
     .scard-rk { width:34px; height:34px; border-radius:10px; background:var(--grad); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
     .scard-name { font-size:16px; font-weight:600; }
     .scard-branch { font-size:12px; color:var(--muted); }
+    .shop-name { color:var(--pink); font-weight:600; }
+    .shop-edit { border:none; background:transparent; cursor:pointer; font-size:12px; padding:2px 4px; border-radius:5px; opacity:0.7; }
+    .shop-edit:hover { opacity:1; background:#fdeef4; }
+    .mbox.clickable { cursor:pointer; transition:box-shadow .15s, transform .15s; }
+    .mbox.clickable:hover { box-shadow:0 4px 14px rgba(236,72,153,0.18); transform:translateY(-1px); }
+    .mb-click { float:right; font-size:10px; color:var(--pink); font-weight:600; }
+    .dd-legend { display:flex; gap:16px; font-size:12px; color:var(--muted); margin-bottom:10px; }
+    .dd-legend i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:4px; vertical-align:middle; }
+    .dd-row { display:grid; grid-template-columns:70px 1fr 60px; gap:10px; align-items:center; padding:8px 10px; border-radius:8px; margin-bottom:6px; border:1px solid var(--border); }
+    .dd-row.dd-zero { background:#fef2f2; border-color:#fecaca; }
+    .dd-row.dd-high { background:#fff7ed; border-color:#fed7aa; }
+    .dd-date { font-weight:600; font-size:13px; }
+    .dd-bars { display:flex; flex-direction:column; gap:4px; }
+    .dd-bar { position:relative; height:16px; background:var(--tertiary); border-radius:4px; overflow:hidden; }
+    .dd-bar .dd-fill { height:100%; border-radius:4px; }
+    .dd-bar span { position:absolute; right:6px; top:0; font-size:10px; line-height:16px; font-weight:600; color:#334155; }
+    .dd-pct { text-align:right; font-size:12px; font-weight:600; }
     .scard-deltas { display:flex; gap:8px; flex-wrap:wrap; }
     .mini-delta { font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; }
     .mini-delta.up { background:#dcfce7; color:#15803d; }
@@ -255,6 +272,7 @@
     const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
     const fmt = n => (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
     function pad2(n){ return String(n).padStart(2,'0'); }
+    function safeId(s){ return String(s).replace(/[\/\\]/g,'_'); }
     function currentMonth(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1); }
     function prevMonthStr(month){ let [y,m]=month.split('-').map(Number); m-=1; if(m<1){m=12;y-=1;} return y+'-'+pad2(m); }
 
@@ -282,21 +300,26 @@
     let prevRows = [];       // previous calendar month
     let hoursRows = [];      // per-seller hours aggregates (26->25 cycle)
     let hoursDocsBySeller = {}; // seller -> [docs] for day detail
+    let dailyBySeller = {};  // seller -> [{date,sales,cost,ads}] for the selected month
+    let shopMap = {};        // seller -> shop name
 
     async function init(){
       document.getElementById('fMonth').value = currentMonth();
       reload();
     }
 
-    // aggregate live_sales for a calendar month -> per seller
-    async function fetchSalesMonth(month){
+    // aggregate live_sales for a calendar month -> per seller (also collect daily rows)
+    async function fetchSalesMonth(month, collectDaily){
       const snap = await db.collection('live_sales').where('date','<=', month+'-31').get();
       const agg = {};
+      if (collectDaily) dailyBySeller = {};
       snap.forEach(d=>{ const x=d.data(); if(x.date.slice(0,7)!==month) return;
         if(!agg[x.seller]) agg[x.seller]={ seller:x.seller, sales:0, cost:0, ads:0 };
-        agg[x.seller].sales += x.salesToday||0;
-        agg[x.seller].cost  += x.costToday||0;
-        agg[x.seller].ads   += (x.adsToday!=null?x.adsToday:x.ads)||0;
+        const sales=x.salesToday||0, cost=x.costToday||0, ads=(x.adsToday!=null?x.adsToday:x.ads)||0;
+        agg[x.seller].sales += sales;
+        agg[x.seller].cost  += cost;
+        agg[x.seller].ads   += ads;
+        if (collectDaily) (dailyBySeller[x.seller] = dailyBySeller[x.seller]||[]).push({ date:x.date, sales, cost, ads });
       });
       return Object.values(agg).map(r=>({ ...r, net: r.sales - r.cost - r.ads }));
     }
@@ -307,9 +330,10 @@
       document.getElementById('loading').style.display='block';
       document.getElementById('content').style.display='none';
       try {
-        monthRows = await fetchSalesMonth(month);
+        monthRows = await fetchSalesMonth(month, true);
         prevRows  = await fetchSalesMonth(prevMonthStr(month));
         await fetchHoursCycle(month);
+        await fetchShops();
         renderAll(month);
         document.getElementById('loading').style.display='none';
         document.getElementById('content').style.display='block';
@@ -317,6 +341,14 @@
         console.error(err);
         document.getElementById('loading').innerHTML='<div style="color:var(--red)">โหลดข้อมูลผิดพลาด: '+err.message+'</div>';
       }
+    }
+
+    async function fetchShops(){
+      shopMap = {};
+      try {
+        const snap = await db.collection('live_shops').get();
+        snap.forEach(d=>{ const x=d.data(); if(x.seller) shopMap[x.seller]=x.shop||''; });
+      } catch(e){ console.warn('shops', e); }
     }
 
     // ----- hours: 26->25 cycle based on selected month (cycle END = selected month) -----
@@ -478,10 +510,12 @@
         const cls=diff>0?'up':(diff<0?'down':'flat'), ar=diff>0?'▲':(diff<0?'▼':'—');
         return `<span class="mini-delta ${cls}">${ar} ${Math.abs(pct).toFixed(1)}% ${label}</span>`;
       };
-      const box=(label,value,color,showPct,sales,prevLine)=>{
+      const box=(label,value,color,showPct,sales,prevLine,clickSeller)=>{
         const pctHtml=showPct?`<span class="mb-pct" style="background:${color}22;color:${color}">${pctOf(value,sales).toFixed(1)}%</span>`:'';
         const prevHtml=prevLine?`<div class="mb-prev">${prevLine}</div>`:'';
-        return `<div class="mbox" style="border-left-color:${color}"><div class="mb-label">${label}</div><div class="mb-value" style="color:${color}">${fmt(value)}</div>${prevHtml}${pctHtml}</div>`;
+        const clickAttr = clickSeller ? ` class="mbox clickable" onclick="openDailyDetail('${clickSeller.replace(/'/g,"\\'")}')"` : ' class="mbox"';
+        const hint = clickSeller ? '<span class="mb-click">🔍 ดูรายวัน</span>' : '';
+        return `<div${clickAttr} style="border-left-color:${color}"><div class="mb-label">${label}${hint}</div><div class="mb-value" style="color:${color}">${fmt(value)}</div>${prevHtml}${pctHtml}</div>`;
       };
       const expRow=(label,value,base,color)=>{
         const pct= base>0? value/base*100:0, w=Math.max(0,Math.min(100,pct));
@@ -489,16 +523,21 @@
       };
       list.innerHTML = rows.map((r,i)=>{
         const netColor=r.net>=0?'#22c55e':'#ef4444';
+        const shop = shopMap[r.seller] || '';
+        const shopHtml = shop ? ` ร้าน ${shop}` : '';
         return `<div class="scard">
           <div class="scard-top">
-            <div class="scard-id"><span class="scard-rk">${i+1}</span><div><div class="scard-name">${r.seller}</div><div class="scard-branch">ฝ่ายไลฟ์สด</div></div></div>
+            <div class="scard-id"><span class="scard-rk">${i+1}</span><div>
+              <div class="scard-name">${r.seller}</div>
+              <div class="scard-branch">ฝ่ายไลฟ์สด<span class="shop-name">${shopHtml}</span> <button class="shop-edit" title="แก้ไขร้านที่ดูแล" onclick="editShop('${r.seller.replace(/'/g,"\\'")}')">✏️</button></div>
+            </div></div>
             <div class="scard-deltas">${deltaBadge(r.sales,r.pSales,'ยอดขาย')}${deltaBadge(r.net,r.pNet,'กำไร')}</div>
           </div>
           <div class="scard-body">
             <div class="scard-metrics">
-              ${box('ยอดขาย', r.sales, 'var(--orange)', false, r.sales, r.pSales!==null?('เดือนก่อน '+fmt(r.pSales)):'')}
+              ${box('ยอดขาย', r.sales, 'var(--orange)', false, r.sales, r.pSales!==null?('เดือนก่อน '+fmt(r.pSales)):'', r.seller)}
               ${box('ต้นทุน', r.cost, '#64748b', true, r.sales)}
-              ${box('ค่าโฆษณารวม', r.ads, '#ef4444', true, r.sales)}
+              ${box('ค่าโฆษณารวม', r.ads, '#ef4444', true, r.sales, '', r.seller)}
               ${box('กำไรสุทธิ', r.net, netColor, true, r.sales)}
             </div>
             <div class="scard-exp">
@@ -510,6 +549,52 @@
           </div>
         </div>`;
       }).join('');
+    }
+
+    // ---------- edit shop ----------
+    async function editShop(seller){
+      const cur = shopMap[seller] || '';
+      const val = prompt('ร้านที่ '+seller+' ดูแล (เว้นว่างเพื่อลบ):', cur);
+      if (val === null) return;   // cancelled
+      const shop = val.trim();
+      try {
+        await db.collection('live_shops').doc(safeId(seller)).set({ seller, shop, updatedAt:new Date().toISOString() });
+        shopMap[seller] = shop;
+        renderSellers();
+      } catch(err){ console.error(err); alert('บันทึกไม่สำเร็จ: '+err.message); }
+    }
+
+    // ---------- daily detail popup ----------
+    function openDailyDetail(seller){
+      const days = (dailyBySeller[seller]||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+      document.getElementById('dayModalTitle').textContent = '📊 '+seller+' — ยอดขาย/ค่าโฆษณา รายวัน';
+      let tS=0,tA=0; days.forEach(d=>{ tS+=d.sales; tA+=d.ads; });
+      const avgPct = tS>0 ? tA/tS*100 : 0;
+      document.getElementById('dayModalSum').innerHTML =
+        `<div class="hsum-item"><div class="v">${fmt(tS)}</div><div class="l">ยอดขายรวม</div></div>
+         <div class="hsum-item"><div class="v">${fmt(tA)}</div><div class="l">ค่าโฆษณารวม</div></div>
+         <div class="hsum-item"><div class="v">${avgPct.toFixed(1)}%</div><div class="l">โฆษณา/ยอดขาย</div></div>
+         <div class="hsum-item"><div class="v">${days.length}</div><div class="l">วันที่กรอก</div></div>`;
+      if(!days.length){ document.getElementById('dayModalBody').innerHTML='<div class="empty">ไม่มีข้อมูล</div>'; }
+      else {
+        const maxV = Math.max(1, ...days.map(d=>Math.max(d.sales,d.ads)));
+        document.getElementById('dayModalBody').innerHTML =
+          `<div class="dd-legend"><span><i style="background:#f97316"></i> ยอดขาย</span><span><i style="background:#ef4444"></i> ค่าโฆษณา</span></div>` +
+          days.map(d=>{
+            const [y,mo,da]=d.date.split('-').map(Number);
+            const adsPct = d.sales>0 ? d.ads/d.sales*100 : 0;
+            const warn = d.sales===0 ? 'dd-zero' : (adsPct>50?'dd-high':'');
+            return `<div class="dd-row ${warn}">
+              <div class="dd-date">${da} ${TH_MONTHS[mo-1]}</div>
+              <div class="dd-bars">
+                <div class="dd-bar"><div class="dd-fill" style="width:${d.sales/maxV*100}%;background:#f97316"></div><span>${fmt(d.sales)}</span></div>
+                <div class="dd-bar"><div class="dd-fill" style="width:${d.ads/maxV*100}%;background:#ef4444"></div><span>${fmt(d.ads)}</span></div>
+              </div>
+              <div class="dd-pct">${d.sales===0?'<span style="color:#ef4444">ไม่มียอดขาย</span>':(adsPct.toFixed(0)+'%')}</div>
+            </div>`;
+          }).join('');
+      }
+      document.getElementById('dayModal').classList.add('on');
     }
 
     // ---------- hours table ----------
