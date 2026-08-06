@@ -1706,6 +1706,7 @@
     let liveSellers = [];        // active names only (for dropdowns)
     let liveSellerList = [];     // [{id, name, active}]
     let liveData = [];
+    let liveDayData = [];
 
     async function loadLiveSellers() {
       try {
@@ -1927,6 +1928,7 @@
           noData ? '⚠️ ยังไม่มีการกรอกยอดของวันที่ ' + date + ' — กราฟด้านล่างจะว่างจนกว่าจะมีการกรอก' : '';
 
         const agg = {};
+        const dayAgg = {};   // only the selected date's records (per seller)
         if (!noData) {
           all.forEach(d => {
             if (!agg[d.seller]) agg[d.seller] = { seller:d.seller, sales:0, cost:0, ads:0 };
@@ -1934,8 +1936,15 @@
             agg[d.seller].cost += d.costToday||0;
             agg[d.seller].ads += (d.adsToday!=null?d.adsToday:d.ads)||0;
           });
+          onSelected.forEach(d => {
+            if (!dayAgg[d.seller]) dayAgg[d.seller] = { seller:d.seller, sales:0, cost:0, ads:0 };
+            dayAgg[d.seller].sales += d.salesToday||0;
+            dayAgg[d.seller].cost += d.costToday||0;
+            dayAgg[d.seller].ads += (d.adsToday!=null?d.adsToday:d.ads)||0;
+          });
         }
         liveData = Object.values(agg);
+        liveDayData = Object.values(dayAgg);
         renderLiveDashboard(date);
         loadLiveTable();          // graph 4 (cost % table)
         renderLiveHoursDayChart(date);   // graph 5
@@ -1961,13 +1970,19 @@
       document.getElementById('liveStatNet').textContent = fmt(totalNet);
 
       const my = thaiMonthYear(dateStr || todayStr());
+      const dnum = parseInt((dateStr||todayStr()).slice(8,10),10);
       const rt = document.getElementById('liveRankTitle'); if (rt) rt.textContent = 'ยอดขายรวม เดือน ' + my;
-      const st = document.getElementById('liveSalesAdsTitle'); if (st) st.textContent = 'ยอดขายและค่าโฆษณา รายเซลล์ เดือน ' + my;
+      const st = document.getElementById('liveSalesAdsTitle'); if (st) st.textContent = 'ยอดขายและค่าโฆษณา รายเซลล์ วันที่ ' + dnum + ' ' + my;
       const tt = document.getElementById('liveTotalsTitle'); if (tt) tt.textContent = 'ยอดขายรวม ต้นทุน ค่าโฆษณา และกำไรสุทธิ เดือน ' + my;
+
+      // day-only rows for the sales-ads chart
+      const dayRows = liveDayData.map(d => ({ seller:d.seller, sales:d.sales||0, cost:d.cost||0, ads:d.ads||0 }));
+      const dayTotalSales = dayRows.reduce((s,r)=>s+r.sales,0);
+      const dayTotalAds = dayRows.reduce((s,r)=>s+r.ads,0);
 
       renderLiveTotals(rows);
       renderLiveRank(rows);
-      renderLiveSalesAds(rows, totalSales, totalAds);
+      renderLiveSalesAds(dayRows, dayTotalSales, dayTotalAds);
       renderLiveDonuts(totalSales, totalAds);
     }
 
