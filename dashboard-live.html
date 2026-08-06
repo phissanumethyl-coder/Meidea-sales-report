@@ -164,6 +164,36 @@
 
     @media(max-width:760px){ .scard-body{grid-template-columns:1fr;} .scard-exp{border-left:none;border-top:1px solid var(--border);} }
     @media(max-width:600px){ .cards{grid-template-columns:1fr;} .filters,.seller-head{flex-direction:column;align-items:stretch;} .scard-metrics{grid-template-columns:1fr;} .htable{font-size:12px;} }
+
+    /* ===== cute goal swimmer bars ===== */
+    .goal-title { font-size:13px; font-weight:600; margin:16px 0 10px; padding-top:12px; border-top:1px dashed var(--border); }
+    .goal-row { margin-bottom:16px; }
+    .goal-head { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12.5px; margin-bottom:6px; flex-wrap:wrap; }
+    .goal-lb { color:var(--muted); font-weight:500; }
+    .goal-val { font-weight:600; }
+    .goal-sep { color:var(--muted); font-weight:400; }
+    .goal-pct { color:#0ea5e9; }
+    .goal-badge { background:#fef9c3; color:#a16207; font-size:11px; padding:2px 8px; border-radius:999px; margin-left:4px; }
+    .pool { position:relative; height:26px; background:linear-gradient(180deg,#eaf6ff,#dceeff); border:1px solid #cfe6fb; border-radius:13px; overflow:hidden; }
+    .pool-water { position:absolute; left:0; top:0; height:100%; border-radius:13px 0 0 13px; transition:width 1.1s cubic-bezier(.22,1,.36,1); overflow:hidden; }
+    .pool-water .wave { position:absolute; top:0; left:0; right:0; bottom:0;
+      background:repeating-linear-gradient(115deg, rgba(255,255,255,0.28) 0 8px, rgba(255,255,255,0) 8px 18px);
+      animation: waveMove 1.1s linear infinite; }
+    @keyframes waveMove { from { background-position:0 0; } to { background-position:26px 0; } }
+    .swimmer { position:absolute; top:50%; transform:translateY(-50%); font-size:17px; transition:left 1.1s cubic-bezier(.22,1,.36,1); animation: paddle 0.7s ease-in-out infinite; z-index:2; }
+    @keyframes paddle { 0%,100%{ transform:translateY(-50%) rotate(-7deg);} 50%{ transform:translateY(-62%) rotate(7deg);} }
+    .finish { position:absolute; right:5px; top:50%; transform:translateY(-50%); font-size:15px; opacity:0.85; }
+    .goal-done .pool { border-color:#86efac; box-shadow:0 0 0 2px #bbf7d0 inset; }
+    .goal-done .swimmer { animation: cheer 0.6s ease-in-out infinite; }
+    @keyframes cheer { 0%,100%{ transform:translateY(-50%) scale(1);} 50%{ transform:translateY(-70%) scale(1.25);} }
+
+    /* target history */
+    .tgt-hist-tbl { display:flex; flex-direction:column; gap:8px; }
+    .tgt-hist-row { display:grid; grid-template-columns:110px 1fr auto; gap:10px; align-items:center; font-size:13px; }
+    .th-month { font-weight:600; }
+    .th-bar { height:10px; background:var(--tertiary); border-radius:5px; overflow:hidden; }
+    .th-fill { height:100%; border-radius:5px; transition:width .5s; }
+    .th-vals { font-size:12px; white-space:nowrap; }
   </style>
 </head>
 <body>
@@ -217,6 +247,7 @@
             <option value="desc">มาก → น้อย</option>
             <option value="asc">น้อย → มาก</option>
           </select></div>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="openTargetModal()">🎯 ตั้งเป้ายอดขาย</button>
         </div>
         <div id="sellerList"></div>
       </div>
@@ -243,6 +274,26 @@
           </table>
         </div>
         <div id="hoursEmpty" class="empty" style="display:none;">ไม่มีข้อมูลชั่วโมงไลฟ์ในรอบนี้</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Target editor modal -->
+  <div id="targetModal" class="modal-ov">
+    <div class="modal-bx">
+      <div class="modal-hd"><h3 id="targetModalTitle">🎯 ตั้งเป้ายอดขายรายคน</h3><button class="modal-x" onclick="closeTargetModal()">✕</button></div>
+      <div class="fg" style="margin-bottom:14px;">
+        <label>เลือกเซลล์</label>
+        <select id="tgtSeller" onchange="onTgtSellerChange()"></select>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;">
+        <div class="fg" style="flex:1;"><label>เป้ายอดขายเดือน <span id="tgtMonthLabel"></span> (บาท)</label><input type="number" id="tgtValue" placeholder="0"></div>
+        <button class="btn btn-primary btn-sm" onclick="saveSalesTarget()">💾 บันทึกเป้า</button>
+      </div>
+      <div id="tgtMsg" style="font-size:13px;color:var(--muted);min-height:18px;margin-bottom:12px;"></div>
+      <div style="border-top:1px dashed var(--border);padding-top:14px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">📜 ประวัติเป้า vs ยอดที่ทำได้ (ย้อนหลัง)</div>
+        <div id="tgtHistory"><div class="empty" style="padding:16px;">เลือกเซลล์เพื่อดูประวัติ</div></div>
       </div>
     </div>
   </div>
@@ -302,6 +353,9 @@
     let hoursDocsBySeller = {}; // seller -> [docs] for day detail
     let dailyBySeller = {};  // seller -> [{date,sales,cost,ads}] for the selected month
     let shopMap = {};        // seller -> shop name
+    let salesTargetMap = {}; // seller -> sales target (selected calendar month)
+    let hoursBySeller = {};  // seller -> total cycle hours (26->25)
+    const HOURS_TARGET = 150; // ชั่วโมงไลฟ์เป้าหมายต่อรอบ 26->25
 
     async function init(){
       document.getElementById('fMonth').value = currentMonth();
@@ -334,6 +388,7 @@
         prevRows  = await fetchSalesMonth(prevMonthStr(month));
         await fetchHoursCycle(month);
         await fetchShops();
+        await fetchSalesTargets(month);
         renderAll(month);
         document.getElementById('loading').style.display='none';
         document.getElementById('content').style.display='block';
@@ -349,6 +404,14 @@
         const snap = await db.collection('live_shops').get();
         snap.forEach(d=>{ const x=d.data(); if(x.seller) shopMap[x.seller]=x.shop||''; });
       } catch(e){ console.warn('shops', e); }
+    }
+
+    async function fetchSalesTargets(month){
+      salesTargetMap = {};
+      try {
+        const snap = await db.collection('live_targets').where('month','==',month).get();
+        snap.forEach(d=>{ const x=d.data(); if(x.seller) salesTargetMap[x.seller]=x.target||0; });
+      } catch(e){ console.warn('targets', e); }
     }
 
     // ----- hours: 26->25 cycle based on selected month (cycle END = selected month) -----
@@ -385,6 +448,8 @@
         });
       });
       hoursRows = Object.values(bySeller);
+      hoursBySeller = {};
+      hoursRows.forEach(r => { hoursBySeller[r.seller] = r.hours; });
     }
 
     function renderAll(month){
@@ -521,6 +586,26 @@
         const pct= base>0? value/base*100:0, w=Math.max(0,Math.min(100,pct));
         return `<div class="exp-row"><span class="exp-lb">${label}</span><div class="exp-track"><div class="exp-fill" style="width:${w}%;background:${color}"></div></div><span class="exp-vl"><b>${pct.toFixed(1)}%</b> <span class="exp-baht">(฿${fmt(value)})</span></span></div>`;
       };
+      // cute "swimming to the finish line" goal bar
+      const swimBar=(label, value, target, unit, gradFrom, gradTo)=>{
+        const pct = target>0 ? value/target*100 : 0;
+        const w = Math.max(0, Math.min(100, pct));
+        const done = pct>=100;
+        const swimmer = done ? '🏆' : '🏊';
+        const valTxt = unit==='฿' ? ('฿'+fmt(value)) : (fmt(value)+' '+unit);
+        const tgtTxt = target>0 ? (unit==='฿' ? ('฿'+fmt(target)) : (fmt(target)+' '+unit)) : '— ยังไม่ตั้งเป้า';
+        return `<div class="goal-row ${done?'goal-done':''}">
+          <div class="goal-head"><span class="goal-lb">${label} ${done?'<span class="goal-badge">เข้าเส้นชัย! 🎉</span>':''}</span>
+            <span class="goal-val">${valTxt} <span class="goal-sep">/</span> ${tgtTxt} <b class="goal-pct">${target>0?pct.toFixed(0)+'%':''}</b></span></div>
+          <div class="pool">
+            <div class="pool-water" style="width:${w}%;background:linear-gradient(90deg,${gradFrom},${gradTo});">
+              <span class="wave"></span>
+            </div>
+            <span class="swimmer" style="left:calc(${w}% - 12px);">${swimmer}</span>
+            <span class="finish">🏁</span>
+          </div>
+        </div>`;
+      };
       list.innerHTML = rows.map((r,i)=>{
         const netColor=r.net>=0?'#22c55e':'#ef4444';
         const shop = shopMap[r.seller] || '';
@@ -545,6 +630,9 @@
               ${expRow('ต้นทุน', r.cost, r.sales, '#64748b')}
               ${expRow('ค่าโฆษณา', r.ads, r.sales, '#ef4444')}
               ${expRow('กำไรสุทธิ', r.net, r.sales, r.net>=0?'#22c55e':'#ef4444')}
+              <div class="goal-title">🎯 เป้าหมายรายบุคคล</div>
+              ${swimBar('เป้ายอดขาย', r.sales, salesTargetMap[r.seller]||0, '฿', '#f59e0b', '#f97316')}
+              ${swimBar('เป้าชั่วโมงไลฟ์ (150 ชม./รอบ)', hoursBySeller[r.seller]||0, HOURS_TARGET, 'ชม.', '#38bdf8', '#0ea5e9')}
             </div>
           </div>
         </div>`;
@@ -656,6 +744,73 @@
       document.getElementById('dayModal').classList.add('on');
     }
     function closeDayModal(){ document.getElementById('dayModal').classList.remove('on'); }
+
+    // ---------- sales target editor ----------
+    function openTargetModal(){
+      const month = document.getElementById('fMonth').value;
+      const [y,m] = month.split('-').map(Number);
+      document.getElementById('tgtMonthLabel').textContent = TH_MONTHS[m-1]+' '+(y+543);
+      const sel = document.getElementById('tgtSeller');
+      const names = monthRows.map(r=>r.seller).sort((a,b)=>a.localeCompare(b,'th'));
+      // include sellers that may only have hours but no sales this month
+      Object.keys(hoursBySeller).forEach(n=>{ if(!names.includes(n)) names.push(n); });
+      sel.innerHTML = names.length ? names.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option value="">— ไม่มีเซลล์ —</option>';
+      document.getElementById('tgtMsg').textContent='';
+      document.getElementById('targetModal').classList.add('on');
+      onTgtSellerChange();
+    }
+    function closeTargetModal(){ document.getElementById('targetModal').classList.remove('on'); }
+    function onTgtSellerChange(){
+      const seller = document.getElementById('tgtSeller').value;
+      document.getElementById('tgtValue').value = salesTargetMap[seller] || '';
+      loadTargetHistory(seller);
+    }
+    async function saveSalesTarget(){
+      const month = document.getElementById('fMonth').value;
+      const seller = document.getElementById('tgtSeller').value;
+      const target = parseFloat(document.getElementById('tgtValue').value) || 0;
+      if(!month || !seller) return;
+      const msg = document.getElementById('tgtMsg');
+      msg.textContent='กำลังบันทึก...';
+      try {
+        await db.collection('live_targets').doc(month+'__'+safeId(seller)).set({ month, seller, target, updatedAt:new Date().toISOString() });
+        salesTargetMap[seller] = target;
+        msg.textContent='✅ บันทึกแล้ว';
+        renderSellers();
+        loadTargetHistory(seller);
+        setTimeout(()=>msg.textContent='',2500);
+      } catch(err){ console.error(err); msg.textContent='❌ ผิดพลาด: '+err.message; }
+    }
+    async function loadTargetHistory(seller){
+      const box = document.getElementById('tgtHistory');
+      if(!seller){ box.innerHTML='<div class="empty" style="padding:16px;">เลือกเซลล์เพื่อดูประวัติ</div>'; return; }
+      box.innerHTML='<div class="empty" style="padding:16px;">กำลังโหลด...</div>';
+      try {
+        // all targets for this seller
+        const tSnap = await db.collection('live_targets').where('seller','==',seller).get();
+        const targets = [];
+        tSnap.forEach(d=>{ const x=d.data(); targets.push({ month:x.month, target:x.target||0 }); });
+        if(!targets.length){ box.innerHTML='<div class="empty" style="padding:16px;">ยังไม่เคยตั้งเป้า</div>'; return; }
+        targets.sort((a,b)=>b.month.localeCompare(a.month));
+        // fetch actual sales per month for this seller
+        const rows = await Promise.all(targets.map(async t=>{
+          const snap = await db.collection('live_sales').where('date','<=',t.month+'-31').get();
+          let sales=0; snap.forEach(d=>{ const x=d.data(); if(x.seller===seller && x.date.slice(0,7)===t.month) sales += x.salesToday||0; });
+          return { ...t, sales };
+        }));
+        box.innerHTML = '<div class="tgt-hist-tbl">' + rows.map(r=>{
+          const [y,m]=r.month.split('-').map(Number);
+          const pct = r.target>0 ? r.sales/r.target*100 : 0;
+          const done = pct>=100;
+          const color = done?'#22c55e':(pct>=70?'#f59e0b':'#ef4444');
+          return `<div class="tgt-hist-row">
+            <div class="th-month">${TH_MONTHS[m-1]} ${(y+543)}</div>
+            <div class="th-bar"><div class="th-fill" style="width:${Math.min(100,pct)}%;background:${color}"></div></div>
+            <div class="th-vals">${fmt(r.sales)} / ${fmt(r.target)} <b style="color:${color}">${pct.toFixed(0)}%</b> ${done?'✅':''}</div>
+          </div>`;
+        }).join('') + '</div>';
+      } catch(err){ console.error(err); box.innerHTML='<div class="empty" style="padding:16px;color:var(--red)">โหลดประวัติไม่สำเร็จ</div>'; }
+    }
 
     init();
   </script>
