@@ -52,6 +52,23 @@
     .mcard-list { display:flex; flex-direction:column; gap:7px; }
     .mrow { display:flex; align-items:center; gap:8px; font-size:13px; }
     .mrow .rank { width:20px; height:20px; border-radius:50%; background:var(--tertiary); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--muted); flex-shrink:0; }
+    .mrow.clickable { cursor:pointer; border-radius:7px; padding:3px 5px; margin:0 -5px; transition:background .12s; }
+    .mrow.clickable:hover { background:var(--tertiary); }
+    .mrow.clickable:hover .nm { color:var(--blue); }
+    /* employee daily modal */
+    .ed-sum { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px; }
+    .ed-card { background:var(--tertiary); border-radius:10px; padding:12px 14px; text-align:center; }
+    .ed-card .v { font-size:19px; font-weight:700; color:var(--blue); }
+    .ed-card .l { font-size:11.5px; color:var(--muted); margin-top:2px; }
+    .ed-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .ed-table th, .ed-table td { padding:8px 10px; text-align:center; border-bottom:1px solid var(--border); }
+    .ed-table th { background:var(--tertiary); font-size:12px; color:var(--muted); font-weight:600; position:sticky; top:0; }
+    .ed-table .ed-date { text-align:left; font-weight:600; white-space:nowrap; }
+    .ed-table tr.ed-zero td { background:#fef2f2; }
+    .ed-table tfoot td { font-weight:700; border-top:2px solid var(--border); background:#f8fafc; }
+    .ed-total { min-width:120px; }
+    .ed-bar { height:5px; background:var(--tertiary); border-radius:3px; overflow:hidden; margin-bottom:3px; }
+    .ed-fill { height:100%; background:linear-gradient(90deg,#2563eb,#0ea5e9); border-radius:3px; }
     .mrow .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mrow .vl { font-weight:600; }
     .mrow .br { font-size:11px; color:var(--muted); }
@@ -130,22 +147,27 @@
     .tgt-branch { font-weight:600; }
     .tgt-badge { background:#dcfce7; color:#15803d; font-size:11px; padding:2px 8px; border-radius:999px; margin-left:4px; }
     .tgt-nums { font-size:12.5px; }
-    .road { position:relative; height:46px; border-radius:12px;
-      background:linear-gradient(180deg,#e0f2fe 0%,#e0f2fe 55%,#6b7280 55%,#6b7280 100%);
+    .road { position:relative; height:60px; border-radius:12px;
+      background:linear-gradient(180deg,#bae6fd 0%,#e0f2fe 42%,#7c8794 42%,#6b7280 100%);
       border:1px solid #d3dbe3; overflow:hidden; }
+    /* scrolling scenery (trees/houses/buildings) behind the car */
+    .scenery { position:absolute; left:0; right:0; bottom:16px; height:30px; overflow:hidden; z-index:1; pointer-events:none; }
+    .scenery-strip { position:absolute; bottom:0; left:0; width:200%; height:100%; }
+    .road-moving .scenery-strip { animation: sceneryScroll 3.2s linear infinite; }
+    @keyframes sceneryScroll { from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
     /* dashed lane line */
-    .road::after { content:''; position:absolute; left:0; right:0; bottom:9px; height:3px;
-      background:repeating-linear-gradient(90deg,#fde68a 0 14px, transparent 14px 28px);
-      animation: laneMove 0.6s linear infinite; }
+    .road::after { content:''; position:absolute; left:0; right:0; bottom:8px; height:3px; z-index:1;
+      background:repeating-linear-gradient(90deg,#fde68a 0 14px, transparent 14px 28px); }
+    .road-moving::after { animation: laneMove 0.5s linear infinite; }
     @keyframes laneMove { from{ background-position:0 0; } to{ background-position:-28px 0; } }
-    .road-done { position:absolute; left:0; top:0; height:100%; opacity:0.16; border-radius:12px 0 0 12px; transition:width 1s cubic-bezier(.22,1,.36,1); }
-    .road-car { position:absolute; bottom:6px; width:64px; height:40px; transition:left 1s cubic-bezier(.22,1,.36,1); z-index:2; }
+    .road-done { position:absolute; left:0; top:0; height:100%; opacity:0.13; border-radius:12px 0 0 12px; transition:width 1s cubic-bezier(.22,1,.36,1); z-index:1; }
+    .road-car { position:absolute; bottom:8px; width:66px; height:40px; transition:left 1s cubic-bezier(.22,1,.36,1); z-index:3; }
     .car-svg { width:100%; height:100%; display:block; }
     .car-bob { animation: carBob 0.45s ease-in-out infinite; transform-origin:center; }
     @keyframes carBob { 0%,100%{ transform:translateY(0) rotate(0deg);} 50%{ transform:translateY(-1.2px) rotate(-0.6deg);} }
     .wheel { animation: wheelSpin 0.5s linear infinite; }
     @keyframes wheelSpin { from{ transform:rotate(0);} to{ transform:rotate(360deg);} }
-    .road-flag { position:absolute; right:6px; bottom:9px; font-size:22px; z-index:1; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
+    .road-flag { position:absolute; right:6px; bottom:10px; font-size:24px; z-index:2; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
     .tgt-done .road { box-shadow:0 0 0 2px #bbf7d0 inset; }
     .tgt-done .car-bob { animation: carCheer 0.5s ease-in-out infinite; }
     @keyframes carCheer { 0%,100%{ transform:translateY(0) rotate(-2deg);} 50%{ transform:translateY(-4px) rotate(2deg);} }
@@ -274,6 +296,18 @@
   </div>
 
   <!-- Commission Calculator Modal -->
+  <!-- Employee daily sales modal -->
+  <div id="empDailyModal" class="modal-ov">
+    <div class="modal-bx" style="width:720px;">
+      <div class="modal-hd"><h3 id="empDailyTitle">ยอดขายรายวัน</h3><button class="modal-x" onclick="closeEmpDaily()">✕</button></div>
+      <div id="empDailySum" class="ed-sum"></div>
+      <div style="overflow-x:auto;">
+        <table class="ed-table" id="empDailyTable"></table>
+      </div>
+      <div id="empDailyEmpty" class="empty" style="display:none;">ไม่มีข้อมูลรายวันของเดือนนี้</div>
+    </div>
+  </div>
+
   <div id="commModal" class="modal-ov">
     <div class="modal-bx">
       <div class="modal-hd">
@@ -386,6 +420,19 @@
 
     let prevMonthRows = [];
     let targetMap = {};   // branch -> target sales (selected month)
+    let dailyRecords = {};  // "branch||emp" -> [daily docs sorted by date] (for the selected month)
+
+    async function fetchDailyRecords(month) {
+      dailyRecords = {};
+      const snap = await db.collection('it_sales').where('date','<=', month + '-31').get();
+      snap.forEach(doc => {
+        const s = doc.data();
+        if (s.date.slice(0,7) !== month) return;
+        const k = s.branch + '||' + s.employeeName;
+        (dailyRecords[k] = dailyRecords[k] || []).push(s);
+      });
+      Object.values(dailyRecords).forEach(arr => arr.sort((a,b)=>a.date.localeCompare(b.date)));
+    }
 
     function rerender() {
       const month = document.getElementById('fMonth').value;
@@ -400,6 +447,7 @@
       try {
         monthRows = await fetchMonthRows(month);
         prevMonthRows = await fetchMonthRows(prevMonthStr(month));
+        await fetchDailyRecords(month);
 
         // fetch fees for the month
         feeData = {};
@@ -514,35 +562,82 @@
         setTimeout(()=>msg.textContent='', 2500);
       } catch (err) { console.error(err); msg.textContent = '❌ ผิดพลาด: '+err.message; }
     }
-    function carSvg() {
-      // hand-built cartoon car (no emoji/icon font) — cute rounded hatchback
-      return `<svg class="car-svg" viewBox="0 0 64 40" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="32" cy="35" rx="22" ry="3.5" fill="rgba(0,0,0,0.12)"/>
-        <g class="car-bob">
-          <!-- body -->
-          <path d="M6 26 Q7 17 15 16 L22 11 Q25 9 30 9 L44 9 Q49 9 52 14 L56 18 Q60 19 60 24 L60 27 Q60 30 57 30 L9 30 Q6 30 6 27 Z" fill="var(--car-color,#ef4444)"/>
-          <!-- roof shade -->
-          <path d="M22 11 Q25 9 30 9 L42 9 Q46 9 49 13 L24 13 Q22 12 22 11 Z" fill="rgba(255,255,255,0.18)"/>
-          <!-- windows -->
-          <path d="M25 12 L31 12 L31 17 L21 17 Z" fill="#bae6fd"/>
-          <path d="M33 12 L41 12 Q44 12 46 16 L33 16 Z" fill="#bae6fd"/>
-          <!-- headlight -->
-          <circle cx="58" cy="23" r="2" fill="#fde68a"/>
-          <!-- door line -->
-          <line x1="38" y1="17" x2="38" y2="29" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
-        </g>
-        <!-- wheels -->
-        <g class="wheel" style="transform-origin:19px 30px;">
-          <circle cx="19" cy="30" r="6" fill="#1f2937"/><circle cx="19" cy="30" r="2.6" fill="#9ca3af"/>
-          <rect x="18.2" y="24.5" width="1.6" height="11" fill="#e5e7eb" rx="0.5"/>
-          <rect x="13.5" y="29.2" width="11" height="1.6" fill="#e5e7eb" rx="0.5"/>
-        </g>
-        <g class="wheel" style="transform-origin:45px 30px;">
-          <circle cx="45" cy="30" r="6" fill="#1f2937"/><circle cx="45" cy="30" r="2.6" fill="#9ca3af"/>
-          <rect x="44.2" y="24.5" width="1.6" height="11" fill="#e5e7eb" rx="0.5"/>
-          <rect x="39.5" y="29.2" width="11" height="1.6" fill="#e5e7eb" rx="0.5"/>
-        </g>
-      </svg>`;
+    // ---- cartoon vehicles: 5 distinct types, each branch gets its own type+palette ----
+    const CAR_PALETTES = [
+      { body:'#ef4444', roof:'#dc2626' }, // red
+      { body:'#3b82f6', roof:'#2563eb' }, // blue
+      { body:'#22c55e', roof:'#16a34a' }, // green
+      { body:'#f59e0b', roof:'#d97706' }, // amber
+      { body:'#8b5cf6', roof:'#7c3aed' }, // purple
+      { body:'#ec4899', roof:'#db2777' }, // pink
+      { body:'#14b8a6', roof:'#0d9488' }, // teal
+    ];
+    function wheelsSvg(x1,x2){
+      const wheel=(cx)=>`<g class="wheel" style="transform-origin:${cx}px 30px;">
+        <circle cx="${cx}" cy="30" r="6" fill="#1f2937"/><circle cx="${cx}" cy="30" r="2.6" fill="#cbd5e1"/>
+        <rect x="${cx-0.8}" y="24.5" width="1.6" height="11" fill="#e5e7eb" rx="0.5"/>
+        <rect x="${cx-5.5}" y="29.2" width="11" height="1.6" fill="#e5e7eb" rx="0.5"/></g>`;
+      return wheel(x1)+wheel(x2);
+    }
+    function vehicleSvg(type, col){
+      const c = col.body, r = col.roof;
+      const shadow = '<ellipse cx="32" cy="35" rx="23" ry="3.5" fill="rgba(0,0,0,0.12)"/>';
+      const win = '#bae6fd';
+      let g = '';
+      if (type===0){ // hatchback
+        g = `<path d="M6 26 Q7 17 15 16 L22 11 Q25 9 30 9 L44 9 Q49 9 52 14 L56 18 Q60 19 60 24 L60 27 Q60 30 57 30 L9 30 Q6 30 6 27 Z" fill="${c}"/>
+          <path d="M25 12 L31 12 L31 16 L21 16 Z" fill="${win}"/><path d="M33 12 L41 12 Q44 12 46 16 L33 16 Z" fill="${win}"/>
+          <circle cx="58" cy="23" r="2" fill="#fde68a"/>`;
+      } else if (type===1){ // sedan (longer roof)
+        g = `<path d="M4 27 Q5 19 14 18 L20 12 Q23 10 30 10 L46 10 Q52 11 55 16 L60 20 Q62 21 62 25 L62 28 Q62 30 59 30 L7 30 Q4 30 4 27 Z" fill="${c}"/>
+          <path d="M23 13 L37 13 L37 17 L19 17 Z" fill="${win}"/><path d="M39 13 L45 13 Q49 13 51 17 L39 17 Z" fill="${win}"/>
+          <circle cx="60" cy="24" r="2" fill="#fde68a"/>`;
+      } else if (type===2){ // van (tall, boxy)
+        g = `<path d="M5 10 L44 10 Q50 10 54 15 L60 21 Q62 22 62 26 L62 29 Q62 31 59 31 L7 31 Q5 31 5 29 Z" fill="${c}"/>
+          <rect x="9" y="14" width="12" height="8" rx="1.5" fill="${win}"/><rect x="24" y="14" width="12" height="8" rx="1.5" fill="${win}"/>
+          <path d="M46 14 L50 14 Q53 15 55 19 L46 19 Z" fill="${win}"/><circle cx="60" cy="25" r="2" fill="#fde68a"/>`;
+      } else if (type===3){ // sports (low, sleek)
+        g = `<path d="M3 28 Q4 24 10 23 L20 15 Q25 12 34 12 L48 13 Q56 14 60 19 L63 23 Q64 24 64 27 L64 29 Q64 31 61 31 L6 31 Q3 31 3 28 Z" fill="${c}"/>
+          <path d="M23 16 Q26 14 33 14 L44 15 Q49 16 51 20 L24 20 Z" fill="${win}"/>
+          <circle cx="62" cy="26" r="1.8" fill="#fde68a"/><rect x="3" y="27" width="6" height="2" fill="${r}"/>`;
+      } else { // pickup truck
+        g = `<path d="M4 20 L26 20 L28 14 Q29 12 33 12 L40 12 Q44 12 46 16 L48 20 L60 20 Q62 20 62 24 L62 29 Q62 31 59 31 L6 31 Q4 31 4 29 Z" fill="${c}"/>
+          <path d="M30 15 L39 15 Q42 15 43 19 L30 19 Z" fill="${win}"/>
+          <rect x="6" y="22" width="20" height="7" rx="1" fill="${r}"/><circle cx="60" cy="25" r="2" fill="#fde68a"/>`;
+      }
+      // pick wheel x-positions per type
+      const wheels = type===2 ? wheelsSvg(15,52) : type===4 ? wheelsSvg(16,50) : wheelsSvg(19,46);
+      return `<svg class="car-svg" viewBox="0 0 66 40" xmlns="http://www.w3.org/2000/svg">
+        ${shadow}<g class="car-bob">${g}</g>${wheels}</svg>`;
+    }
+    // deterministic type from branch name (stable across reloads)
+    function branchVehicle(branch, idx){
+      let h=0; for(let i=0;i<branch.length;i++) h=(h*31+branch.charCodeAt(i))>>>0;
+      const type = h % 5;
+      const pal = CAR_PALETTES[Math.floor(h/8) % CAR_PALETTES.length];
+      return { type, pal };
+    }
+    // scenery: repeating trees/houses/buildings that scroll under the car
+    function scenerySvg(){
+      return `<div class="scenery">
+        <svg class="scenery-strip" viewBox="0 0 240 30" preserveAspectRatio="xMinYMax meet" xmlns="http://www.w3.org/2000/svg">
+          ${sceneryUnit(0)}${sceneryUnit(120)}
+        </svg>
+      </div>`;
+    }
+    function sceneryUnit(x){
+      return `<g transform="translate(${x},0)">
+        <!-- tree -->
+        <rect x="10" y="18" width="3" height="8" fill="#92400e"/><circle cx="11.5" cy="15" r="7" fill="#4ade80"/><circle cx="7" cy="17" r="5" fill="#22c55e"/><circle cx="16" cy="17" r="5" fill="#22c55e"/>
+        <!-- house -->
+        <rect x="30" y="16" width="16" height="10" fill="#fca5a5"/><path d="M28 16 L38 8 L48 16 Z" fill="#b91c1c"/><rect x="35" y="20" width="5" height="6" fill="#7c2d12"/>
+        <!-- building -->
+        <rect x="58" y="4" width="14" height="22" fill="#94a3b8"/><rect x="61" y="7" width="3" height="3" fill="#e0f2fe"/><rect x="66" y="7" width="3" height="3" fill="#e0f2fe"/><rect x="61" y="12" width="3" height="3" fill="#e0f2fe"/><rect x="66" y="12" width="3" height="3" fill="#e0f2fe"/><rect x="61" y="17" width="3" height="3" fill="#e0f2fe"/><rect x="66" y="17" width="3" height="3" fill="#e0f2fe"/>
+        <!-- small tree -->
+        <rect x="88" y="20" width="2.5" height="6" fill="#92400e"/><circle cx="89" cy="17" r="5" fill="#34d399"/>
+        <!-- tall building -->
+        <rect x="100" y="2" width="12" height="24" fill="#64748b"/><rect x="103" y="5" width="2.5" height="2.5" fill="#fef9c3"/><rect x="107" y="5" width="2.5" height="2.5" fill="#fef9c3"/><rect x="103" y="10" width="2.5" height="2.5" fill="#fef9c3"/><rect x="107" y="10" width="2.5" height="2.5" fill="#fef9c3"/><rect x="103" y="15" width="2.5" height="2.5" fill="#fef9c3"/><rect x="107" y="15" width="2.5" height="2.5" fill="#fef9c3"/>
+      </g>`;
     }
 
     function renderTargetProgress() {
@@ -551,20 +646,24 @@
       monthRows.forEach(r => { salesByBranch[r.branch] = (salesByBranch[r.branch]||0) + (r.totalSales||0); });
       const list = branches.filter(b => (targetMap[b]||0) > 0 || (salesByBranch[b]||0) > 0);
       if (!list.length) { box.innerHTML = '<div style="font-size:13px;color:var(--muted)">ยังไม่ได้ตั้งเป้า — เลือกสาขาแล้วกรอกเป้ายอดขาย</div>'; return; }
-      box.innerHTML = list.map(b => {
+      box.innerHTML = list.map((b,idx) => {
         const sales = salesByBranch[b]||0, target = targetMap[b]||0;
         const pct = target>0 ? sales/target*100 : 0;
         const w = Math.max(0, Math.min(100, pct));
         const done = pct>=100;
         const color = done ? '#22c55e' : (pct>=70 ? '#f59e0b' : '#3b82f6');
+        const veh = branchVehicle(b, idx);
+        // scenery + car speed scale with progress (faster when further)
+        const moving = w > 0;
         return `<div class="tgt-item ${done?'tgt-done':''}">
           <div class="tgt-head">
             <span class="tgt-branch">${b} ${done?'<span class="tgt-badge">ถึงเป้าแล้ว! 🎉</span>':''}</span>
             <span class="tgt-nums">${fmt(sales)} / ${target>0?fmt(target):'— ยังไม่ตั้งเป้า'} ${target>0?`<b style="color:${color}">(${pct.toFixed(1)}%)</b>`:''}</span>
           </div>
-          <div class="road">
+          <div class="road ${moving?'road-moving':''}">
+            ${scenerySvg()}
             <div class="road-done" style="width:${w}%;background:${color};"></div>
-            <div class="road-car" style="left:calc(${w}% - 32px);--car-color:${color};">${carSvg()}</div>
+            <div class="road-car" style="left:calc(${w}% - 33px);">${vehicleSvg(veh.type, veh.pal)}</div>
             <span class="road-flag">🏁</span>
           </div>
         </div>`;
@@ -689,6 +788,67 @@
       return r[key] || 0;
     }
 
+    // ---- employee daily sales (from cumulative-to-date records) ----
+    function openEmpDaily(branch, emp) {
+      const key = branch + '||' + emp;
+      const recs = (dailyRecords[key] || []).slice();  // already sorted by date
+      document.getElementById('empDailyTitle').textContent = '📊 ยอดขายรายวัน — ' + emp + ' · ' + branch;
+      const tbl = document.getElementById('empDailyTable');
+      const emptyEl = document.getElementById('empDailyEmpty');
+      const sumEl = document.getElementById('empDailySum');
+
+      if (!recs.length) { tbl.innerHTML=''; sumEl.innerHTML=''; emptyEl.style.display='block'; document.getElementById('empDailyModal').classList.add('on'); return; }
+      emptyEl.style.display='none';
+
+      const A='totalAdsCost';
+      // per-day deltas vs previous record (first record stands as-is; month resets on the 1st)
+      let prev = null;
+      const rows = recs.map(r => {
+        const day = (k) => (r[k]||0) - (prev ? (prev[k]||0) : 0);
+        const fb=day('salesFacebook'), sp=day('salesShopee'), lz=day('salesLazada'), lo=day('salesLineOA');
+        const totalSales = fb+sp+lz+lo;
+        const ads = day(A);
+        const out = { date:r.date, fb, sp, lz, lo, totalSales, ads, cumSales:(r.totalSales||0), cumAds:(r[A]||0) };
+        prev = r;
+        return out;
+      });
+
+      const tot = rows.reduce((t,x)=>{ t.fb+=x.fb;t.sp+=x.sp;t.lz+=x.lz;t.lo+=x.lo;t.totalSales+=x.totalSales;t.ads+=x.ads; return t; },
+        {fb:0,sp:0,lz:0,lo:0,totalSales:0,ads:0});
+      const last = rows[rows.length-1];
+      sumEl.innerHTML =
+        `<div class="ed-card"><div class="v">${fmt(last.cumSales)}</div><div class="l">ยอดขายรวมสะสม (ล่าสุด)</div></div>
+         <div class="ed-card"><div class="v">${fmt(last.cumAds)}</div><div class="l">ค่าโฆษณาสะสม (ล่าสุด)</div></div>
+         <div class="ed-card"><div class="v">${fmt(last.totalSales)}</div><div class="l">ยอดขายวันล่าสุด (${last.date.slice(8,10)})</div></div>
+         <div class="ed-card"><div class="v">${fmt(last.ads)}</div><div class="l">ค่าโฆษณาวันล่าสุด</div></div>`;
+
+      const maxSale = Math.max(1, ...rows.map(r=>r.totalSales));
+      let body = `<thead><tr>
+        <th style="text-align:left;">วันที่</th>
+        <th>Facebook</th><th>Shopee</th><th>Lazada</th><th>LineOA</th>
+        <th>รวม/วัน</th><th>ค่าโฆษณา/วัน</th>
+      </tr></thead><tbody>`;
+      rows.forEach(r => {
+        const d = parseInt(r.date.slice(8,10),10), mo = parseInt(r.date.slice(5,7),10);
+        const zero = r.totalSales===0;
+        const barW = r.totalSales/maxSale*100;
+        body += `<tr class="${zero?'ed-zero':''}">
+          <td class="ed-date">${d} ${TH_MONTHS[mo-1]}</td>
+          <td>${fmt(r.fb)}</td><td>${fmt(r.sp)}</td><td>${fmt(r.lz)}</td><td>${fmt(r.lo)}</td>
+          <td class="ed-total"><div class="ed-bar"><div class="ed-fill" style="width:${barW}%"></div></div><span>${zero?'<span style="color:#ef4444">ขายไม่ได้</span>':fmt(r.totalSales)}</span></td>
+          <td>${fmt(r.ads)}</td>
+        </tr>`;
+      });
+      body += `</tbody><tfoot><tr>
+        <td style="text-align:left;">รวมทั้งเดือน</td>
+        <td>${fmt(tot.fb)}</td><td>${fmt(tot.sp)}</td><td>${fmt(tot.lz)}</td><td>${fmt(tot.lo)}</td>
+        <td>${fmt(tot.totalSales)}</td><td>${fmt(tot.ads)}</td>
+      </tr></tfoot>`;
+      tbl.innerHTML = body;
+      document.getElementById('empDailyModal').classList.add('on');
+    }
+    function closeEmpDaily(){ document.getElementById('empDailyModal').classList.remove('on'); }
+
     function renderCards() {
       const rows = filteredRows();
       const grid = document.getElementById('cardsGrid');
@@ -717,7 +877,8 @@
         items.forEach((it,i) => {
           const pct = Math.abs(it.val)/maxAbs*100;
           const showBranch = document.getElementById('fBranch').value==='all';
-          html += `<div class="mrow ${it.val<0?'neg':''}">
+          const bEsc = it.branch.replace(/'/g,"\\'"), nEsc = it.name.replace(/'/g,"\\'");
+          html += `<div class="mrow clickable ${it.val<0?'neg':''}" onclick="openEmpDaily('${bEsc}','${nEsc}')" title="ดูยอดขายรายวันของ ${it.name}">
             <span class="rank">${i+1}</span>
             <span class="nm">${it.name}${showBranch?` <span class="br">· ${it.branch}</span>`:''}
               <div class="mini-bar"><div style="width:${pct}%;background:${mt.col}"></div></div>
