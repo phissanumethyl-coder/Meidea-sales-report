@@ -124,6 +124,31 @@
     .net-neg { color:#b91c1c; }
     @media(max-width:760px){ .scard-body{grid-template-columns:1fr;} .scard-exp{border-left:none;border-top:1px solid var(--border);} }
     @media(max-width:600px){ .cards{grid-template-columns:1fr;} .filters,.seller-head,.fee-row{flex-direction:column;align-items:stretch;} .scard-metrics{grid-template-columns:1fr;} }
+    /* ===== target progress: cartoon car on a road ===== */
+    .tgt-item { margin-bottom:18px; }
+    .tgt-head { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; margin-bottom:6px; flex-wrap:wrap; }
+    .tgt-branch { font-weight:600; }
+    .tgt-badge { background:#dcfce7; color:#15803d; font-size:11px; padding:2px 8px; border-radius:999px; margin-left:4px; }
+    .tgt-nums { font-size:12.5px; }
+    .road { position:relative; height:46px; border-radius:12px;
+      background:linear-gradient(180deg,#e0f2fe 0%,#e0f2fe 55%,#6b7280 55%,#6b7280 100%);
+      border:1px solid #d3dbe3; overflow:hidden; }
+    /* dashed lane line */
+    .road::after { content:''; position:absolute; left:0; right:0; bottom:9px; height:3px;
+      background:repeating-linear-gradient(90deg,#fde68a 0 14px, transparent 14px 28px);
+      animation: laneMove 0.6s linear infinite; }
+    @keyframes laneMove { from{ background-position:0 0; } to{ background-position:-28px 0; } }
+    .road-done { position:absolute; left:0; top:0; height:100%; opacity:0.16; border-radius:12px 0 0 12px; transition:width 1s cubic-bezier(.22,1,.36,1); }
+    .road-car { position:absolute; bottom:6px; width:64px; height:40px; transition:left 1s cubic-bezier(.22,1,.36,1); z-index:2; }
+    .car-svg { width:100%; height:100%; display:block; }
+    .car-bob { animation: carBob 0.45s ease-in-out infinite; transform-origin:center; }
+    @keyframes carBob { 0%,100%{ transform:translateY(0) rotate(0deg);} 50%{ transform:translateY(-1.2px) rotate(-0.6deg);} }
+    .wheel { animation: wheelSpin 0.5s linear infinite; }
+    @keyframes wheelSpin { from{ transform:rotate(0);} to{ transform:rotate(360deg);} }
+    .road-flag { position:absolute; right:6px; bottom:9px; font-size:22px; z-index:1; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
+    .tgt-done .road { box-shadow:0 0 0 2px #bbf7d0 inset; }
+    .tgt-done .car-bob { animation: carCheer 0.5s ease-in-out infinite; }
+    @keyframes carCheer { 0%,100%{ transform:translateY(0) rotate(-2deg);} 50%{ transform:translateY(-4px) rotate(2deg);} }
     /* commission modal */
     .modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; padding:20px; }
     .modal-ov.on { display:flex; }
@@ -330,11 +355,16 @@
       const fb = document.getElementById('fBranch');
       fb.innerHTML = '<option value="all">ทุกสาขา</option>';
       branches.forEach(b => fb.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
-      ['feeBranch','sBranch','tgtBranch'].forEach(id => {
+      // fee & target editors: branches only (must pick a specific branch)
+      ['feeBranch','tgtBranch'].forEach(id => {
         const el = document.getElementById(id);
         el.innerHTML = '';
         branches.forEach(b => el.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
       });
+      // seller detail: allow "all branches"
+      const sb = document.getElementById('sBranch');
+      sb.innerHTML = '<option value="all">ทุกสาขา</option>';
+      branches.forEach(b => sb.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
     }
 
     function prevMonthStr(month) {
@@ -484,9 +514,39 @@
         setTimeout(()=>msg.textContent='', 2500);
       } catch (err) { console.error(err); msg.textContent = '❌ ผิดพลาด: '+err.message; }
     }
+    function carSvg() {
+      // hand-built cartoon car (no emoji/icon font) — cute rounded hatchback
+      return `<svg class="car-svg" viewBox="0 0 64 40" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="32" cy="35" rx="22" ry="3.5" fill="rgba(0,0,0,0.12)"/>
+        <g class="car-bob">
+          <!-- body -->
+          <path d="M6 26 Q7 17 15 16 L22 11 Q25 9 30 9 L44 9 Q49 9 52 14 L56 18 Q60 19 60 24 L60 27 Q60 30 57 30 L9 30 Q6 30 6 27 Z" fill="var(--car-color,#ef4444)"/>
+          <!-- roof shade -->
+          <path d="M22 11 Q25 9 30 9 L42 9 Q46 9 49 13 L24 13 Q22 12 22 11 Z" fill="rgba(255,255,255,0.18)"/>
+          <!-- windows -->
+          <path d="M25 12 L31 12 L31 17 L21 17 Z" fill="#bae6fd"/>
+          <path d="M33 12 L41 12 Q44 12 46 16 L33 16 Z" fill="#bae6fd"/>
+          <!-- headlight -->
+          <circle cx="58" cy="23" r="2" fill="#fde68a"/>
+          <!-- door line -->
+          <line x1="38" y1="17" x2="38" y2="29" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+        </g>
+        <!-- wheels -->
+        <g class="wheel" style="transform-origin:19px 30px;">
+          <circle cx="19" cy="30" r="6" fill="#1f2937"/><circle cx="19" cy="30" r="2.6" fill="#9ca3af"/>
+          <rect x="18.2" y="24.5" width="1.6" height="11" fill="#e5e7eb" rx="0.5"/>
+          <rect x="13.5" y="29.2" width="11" height="1.6" fill="#e5e7eb" rx="0.5"/>
+        </g>
+        <g class="wheel" style="transform-origin:45px 30px;">
+          <circle cx="45" cy="30" r="6" fill="#1f2937"/><circle cx="45" cy="30" r="2.6" fill="#9ca3af"/>
+          <rect x="44.2" y="24.5" width="1.6" height="11" fill="#e5e7eb" rx="0.5"/>
+          <rect x="39.5" y="29.2" width="11" height="1.6" fill="#e5e7eb" rx="0.5"/>
+        </g>
+      </svg>`;
+    }
+
     function renderTargetProgress() {
       const box = document.getElementById('tgtProgress');
-      // sales per branch (from monthRows)
       const salesByBranch = {};
       monthRows.forEach(r => { salesByBranch[r.branch] = (salesByBranch[r.branch]||0) + (r.totalSales||0); });
       const list = branches.filter(b => (targetMap[b]||0) > 0 || (salesByBranch[b]||0) > 0);
@@ -497,13 +557,15 @@
         const w = Math.max(0, Math.min(100, pct));
         const done = pct>=100;
         const color = done ? '#22c55e' : (pct>=70 ? '#f59e0b' : '#3b82f6');
-        return `<div style="margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
-            <span style="font-weight:600;">${b} ${done?'✅':''}</span>
-            <span>${fmt(sales)} / ${target>0?fmt(target):'— ยังไม่ตั้งเป้า'} ${target>0?`<b style="color:${color}">(${pct.toFixed(1)}%)</b>`:''}</span>
+        return `<div class="tgt-item ${done?'tgt-done':''}">
+          <div class="tgt-head">
+            <span class="tgt-branch">${b} ${done?'<span class="tgt-badge">ถึงเป้าแล้ว! 🎉</span>':''}</span>
+            <span class="tgt-nums">${fmt(sales)} / ${target>0?fmt(target):'— ยังไม่ตั้งเป้า'} ${target>0?`<b style="color:${color}">(${pct.toFixed(1)}%)</b>`:''}</span>
           </div>
-          <div style="height:14px;background:#e2e8f0;border-radius:7px;overflow:hidden;">
-            <div style="width:${w}%;height:100%;background:${color};border-radius:7px;transition:width .5s;"></div>
+          <div class="road">
+            <div class="road-done" style="width:${w}%;background:${color};"></div>
+            <div class="road-car" style="left:calc(${w}% - 32px);--car-color:${color};">${carSvg()}</div>
+            <span class="road-flag">🏁</span>
           </div>
         </div>`;
       }).join('');
@@ -652,7 +714,7 @@
             <div class="mcard-ic" style="background:${mt.col}">${mt.ic}</div>
           </div><div class="mcard-list">`;
         if (!items.length) html += '<div class="br" style="color:var(--muted)">— ยังไม่มีข้อมูล —</div>';
-        items.slice(0,12).forEach((it,i) => {
+        items.forEach((it,i) => {
           const pct = Math.abs(it.val)/maxAbs*100;
           const showBranch = document.getElementById('fBranch').value==='all';
           html += `<div class="mrow ${it.val<0?'neg':''}">
@@ -673,25 +735,27 @@
       const sortKey = document.getElementById('sSort').value;
       const dir = document.getElementById('sDir').value;
       const list = document.getElementById('sellerList');
+      const allBranches = branch === 'all';
 
-      // previous-month lookup by employee name (same branch)
-      const prevByName = {};
-      prevMonthRows.filter(r=>r.branch===branch).forEach(r => { prevByName[r.employeeName] = r; });
+      // previous-month lookup by branch||employee
+      const prevByKey = {};
+      prevMonthRows.forEach(r => { prevByKey[r.branch + '||' + r.employeeName] = r; });
 
-      let rows = monthRows.filter(r => r.branch===branch).map(r => {
+      const srcRows = allBranches ? monthRows : monthRows.filter(r => r.branch===branch);
+      let rows = srcRows.map(r => {
         const sales = r.totalSales||0;
         const ads = r.totalAdsCost||0;
         const cost = sales - (r.netProfit||0);   // ต้นทุน = ยอดขาย − กำไรที่กรอก
         const net = (r.netProfit||0) - ads;       // กำไรสุทธิ = ยอดขาย − ต้นทุน − ค่าโฆษณา
-        const p = prevByName[r.employeeName];
+        const p = prevByKey[r.branch + '||' + r.employeeName];
         const pSales = p ? (p.totalSales||0) : null;
         const pNet = p ? ((p.netProfit||0)-(p.totalAdsCost||0)) : null;
         return {
-          name:r.employeeName, sales, cost, ads, net,
+          name:r.employeeName, branch:r.branch, sales, cost, ads, net,
           salesFacebook:r.salesFacebook||0, salesShopee:r.salesShopee||0, salesLazada:r.salesLazada||0, salesLineOA:r.salesLineOA||0,
           adsFacebook:r.adsFacebook||0, adsShopee:r.adsShopee||0, adsLazada:r.adsLazada||0,
-          feeShopee: feeForEmpPlatform(branch, r.employeeName, 'Shopee'),
-          feeLazada: feeForEmpPlatform(branch, r.employeeName, 'Lazada'),
+          feeShopee: feeForEmpPlatform(r.branch, r.employeeName, 'Shopee'),
+          feeLazada: feeForEmpPlatform(r.branch, r.employeeName, 'Lazada'),
           costPct: sales>0 ? cost/sales*100 : 0,
           pSales, pNet
         };
@@ -765,7 +829,7 @@
           <div class="scard-top">
             <div class="scard-id">
               <span class="scard-rk">${i+1}</span>
-              <div><div class="scard-name">${r.name}</div><div class="scard-branch">สาขา ${branch}</div></div>
+              <div><div class="scard-name">${r.name}</div><div class="scard-branch">สาขา ${r.branch}</div></div>
             </div>
             <div class="scard-deltas">
               ${deltaBadge(r.sales, r.pSales, 'ยอดขาย')}
