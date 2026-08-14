@@ -141,36 +141,19 @@
     .net-neg { color:#b91c1c; }
     @media(max-width:760px){ .scard-body{grid-template-columns:1fr;} .scard-exp{border-left:none;border-top:1px solid var(--border);} }
     @media(max-width:600px){ .cards{grid-template-columns:1fr;} .filters,.seller-head,.fee-row{flex-direction:column;align-items:stretch;} .scard-metrics{grid-template-columns:1fr;} }
-    /* ===== target progress: cartoon car on a road ===== */
-    .tgt-item { margin-bottom:18px; }
+    /* ===== target progress bar ===== */
+    .tgt-item { margin-bottom:16px; }
     .tgt-head { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; margin-bottom:6px; flex-wrap:wrap; }
     .tgt-branch { font-weight:600; }
     .tgt-badge { background:#dcfce7; color:#15803d; font-size:11px; padding:2px 8px; border-radius:999px; margin-left:4px; }
     .tgt-nums { font-size:12.5px; }
-    .road { position:relative; height:60px; border-radius:12px;
-      background:linear-gradient(180deg,#bae6fd 0%,#e0f2fe 42%,#7c8794 42%,#6b7280 100%);
-      border:1px solid #d3dbe3; overflow:hidden; }
-    /* scrolling scenery (trees/houses/buildings) behind the car */
-    .scenery { position:absolute; left:0; right:0; bottom:16px; height:30px; overflow:hidden; z-index:1; pointer-events:none; }
-    .scenery-strip { position:absolute; bottom:0; left:0; width:200%; height:100%; }
-    .road-moving .scenery-strip { animation: sceneryScroll 3.2s linear infinite; }
-    @keyframes sceneryScroll { from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
-    /* dashed lane line */
-    .road::after { content:''; position:absolute; left:0; right:0; bottom:8px; height:3px; z-index:1;
-      background:repeating-linear-gradient(90deg,#fde68a 0 14px, transparent 14px 28px); }
-    .road-moving::after { animation: laneMove 0.5s linear infinite; }
-    @keyframes laneMove { from{ background-position:0 0; } to{ background-position:-28px 0; } }
-    .road-done { position:absolute; left:0; top:0; height:100%; opacity:0.13; border-radius:12px 0 0 12px; transition:width 1s cubic-bezier(.22,1,.36,1); z-index:1; }
-    .road-car { position:absolute; bottom:8px; width:66px; height:40px; transition:left 1s cubic-bezier(.22,1,.36,1); z-index:3; }
-    .car-svg { width:100%; height:100%; display:block; }
-    .car-bob { animation: carBob 0.45s ease-in-out infinite; transform-origin:center; }
-    @keyframes carBob { 0%,100%{ transform:translateY(0) rotate(0deg);} 50%{ transform:translateY(-1.2px) rotate(-0.6deg);} }
-    .wheel { animation: wheelSpin 0.5s linear infinite; }
-    @keyframes wheelSpin { from{ transform:rotate(0);} to{ transform:rotate(360deg);} }
-    .road-flag { position:absolute; right:6px; bottom:10px; font-size:24px; z-index:2; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
-    .tgt-done .road { box-shadow:0 0 0 2px #bbf7d0 inset; }
-    .tgt-done .car-bob { animation: carCheer 0.5s ease-in-out infinite; }
-    @keyframes carCheer { 0%,100%{ transform:translateY(0) rotate(-2deg);} 50%{ transform:translateY(-4px) rotate(2deg);} }
+    .tgt-track { position:relative; height:16px; background:#e5e7eb; border-radius:8px; overflow:hidden; }
+    .tgt-fill { position:absolute; left:0; top:0; height:100%; border-radius:8px; transition:width 1s cubic-bezier(.22,1,.36,1);
+      background-image:linear-gradient(90deg, rgba(255,255,255,0.25) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.25) 75%, transparent 75%);
+      background-size:24px 24px; animation: tgtStripes 0.8s linear infinite; }
+    @keyframes tgtStripes { from{ background-position:0 0; } to{ background-position:24px 0; } }
+    .tgt-done .tgt-fill { animation: tgtStripes 0.8s linear infinite, tgtGlow 1.4s ease-in-out infinite; }
+    @keyframes tgtGlow { 0%,100%{ box-shadow:0 0 0 0 rgba(34,197,94,0); } 50%{ box-shadow:0 0 10px 1px rgba(34,197,94,0.55); } }
     /* commission modal */
     .modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; padding:20px; }
     .modal-ov.on { display:flex; }
@@ -562,110 +545,24 @@
         setTimeout(()=>msg.textContent='', 2500);
       } catch (err) { console.error(err); msg.textContent = '❌ ผิดพลาด: '+err.message; }
     }
-    // ---- cartoon vehicles: 5 distinct types, each branch gets its own type+palette ----
-    const CAR_PALETTES = [
-      { body:'#ef4444', roof:'#dc2626' }, // red
-      { body:'#3b82f6', roof:'#2563eb' }, // blue
-      { body:'#22c55e', roof:'#16a34a' }, // green
-      { body:'#f59e0b', roof:'#d97706' }, // amber
-      { body:'#8b5cf6', roof:'#7c3aed' }, // purple
-      { body:'#ec4899', roof:'#db2777' }, // pink
-      { body:'#14b8a6', roof:'#0d9488' }, // teal
-    ];
-    function wheelsSvg(x1,x2){
-      const wheel=(cx)=>`<g class="wheel" style="transform-origin:${cx}px 30px;">
-        <circle cx="${cx}" cy="30" r="6" fill="#1f2937"/><circle cx="${cx}" cy="30" r="2.6" fill="#cbd5e1"/>
-        <rect x="${cx-0.8}" y="24.5" width="1.6" height="11" fill="#e5e7eb" rx="0.5"/>
-        <rect x="${cx-5.5}" y="29.2" width="11" height="1.6" fill="#e5e7eb" rx="0.5"/></g>`;
-      return wheel(x1)+wheel(x2);
-    }
-    function vehicleSvg(type, col){
-      const c = col.body, r = col.roof;
-      const shadow = '<ellipse cx="32" cy="35" rx="23" ry="3.5" fill="rgba(0,0,0,0.12)"/>';
-      const win = '#bae6fd';
-      let g = '';
-      if (type===0){ // hatchback
-        g = `<path d="M6 26 Q7 17 15 16 L22 11 Q25 9 30 9 L44 9 Q49 9 52 14 L56 18 Q60 19 60 24 L60 27 Q60 30 57 30 L9 30 Q6 30 6 27 Z" fill="${c}"/>
-          <path d="M25 12 L31 12 L31 16 L21 16 Z" fill="${win}"/><path d="M33 12 L41 12 Q44 12 46 16 L33 16 Z" fill="${win}"/>
-          <circle cx="58" cy="23" r="2" fill="#fde68a"/>`;
-      } else if (type===1){ // sedan (longer roof)
-        g = `<path d="M4 27 Q5 19 14 18 L20 12 Q23 10 30 10 L46 10 Q52 11 55 16 L60 20 Q62 21 62 25 L62 28 Q62 30 59 30 L7 30 Q4 30 4 27 Z" fill="${c}"/>
-          <path d="M23 13 L37 13 L37 17 L19 17 Z" fill="${win}"/><path d="M39 13 L45 13 Q49 13 51 17 L39 17 Z" fill="${win}"/>
-          <circle cx="60" cy="24" r="2" fill="#fde68a"/>`;
-      } else if (type===2){ // van (tall, boxy)
-        g = `<path d="M5 10 L44 10 Q50 10 54 15 L60 21 Q62 22 62 26 L62 29 Q62 31 59 31 L7 31 Q5 31 5 29 Z" fill="${c}"/>
-          <rect x="9" y="14" width="12" height="8" rx="1.5" fill="${win}"/><rect x="24" y="14" width="12" height="8" rx="1.5" fill="${win}"/>
-          <path d="M46 14 L50 14 Q53 15 55 19 L46 19 Z" fill="${win}"/><circle cx="60" cy="25" r="2" fill="#fde68a"/>`;
-      } else if (type===3){ // sports (low, sleek)
-        g = `<path d="M3 28 Q4 24 10 23 L20 15 Q25 12 34 12 L48 13 Q56 14 60 19 L63 23 Q64 24 64 27 L64 29 Q64 31 61 31 L6 31 Q3 31 3 28 Z" fill="${c}"/>
-          <path d="M23 16 Q26 14 33 14 L44 15 Q49 16 51 20 L24 20 Z" fill="${win}"/>
-          <circle cx="62" cy="26" r="1.8" fill="#fde68a"/><rect x="3" y="27" width="6" height="2" fill="${r}"/>`;
-      } else { // pickup truck
-        g = `<path d="M4 20 L26 20 L28 14 Q29 12 33 12 L40 12 Q44 12 46 16 L48 20 L60 20 Q62 20 62 24 L62 29 Q62 31 59 31 L6 31 Q4 31 4 29 Z" fill="${c}"/>
-          <path d="M30 15 L39 15 Q42 15 43 19 L30 19 Z" fill="${win}"/>
-          <rect x="6" y="22" width="20" height="7" rx="1" fill="${r}"/><circle cx="60" cy="25" r="2" fill="#fde68a"/>`;
-      }
-      // pick wheel x-positions per type
-      const wheels = type===2 ? wheelsSvg(15,52) : type===4 ? wheelsSvg(16,50) : wheelsSvg(19,46);
-      return `<svg class="car-svg" viewBox="0 0 66 40" xmlns="http://www.w3.org/2000/svg">
-        ${shadow}<g class="car-bob">${g}</g>${wheels}</svg>`;
-    }
-    // deterministic type from branch name (stable across reloads)
-    function branchVehicle(branch, idx){
-      let h=0; for(let i=0;i<branch.length;i++) h=(h*31+branch.charCodeAt(i))>>>0;
-      const type = h % 5;
-      const pal = CAR_PALETTES[Math.floor(h/8) % CAR_PALETTES.length];
-      return { type, pal };
-    }
-    // scenery: repeating trees/houses/buildings that scroll under the car
-    function scenerySvg(){
-      return `<div class="scenery">
-        <svg class="scenery-strip" viewBox="0 0 240 30" preserveAspectRatio="xMinYMax meet" xmlns="http://www.w3.org/2000/svg">
-          ${sceneryUnit(0)}${sceneryUnit(120)}
-        </svg>
-      </div>`;
-    }
-    function sceneryUnit(x){
-      return `<g transform="translate(${x},0)">
-        <!-- tree -->
-        <rect x="10" y="18" width="3" height="8" fill="#92400e"/><circle cx="11.5" cy="15" r="7" fill="#4ade80"/><circle cx="7" cy="17" r="5" fill="#22c55e"/><circle cx="16" cy="17" r="5" fill="#22c55e"/>
-        <!-- house -->
-        <rect x="30" y="16" width="16" height="10" fill="#fca5a5"/><path d="M28 16 L38 8 L48 16 Z" fill="#b91c1c"/><rect x="35" y="20" width="5" height="6" fill="#7c2d12"/>
-        <!-- building -->
-        <rect x="58" y="4" width="14" height="22" fill="#94a3b8"/><rect x="61" y="7" width="3" height="3" fill="#e0f2fe"/><rect x="66" y="7" width="3" height="3" fill="#e0f2fe"/><rect x="61" y="12" width="3" height="3" fill="#e0f2fe"/><rect x="66" y="12" width="3" height="3" fill="#e0f2fe"/><rect x="61" y="17" width="3" height="3" fill="#e0f2fe"/><rect x="66" y="17" width="3" height="3" fill="#e0f2fe"/>
-        <!-- small tree -->
-        <rect x="88" y="20" width="2.5" height="6" fill="#92400e"/><circle cx="89" cy="17" r="5" fill="#34d399"/>
-        <!-- tall building -->
-        <rect x="100" y="2" width="12" height="24" fill="#64748b"/><rect x="103" y="5" width="2.5" height="2.5" fill="#fef9c3"/><rect x="107" y="5" width="2.5" height="2.5" fill="#fef9c3"/><rect x="103" y="10" width="2.5" height="2.5" fill="#fef9c3"/><rect x="107" y="10" width="2.5" height="2.5" fill="#fef9c3"/><rect x="103" y="15" width="2.5" height="2.5" fill="#fef9c3"/><rect x="107" y="15" width="2.5" height="2.5" fill="#fef9c3"/>
-      </g>`;
-    }
-
     function renderTargetProgress() {
       const box = document.getElementById('tgtProgress');
       const salesByBranch = {};
       monthRows.forEach(r => { salesByBranch[r.branch] = (salesByBranch[r.branch]||0) + (r.totalSales||0); });
       const list = branches.filter(b => (targetMap[b]||0) > 0 || (salesByBranch[b]||0) > 0);
       if (!list.length) { box.innerHTML = '<div style="font-size:13px;color:var(--muted)">ยังไม่ได้ตั้งเป้า — เลือกสาขาแล้วกรอกเป้ายอดขาย</div>'; return; }
-      box.innerHTML = list.map((b,idx) => {
+      box.innerHTML = list.map(b => {
         const sales = salesByBranch[b]||0, target = targetMap[b]||0;
         const pct = target>0 ? sales/target*100 : 0;
         const w = Math.max(0, Math.min(100, pct));
         const done = pct>=100;
         const color = done ? '#22c55e' : (pct>=70 ? '#f59e0b' : '#3b82f6');
-        const veh = branchVehicle(b, idx);
-        // scenery + car speed scale with progress (faster when further)
-        const moving = w > 0;
         return `<div class="tgt-item ${done?'tgt-done':''}">
           <div class="tgt-head">
             <span class="tgt-branch">${b} ${done?'<span class="tgt-badge">ถึงเป้าแล้ว! 🎉</span>':''}</span>
             <span class="tgt-nums">${fmt(sales)} / ${target>0?fmt(target):'— ยังไม่ตั้งเป้า'} ${target>0?`<b style="color:${color}">(${pct.toFixed(1)}%)</b>`:''}</span>
           </div>
-          <div class="road ${moving?'road-moving':''}">
-            ${scenerySvg()}
-            <div class="road-done" style="width:${w}%;background:${color};"></div>
-            <div class="road-car" style="left:calc(${w}% - 33px);">${vehicleSvg(veh.type, veh.pal)}</div>
-            <span class="road-flag">🏁</span>
-          </div>
+          <div class="tgt-track"><div class="tgt-fill" style="width:${w}%;background:${color};"></div></div>
         </div>`;
       }).join('');
     }
