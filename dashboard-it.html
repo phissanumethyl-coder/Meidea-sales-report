@@ -56,10 +56,10 @@
     .mrow.clickable:hover { background:var(--tertiary); }
     .mrow.clickable:hover .nm { color:var(--blue); }
     .ads-total-pct { font-size:12px; font-weight:600; color:var(--muted); margin-left:6px; }
-    .ads-bd { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 8px 28px; }
-    .ads-chip { font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap; }
-    .ads-chip.ok { background:#dcfce7; color:#15803d; }
-    .ads-chip.over { background:#fee2e2; color:#b91c1c; }
+    .vl-pct { display:inline-block; margin-left:6px; font-size:11px; font-weight:600; padding:1px 7px; border-radius:999px; }
+    .vl-pct.ok { background:#dcfce7; color:#15803d; }
+    .vl-pct.over { background:#fee2e2; color:#b91c1c; }
+    .vl-pct.muted { background:var(--tertiary); color:var(--muted); }
     /* employee daily modal */
     .ed-sum { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px; }
     .ed-card { background:var(--tertiary); border-radius:10px; padding:12px 14px; text-align:center; }
@@ -75,7 +75,7 @@
     .ed-bar { height:5px; background:var(--tertiary); border-radius:3px; overflow:hidden; margin-bottom:3px; }
     .ed-fill { height:100%; background:linear-gradient(90deg,#2563eb,#0ea5e9); border-radius:3px; }
     .mrow .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .mrow .vl { font-weight:600; }
+    .mrow .vl { font-weight:600; white-space:nowrap; flex-shrink:0; }
     .mrow .br { font-size:11px; color:var(--muted); }
     .mrow.neg .vl { color:var(--red); }
     .mini-bar { height:5px; background:var(--tertiary); border-radius:3px; overflow:hidden; margin-top:2px; }
@@ -674,14 +674,14 @@
     // metric definitions: key, title, icon, color, isBranchFee
     const METRICS = [
       { key:'totalSales',   title:'ยอดขายรวม',       ic:'💰', col:'#f59e0b' },
-      { key:'totalAdsCost', title:'ค่าโฆษณารวม',      ic:'📣', col:'#ef4444', adsBreakdown:true },
+      { key:'totalAdsCost', title:'ค่าโฆษณารวม',      ic:'📣', col:'#ef4444', pctBase:'totalSales' },
       { key:'net',          title:'กำไรสุทธิ',        ic:'📈', col:'#22c55e' },
       { key:'salesFacebook',title:'ยอดขาย Facebook',  ic:'📘', col:'#1877f2' },
       { key:'salesShopee',  title:'ยอดขาย Shopee',    ic:'🛒', col:'#ee4d2d' },
       { key:'salesLazada',  title:'ยอดขาย Lazada',    ic:'🛍️', col:'#8b5cf6' },
-      { key:'adsFacebook',  title:'ค่าโฆษณา Facebook', ic:'📘', col:'#38bdf8' },
-      { key:'adsShopee',    title:'ค่าโฆษณา Shopee',   ic:'🛒', col:'#fbbf24' },
-      { key:'adsLazada',    title:'ค่าโฆษณา Lazada',   ic:'🛍️', col:'#f472b6' },
+      { key:'adsFacebook',  title:'ค่าโฆษณา Facebook', ic:'📘', col:'#38bdf8', pctBase:'salesFacebook', limit:50 },
+      { key:'adsShopee',    title:'ค่าโฆษณา Shopee',   ic:'🛒', col:'#fbbf24', pctBase:'salesShopee', limit:25 },
+      { key:'adsLazada',    title:'ค่าโฆษณา Lazada',   ic:'🛍️', col:'#f472b6', pctBase:'salesLazada', limit:25 },
       { key:'fee',          title:'ค่าธรรมเนียมรวม',  ic:'💳', col:'#0ea5e9', empFee:true }
     ];
 
@@ -770,13 +770,13 @@
           total = items.reduce((s,x)=>s+x.val,0);
         }
         const maxAbs = Math.max(1, ...items.map(i=>Math.abs(i.val)));
-        // for the ads card, show total ads as % of total sales
+        // header % for ads cards: total ads / total base sales
         let headExtra = '';
-        if (mt.adsBreakdown) {
-          const tSales = items.reduce((s,x)=>s+(x.row.totalSales||0),0);
-          const tAds = total;
-          const tp = tSales>0 ? tAds/tSales*100 : 0;
-          headExtra = `<span class="ads-total-pct">${tp.toFixed(1)}% ของยอดขายรวม</span>`;
+        if (mt.pctBase) {
+          const tBase = items.reduce((s,x)=>s+((x.row&&x.row[mt.pctBase])||0),0);
+          const tp = tBase>0 ? total/tBase*100 : 0;
+          const baseLabel = mt.key==='totalAdsCost' ? 'ยอดขายรวม' : mt.title.replace('ค่าโฆษณา ','ยอดขาย ');
+          headExtra = `<span class="ads-total-pct">${tp.toFixed(1)}% ของ${baseLabel}</span>`;
         }
         html += `<div class="mcard">
           <div class="mcard-head">
@@ -788,31 +788,29 @@
           const pct = Math.abs(it.val)/maxAbs*100;
           const showBranch = document.getElementById('fBranch').value==='all';
           const bEsc = it.branch.replace(/'/g,"\\'"), nEsc = it.name.replace(/'/g,"\\'");
+          // inline % after value (for ads cards)
+          let pctTag = '';
+          if (mt.pctBase && it.row) {
+            const base = it.row[mt.pctBase]||0;
+            const pp = base>0 ? it.val/base*100 : (it.val>0?999:0);
+            if (mt.limit != null) {
+              // platform ads card: color by threshold
+              const over = pp > mt.limit;
+              const disp = base>0 ? pp.toFixed(1)+'%' : (it.val>0?'ไม่มียอดขาย':'0%');
+              pctTag = `<span class="vl-pct ${over?'over':'ok'}" title="โฆษณา ${fmt(it.val)} / ยอดขาย ${fmt(base)} (เกณฑ์ ≤${mt.limit}%)">${disp}</span>`;
+            } else {
+              // total ads card: plain %
+              const disp = base>0 ? pp.toFixed(1)+'%' : '—';
+              pctTag = `<span class="vl-pct muted">${disp}</span>`;
+            }
+          }
           html += `<div class="mrow clickable ${it.val<0?'neg':''}" onclick="openEmpDaily('${bEsc}','${nEsc}')" title="ดูยอดขายรายวันของ ${it.name}">
             <span class="rank">${i+1}</span>
             <span class="nm">${it.name}${showBranch?` <span class="br">· ${it.branch}</span>`:''}
               <div class="mini-bar"><div style="width:${pct}%;background:${mt.col}"></div></div>
             </span>
-            <span class="vl">${fmt(it.val)}</span>
+            <span class="vl">${fmt(it.val)}${pctTag}</span>
           </div>`;
-          // ads platform % breakdown with thresholds
-          if (mt.adsBreakdown) {
-            const r = it.row;
-            const plats = [
-              { lb:'FB', ads:r.adsFacebook||0, sales:r.salesFacebook||0, limit:50 },
-              { lb:'Shopee', ads:r.adsShopee||0, sales:r.salesShopee||0, limit:25 },
-              { lb:'Lazada', ads:r.adsLazada||0, sales:r.salesLazada||0, limit:25 }
-            ].filter(p => p.ads>0 || p.sales>0);
-            if (plats.length) {
-              html += '<div class="ads-bd">' + plats.map(p=>{
-                const pp = p.sales>0 ? p.ads/p.sales*100 : (p.ads>0?999:0);
-                const over = pp > p.limit;
-                const cls = over ? 'over' : 'ok';
-                const disp = p.sales>0 ? pp.toFixed(1)+'%' : (p.ads>0?'ไม่มียอดขาย':'0%');
-                return `<span class="ads-chip ${cls}" title="${p.lb}: โฆษณา ${fmt(p.ads)} / ยอดขาย ${fmt(p.sales)} (เกณฑ์ ≤${p.limit}%)">${p.lb} ${disp}</span>`;
-              }).join('') + '</div>';
-            }
-          }
         });
         html += '</div></div>';
       });
