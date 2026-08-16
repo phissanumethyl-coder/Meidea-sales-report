@@ -11,6 +11,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     :root {
@@ -137,6 +138,12 @@
     .htable .big { font-weight:700; color:#c2410c; font-size:15px; }
     .htable .btn-view { padding:5px 12px; font-size:12px; border:1px solid var(--border); border-radius:7px; background:#fff; cursor:pointer; color:var(--pink); font-family:'Kanit',sans-serif; }
     .htable .btn-view:hover { border-color:var(--pink); }
+    .htable .btn-xls { color:#15803d; margin-left:4px; }
+    .htable .btn-xls:hover { border-color:#15803d; background:#f0fdf4; }
+    .hours-tgt-box { display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 14px; margin-bottom:14px; }
+    .htgt-label { font-size:13px; font-weight:600; color:#1d4ed8; }
+    .htgt-input { width:90px; padding:7px 10px; border:1px solid var(--border); border-radius:8px; font-family:'Kanit',sans-serif; font-size:14px; text-align:center; }
+    .htgt-unit { font-size:13px; color:var(--muted); }
     .hbar-wrap { display:flex; align-items:center; gap:8px; }
     .hbar { flex:1; height:8px; background:var(--tertiary); border-radius:4px; overflow:hidden; min-width:60px; }
     .hbar > div { height:100%; background:linear-gradient(90deg,#f97316,#ec4899); border-radius:4px; }
@@ -265,7 +272,14 @@
       <div class="hours-panel">
         <div class="section-title">⏱️ ชั่วโมงไลฟ์ (รอบ 26 → 25)</div>
         <div class="hours-cycle-note" id="hoursCycleNote"></div>
-        <div class="summary-note">รวมชั่วโมงไลฟ์ · จำนวนวันที่ไลฟ์ · ช่วงที่ลา · ช่วงที่ไม่ได้ไลฟ์ (ว่าง) — กด "ดูรายวัน" เพื่อดูว่าไลฟ์ช่วงไหนกี่ชั่วโมง</div>
+        <div class="hours-tgt-box">
+          <span class="htgt-label">🎯 เป้าชั่วโมงไลฟ์ต่อรอบ (ทุกคนเท่ากัน):</span>
+          <input type="number" id="hoursTgtInput" class="htgt-input" min="1" placeholder="150">
+          <span class="htgt-unit">ชม.</span>
+          <button class="btn btn-primary btn-sm" onclick="saveHoursTarget()">💾 บันทึกเป้า</button>
+          <span id="hoursTgtMsg" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+        <div class="summary-note">รวมชั่วโมงไลฟ์ · จำนวนวันที่ไลฟ์ · ช่วงที่ลา · ช่วงที่ไม่ได้ไลฟ์ (ว่าง) — กด "ดูรายวัน" เพื่อดูว่าไลฟ์ช่วงไหนกี่ชั่วโมง · "📥 Excel" เพื่อโหลดรายงานรายคน</div>
         <div style="overflow-x:auto;">
           <table class="htable">
             <thead><tr>
@@ -360,6 +374,7 @@
     const db = firebase.firestore();
 
     const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const TH_MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
     const fmt = n => (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
     function pad2(n){ return String(n).padStart(2,'0'); }
     function safeId(s){ return String(s).replace(/[\/\\]/g,'_'); }
@@ -394,7 +409,8 @@
     let shopMap = {};        // seller -> shop name
     let salesTargetMap = {}; // seller -> sales target (selected calendar month)
     let hoursBySeller = {};  // seller -> total cycle hours (26->25)
-    const HOURS_TARGET = 150; // ชั่วโมงไลฟ์เป้าหมายต่อรอบ 26->25
+    let HOURS_TARGET = 150; // ชั่วโมงไลฟ์เป้าหมายต่อรอบ (แก้ไขได้รายเดือน)
+    const HOURS_TARGET_DEFAULT = 150;
 
     async function init(){
       document.getElementById('fMonth').value = currentMonth();
@@ -429,6 +445,7 @@
         await fetchShops();
         await fetchSalesTargets(month);
         await fetchLottie();
+        await fetchHoursTarget(month);
         renderAll(month);
         document.getElementById('loading').style.display='none';
         document.getElementById('content').style.display='block';
@@ -452,6 +469,29 @@
         const snap = await db.collection('live_targets').where('month','==',month).get();
         snap.forEach(d=>{ const x=d.data(); if(x.seller) salesTargetMap[x.seller]=x.target||0; });
       } catch(e){ console.warn('targets', e); }
+    }
+
+    async function fetchHoursTarget(month){
+      HOURS_TARGET = HOURS_TARGET_DEFAULT;
+      try {
+        const doc = await db.collection('live_hours_target').doc(month).get();
+        if (doc.exists && doc.data().target) HOURS_TARGET = doc.data().target;
+      } catch(e){ console.warn('hours target', e); }
+    }
+    async function saveHoursTarget(){
+      const month = document.getElementById('fMonth').value;
+      const val = parseFloat(document.getElementById('hoursTgtInput').value);
+      if (!month || isNaN(val) || val<=0) { document.getElementById('hoursTgtMsg').textContent='กรอกตัวเลขให้ถูกต้อง'; return; }
+      const msg = document.getElementById('hoursTgtMsg');
+      msg.textContent = 'กำลังบันทึก...';
+      try {
+        await db.collection('live_hours_target').doc(month).set({ month, target:val, updatedAt:new Date().toISOString() });
+        HOURS_TARGET = val;
+        msg.textContent = '✅ บันทึกแล้ว';
+        renderSellers();
+        renderHours();
+        setTimeout(()=>msg.textContent='', 2500);
+      } catch(err){ console.error(err); msg.textContent='❌ ผิดพลาด: '+err.message; }
     }
 
     // ----- hours: 26->25 cycle based on selected month (cycle END = selected month) -----
@@ -678,7 +718,7 @@
               ${expRow('กำไรสุทธิ', r.net, r.sales, r.net>=0?'#22c55e':'#ef4444')}
               <div class="goal-title">🎯 เป้าหมายรายบุคคล</div>
               ${walkBar('เป้ายอดขาย', r.sales, salesTargetMap[r.seller]||0, '฿', '#f97316', 'sales')}
-              ${walkBar('เป้าชั่วโมงไลฟ์ (150 ชม./รอบ)', hoursBySeller[r.seller]||0, HOURS_TARGET, 'ชม.', '#0ea5e9', 'hours')}
+              ${walkBar('เป้าชั่วโมงไลฟ์ ('+HOURS_TARGET+' ชม./รอบ)', hoursBySeller[r.seller]||0, HOURS_TARGET, 'ชม.', '#0ea5e9', 'hours')}
             </div>
           </div>
         </div>`;
@@ -855,6 +895,8 @@
     function renderHours(){
       const body=document.getElementById('hoursBody');
       const empty=document.getElementById('hoursEmpty');
+      const tgtInput=document.getElementById('hoursTgtInput');
+      if(tgtInput && document.activeElement!==tgtInput) tgtInput.value = HOURS_TARGET;
       if(!hoursRows.length){ body.innerHTML=''; empty.style.display='block'; return; }
       empty.style.display='none';
       const rows=hoursRows.slice().sort((a,b)=>b.hours-a.hours);
@@ -871,7 +913,8 @@
           <td>${r.leaveSlots>0?`<span style="color:#16a34a;font-weight:600">${r.leaveSlots}</span>`:'0'}</td>
           <td>${r.offSlots>0?`<span style="color:#6b7280;font-weight:600">${r.offSlots}</span>`:'0'}</td>
           <td>${fmtHM(avg)}</td>
-          <td><button class="btn-view" onclick="openDay('${r.seller.replace(/'/g,"\\'")}')">ดูรายวัน</button></td>
+          <td><button class="btn-view" onclick="openDay('${r.seller.replace(/'/g,"\\'")}')">ดูรายวัน</button>
+              <button class="btn-view btn-xls" onclick="exportHours('${r.seller.replace(/'/g,"\\'")}')">📥 Excel</button></td>
         </tr>`;
       }).join('');
     }
@@ -910,6 +953,144 @@
       document.getElementById('dayModal').classList.add('on');
     }
     function closeDayModal(){ document.getElementById('dayModal').classList.remove('on'); }
+
+    // ---------- Excel export (matches template 100%) ----------
+    function cycleDates(month){
+      // returns array of Date objects from 26th of start month .. 25th of end month
+      const c = cycleKeyForSelectedMonth(month);
+      const start = new Date(c.startY, c.startM, 26);
+      const end = new Date(c.endY, c.endM, 25);
+      const out = [];
+      let d = new Date(start);
+      while (d <= end) { out.push(new Date(d)); d.setDate(d.getDate()+1); }
+      return out;
+    }
+    function toXlsxTime(hhmm){
+      // "HH.MM" or "H.MM" -> Excel time (fraction of a day); returns null if invalid
+      const t = parseThaiTime(hhmm);
+      if (t == null) return null;
+      return t / 1440;
+    }
+    async function exportHours(seller){
+      if (typeof ExcelJS === 'undefined') { alert('กำลังโหลดไลบรารี Excel — ลองอีกครั้งในอีกสักครู่'); return; }
+      const month = document.getElementById('fMonth').value;
+      const c = cycleKeyForSelectedMonth(month);
+      const monthName = TH_MONTHS_FULL[c.endM];
+      const yearBE = c.endY + 543;
+      const shop = shopMap[seller] || '';
+
+      // gather this seller's docs in the cycle keyed by date
+      const docs = {};
+      (hoursDocsBySeller[seller]||[]).forEach(x => { docs[x.date] = x; });
+
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Live', { views:[{showGridLines:false}] });
+
+      const BLUE='FFA3DBFF', PINK='FFFF99FF', GREEN='FFC6EFCE';
+      const thin={style:'thin',color:{argb:'FF999999'}};
+      const border={top:thin,left:thin,bottom:thin,right:thin};
+      const F='Angsana New';
+      const timeFmt='[$-1000000]h:mm\\ "น.";@';
+      const sumFmt='[h]:mm';
+
+      // column widths
+      ws.columns = [
+        {width:12},{width:12},{width:16},{width:9},{width:9},{width:11},{width:9},{width:9},{width:11},
+        {width:9},{width:9},{width:11},{width:9},{width:9},{width:11},{width:9},{width:16},{width:16}
+      ];
+
+      // Title A1:R2
+      ws.mergeCells('A1:R2');
+      const t = ws.getCell('A1');
+      t.value = 'สรุปเวลา Live สด ประจำวัน เดือน ' + monthName + ' ' + yearBE;
+      t.font = { name:F, size:20, bold:true, color:{argb:'FFFF0000'} };
+      t.alignment = { horizontal:'center', vertical:'middle' };
+
+      // header rows 3-4
+      const hdr = (cell,val,fill)=>{ const c2=ws.getCell(cell); c2.value=val; c2.font={name:F,size:16,bold:true};
+        c2.alignment={horizontal:'center',vertical:'middle',wrapText:true}; if(fill) c2.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}}; c2.border=border; };
+      [['A3:A4','ว/ด/ป',BLUE],['B3:B4','ชื่อ Sale',BLUE],['C3:C4','ช่อง',BLUE],
+       ['D3:E3','เวลา Live ช่วงที่ 1',BLUE],['F3:F4','สรุปช่วง 1 (ชม.)',GREEN],
+       ['G3:H3','เวลา Live ช่วงที่ 2',BLUE],['I3:I4','สรุปช่วง 2 (ชม.)',GREEN],
+       ['J3:K3','เวลาLive ช่วงที่ 3',BLUE],['L3:L4','สรุปช่วง 3 (ชม.)',GREEN],
+       ['M3:N3','เวลา Live แทน',BLUE],['O3:O4','ไลฟ์แทน',GREEN],
+       ['P3:P4','รวมเวลา Live (ชม.)',PINK],['Q3:Q4','รวมลา/ช่วง',PINK],['R3:R4','รวมไลฟ์แทน/ครั้ง',PINK]
+      ].forEach(([rng,val,fill])=>{ ws.mergeCells(rng); hdr(rng.split(':')[0],val,fill); });
+      // sub headers row4 (เริ่ม/สิ้นสุด)
+      [['D4','เริ่ม'],['E4','สิ้นสุด'],['G4','เริ่ม'],['H4','สิ้นสุด'],['J4','เริ่ม'],['K4','สิ้นสุด'],['M4','เริ่ม'],['N4','สิ้นสุด']]
+        .forEach(([cell,val])=>hdr(cell,val,BLUE));
+      ws.getRow(3).height=42; ws.getRow(4).height=20;
+
+      // data rows
+      const dates = cycleDates(month);
+      let row = 5;
+      dates.forEach(dt => {
+        const key = dt.getFullYear()+'-'+pad2(dt.getMonth()+1)+'-'+pad2(dt.getDate());
+        const doc = docs[key];
+        const r = ws.getRow(row);
+        // A date
+        const aCell = ws.getCell('A'+row);
+        aCell.value = dt; aCell.numFmt='[$-1870000]d/m/yy;@';
+        aCell.alignment={horizontal:'right'};
+        ws.getCell('B'+row).value = seller;
+        ws.getCell('C'+row).value = shop;
+        // slots: doc.slots -> map to 3 live slots + 1 "live แทน"
+        const slots = (doc && doc.slots) ? doc.slots : [];
+        // real live slots (not leave/off) go into 1,2,3; leave marks "ลา"; off -> blank
+        const liveSlots = slots.filter(s=>!s.leave && !s.off && s.start && s.end);
+        const leaveCount = slots.filter(s=>s.leave).length;
+        const cols = [['D','E'],['G','H'],['J','K']];
+        for (let i=0;i<3;i++){
+          const [cs,ce]=cols[i];
+          if (liveSlots[i]) {
+            const sv=toXlsxTime(liveSlots[i].start), ev=toXlsxTime(liveSlots[i].end);
+            if (sv!=null){ ws.getCell(cs+row).value=sv; ws.getCell(cs+row).numFmt=timeFmt; }
+            if (ev!=null){ ws.getCell(ce+row).value=ev; ws.getCell(ce+row).numFmt=timeFmt; }
+          } else if (leaveCount>0 && i<Math.min(3,leaveCount)) {
+            // mark ลา in start cell of the corresponding slot
+            ws.getCell(cs+row).value='ลา';
+          }
+        }
+        // sum columns F,I,L (=end-start) as formulas; O for live-tan
+        ws.getCell('F'+row).value={formula:`E${row}-D${row}`}; ws.getCell('F'+row).numFmt=timeFmt;
+        ws.getCell('I'+row).value={formula:`H${row}-G${row}`}; ws.getCell('I'+row).numFmt=timeFmt;
+        ws.getCell('L'+row).value={formula:`K${row}-J${row}`}; ws.getCell('L'+row).numFmt=timeFmt;
+        ws.getCell('O'+row).value={formula:`N${row}-M${row}`}; ws.getCell('O'+row).numFmt=timeFmt;
+        ws.getCell('P'+row).value={formula:`F${row}+I${row}+L${row}+O${row}`}; ws.getCell('P'+row).numFmt=timeFmt;
+        // styling for row
+        for (let col=1; col<=18; col++){
+          const cell=r.getCell(col);
+          cell.font={name:F,size:16};
+          if(!cell.alignment || !cell.alignment.horizontal) cell.alignment={horizontal:'center'};
+          cell.border=border;
+        }
+        r.height=22;
+        row++;
+      });
+
+      // total row (row = after last, matches template row33 => A:L merged)
+      const totalRow = row;
+      ws.mergeCells('A'+totalRow+':L'+totalRow);
+      const tc = ws.getCell('A'+totalRow);
+      tc.value = 'รวม 150 ชั่วโมง/เดือน ';
+      tc.font={name:F,size:18}; tc.alignment={horizontal:'center'}; tc.border=border;
+      ws.getCell('P'+totalRow).value={formula:`SUM(P5:P${row-1})`}; ws.getCell('P'+totalRow).numFmt=sumFmt;
+      ws.getCell('Q'+totalRow).value={formula:`SUM(Q5:Q${row-1})`};
+      ws.getCell('R'+totalRow).value={formula:`SUM(R5:R${row-1})`};
+      ['P','Q','R'].forEach(c2=>{ const cc=ws.getCell(c2+totalRow); cc.font={name:F,size:16}; cc.alignment={horizontal:'center'}; cc.border=border; });
+      ws.getRow(totalRow).height=24;
+
+      // filename: ชื่อ_ร้าน_เดือน_ปี
+      const shopPart = shop ? ('_ร้าน '+shop) : '';
+      const fname = seller + shopPart + '_' + monthName + '_' + yearBE + '.xlsx';
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+    }
 
     // ---------- sales target editor ----------
     function openTargetModal(){
