@@ -1033,30 +1033,7 @@
         aCell.value = dt; aCell.numFmt='[$-1870000]d/m/yy;@';
         aCell.alignment={horizontal:'right'};
         ws.getCell('B'+row).value = seller;
-        ws.getCell('C'+row).value = shop;
-        // slots: doc.slots -> map to 3 live slots + 1 "live แทน"
-        const slots = (doc && doc.slots) ? doc.slots : [];
-        // real live slots (not leave/off) go into 1,2,3; leave marks "ลา"; off -> blank
-        const liveSlots = slots.filter(s=>!s.leave && !s.off && s.start && s.end);
-        const leaveCount = slots.filter(s=>s.leave).length;
-        const cols = [['D','E'],['G','H'],['J','K']];
-        for (let i=0;i<3;i++){
-          const [cs,ce]=cols[i];
-          if (liveSlots[i]) {
-            const sv=toXlsxTime(liveSlots[i].start), ev=toXlsxTime(liveSlots[i].end);
-            if (sv!=null){ ws.getCell(cs+row).value=sv; ws.getCell(cs+row).numFmt=timeFmt; }
-            if (ev!=null){ ws.getCell(ce+row).value=ev; ws.getCell(ce+row).numFmt=timeFmt; }
-          } else if (leaveCount>0 && i<Math.min(3,leaveCount)) {
-            // mark ลา in start cell of the corresponding slot
-            ws.getCell(cs+row).value='ลา';
-          }
-        }
-        // sum columns F,I,L (=end-start) as formulas; O for live-tan
-        ws.getCell('F'+row).value={formula:`E${row}-D${row}`}; ws.getCell('F'+row).numFmt=timeFmt;
-        ws.getCell('I'+row).value={formula:`H${row}-G${row}`}; ws.getCell('I'+row).numFmt=timeFmt;
-        ws.getCell('L'+row).value={formula:`K${row}-J${row}`}; ws.getCell('L'+row).numFmt=timeFmt;
-        ws.getCell('O'+row).value={formula:`N${row}-M${row}`}; ws.getCell('O'+row).numFmt=timeFmt;
-        ws.getCell('P'+row).value={formula:`F${row}+I${row}+L${row}+O${row}`}; ws.getCell('P'+row).numFmt=timeFmt;
+
         // styling for row
         for (let col=1; col<=18; col++){
           const cell=r.getCell(col);
