@@ -979,9 +979,26 @@
       const yearBE = c.endY + 543;
       const shop = shopMap[seller] || '';
 
-      // gather this seller's docs in the cycle keyed by date
+      // gather this seller's docs in the cycle keyed by date (normalize to YYYY-MM-DD)
+      let srcDocs = hoursDocsBySeller[seller] || [];
+      // Fallback: if cache is empty (seller not in current view or cache miss),
+      // query Firestore directly for this seller's records in the cycle window.
+      if (!srcDocs.length) {
+        try {
+          const cd = cycleDates(month);
+          const firstKey = cd[0].getFullYear()+'-'+pad2(cd[0].getMonth()+1)+'-'+pad2(cd[0].getDate());
+          const lastKey  = cd[cd.length-1].getFullYear()+'-'+pad2(cd[cd.length-1].getMonth()+1)+'-'+pad2(cd[cd.length-1].getDate());
+          const snap = await db.collection('live_hours').where('seller','==',seller).get();
+          srcDocs = [];
+          snap.forEach(d=>{ const x=d.data(); const dk=String(x.date||'').slice(0,10); if(dk>=firstKey && dk<=lastKey) srcDocs.push(x); });
+        } catch(e){ console.warn('export fallback query failed', e); }
+      }
       const docs = {};
-      (hoursDocsBySeller[seller]||[]).forEach(x => { docs[x.date] = x; });
+      srcDocs.forEach(x => { const dk = String(x.date||'').slice(0,10); if (dk) docs[dk] = x; });
+      if (!Object.keys(docs).length) {
+        // still nothing — tell the user rather than silently exporting a blank sheet
+        if (!confirm('ไม่พบข้อมูลชั่วโมงไลฟ์ของ "'+seller+'" ในรอบนี้\nต้องการดาวน์โหลดไฟล์เปล่า (เฉพาะโครงตาราง) หรือไม่?')) return;
+      }
 
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Live', { views:[{showGridLines:false}] });
@@ -1028,9 +1045,10 @@
         const key = dt.getFullYear()+'-'+pad2(dt.getMonth()+1)+'-'+pad2(dt.getDate());
         const doc = docs[key];
         const r = ws.getRow(row);
-        // A date
+        // A date — use noon to avoid timezone day-shift when Excel reads it
         const aCell = ws.getCell('A'+row);
-        aCell.value = dt; aCell.numFmt='[$-1870000]d/m/yy;@';
+        aCell.value = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 12, 0, 0);
+        aCell.numFmt='[$-1870000]d/m/yy;@';
         aCell.alignment={horizontal:'right'};
         ws.getCell('B'+row).value = seller;
 
