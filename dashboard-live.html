@@ -1000,6 +1000,18 @@
         if (!confirm('ไม่พบข้อมูลชั่วโมงไลฟ์ของ "'+seller+'" ในรอบนี้\nต้องการดาวน์โหลดไฟล์เปล่า (เฉพาะโครงตาราง) หรือไม่?')) return;
       }
 
+      // ---- determine how many live-slot columns we need (dynamic) ----
+      const dates = cycleDates(month);
+      let maxLive = 3; // keep at least 3 like the template
+      dates.forEach(dt => {
+        const key = dt.getFullYear()+'-'+pad2(dt.getMonth()+1)+'-'+pad2(dt.getDate());
+        const doc = docs[key];
+        if (doc && doc.slots) {
+          const n = doc.slots.filter(s=>!s.leave && !s.off && s.start && s.end).length;
+          if (n > maxLive) maxLive = n;
+        }
+      });
+
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Live', { views:[{showGridLines:false}] });
 
@@ -1010,79 +1022,87 @@
       const timeFmt='[$-1000000]h:mm\\ "น.";@';
       const sumFmt='[h]:mm';
 
-      // column widths
-      ws.columns = [
-        {width:12},{width:12},{width:16},{width:9},{width:9},{width:11},{width:9},{width:9},{width:11},
-        {width:9},{width:9},{width:11},{width:9},{width:9},{width:11},{width:9},{width:16},{width:16}
-      ];
+      // ---- build column map dynamically ----
+      const colLetter = (n)=>{ let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; };
+      const L = colLetter;
+      let ci = 4; // next column (1=A date,2=B name,3=C channel)
+      const slotCols = [];
+      for (let i=0;i<maxLive;i++){ slotCols.push({ s:ci, e:ci+1, sum:ci+2 }); ci+=3; }
+      const tanCols = { s:ci, e:ci+1, sum:ci+2 }; ci+=3;   // ไลฟ์แทน
+      const colP = ci++, colQ = ci++, colR = ci++;
+      const lastCol = colR;
 
-      // Title A1:R2
-      ws.mergeCells('A1:R2');
+      // column widths
+      const widths = [12,12,16];
+      for (let i=0;i<maxLive;i++){ widths.push(9,9,11); }
+      widths.push(9,9,11);   // live-tan
+      widths.push(16,16,16); // P,Q,R
+      ws.columns = widths.map(w=>({width:w}));
+
+      // Title
+      ws.mergeCells(`A1:${L(lastCol)}2`);
       const t = ws.getCell('A1');
       t.value = 'สรุปเวลา Live สด ประจำวัน เดือน ' + monthName + ' ' + yearBE;
       t.font = { name:F, size:20, bold:true, color:{argb:'FFFF0000'} };
       t.alignment = { horizontal:'center', vertical:'middle' };
 
-      // header rows 3-4
+      // header helpers
       const hdr = (cell,val,fill)=>{ const c2=ws.getCell(cell); c2.value=val; c2.font={name:F,size:16,bold:true};
         c2.alignment={horizontal:'center',vertical:'middle',wrapText:true}; if(fill) c2.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}}; c2.border=border; };
-      [['A3:A4','ว/ด/ป',BLUE],['B3:B4','ชื่อ Sale',BLUE],['C3:C4','ช่อง',BLUE],
-       ['D3:E3','เวลา Live ช่วงที่ 1',BLUE],['F3:F4','สรุปช่วง 1 (ชม.)',GREEN],
-       ['G3:H3','เวลา Live ช่วงที่ 2',BLUE],['I3:I4','สรุปช่วง 2 (ชม.)',GREEN],
-       ['J3:K3','เวลาLive ช่วงที่ 3',BLUE],['L3:L4','สรุปช่วง 3 (ชม.)',GREEN],
-       ['M3:N3','เวลา Live แทน',BLUE],['O3:O4','ไลฟ์แทน',GREEN],
-       ['P3:P4','รวมเวลา Live (ชม.)',PINK],['Q3:Q4','รวมลา/ช่วง',PINK],['R3:R4','รวมไลฟ์แทน/ครั้ง',PINK]
-      ].forEach(([rng,val,fill])=>{ ws.mergeCells(rng); hdr(rng.split(':')[0],val,fill); });
-      // sub headers row4 (เริ่ม/สิ้นสุด)
-      [['D4','เริ่ม'],['E4','สิ้นสุด'],['G4','เริ่ม'],['H4','สิ้นสุด'],['J4','เริ่ม'],['K4','สิ้นสุด'],['M4','เริ่ม'],['N4','สิ้นสุด']]
-        .forEach(([cell,val])=>hdr(cell,val,BLUE));
+      const mh = (cL,val,fill)=>{ ws.mergeCells(`${cL}3:${cL}4`); hdr(`${cL}3`,val,fill); };
+      const grp = (cs,ce,csum,title,idx)=>{
+        ws.mergeCells(`${L(cs)}3:${L(ce)}3`); hdr(`${L(cs)}3`,title,BLUE);
+        hdr(`${L(cs)}4`,'เริ่ม',BLUE); hdr(`${L(ce)}4`,'สิ้นสุด',BLUE);
+        ws.mergeCells(`${L(csum)}3:${L(csum)}4`); hdr(`${L(csum)}3`, idx?('สรุปช่วง '+idx+' (ชม.)'):'ไลฟ์แทน', GREEN);
+      };
+      mh('A','ว/ด/ป',BLUE); mh('B','ชื่อ Sale',BLUE); mh('C','ช่อง',BLUE);
+      slotCols.forEach((sc,i)=> grp(sc.s, sc.e, sc.sum, 'เวลา Live ช่วงที่ '+(i+1), i+1));
+      grp(tanCols.s, tanCols.e, tanCols.sum, 'เวลา Live แทน', null);
+      mh(L(colP),'รวมเวลา Live (ชม.)',PINK);
+      mh(L(colQ),'รวมลา/ช่วง',PINK);
+      mh(L(colR),'รวมไลฟ์แทน/ครั้ง',PINK);
       ws.getRow(3).height=42; ws.getRow(4).height=20;
 
-      // data rows
-      const dates = cycleDates(month);
+      // ---- data rows ----
       let row = 5;
       dates.forEach(dt => {
         const key = dt.getFullYear()+'-'+pad2(dt.getMonth()+1)+'-'+pad2(dt.getDate());
         const doc = docs[key];
         const r = ws.getRow(row);
-        // A date — use noon to avoid timezone day-shift when Excel reads it
         const aCell = ws.getCell('A'+row);
         aCell.value = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 12, 0, 0);
-        aCell.numFmt='[$-1870000]d/m/yy;@';
-        aCell.alignment={horizontal:'right'};
+        aCell.numFmt='[$-1870000]d/m/yy;@'; aCell.alignment={horizontal:'right'};
         ws.getCell('B'+row).value = seller;
         ws.getCell('C'+row).value = shop;
 
-        // map slots -> 3 live slots + "ไลฟ์แทน"; sum cells set per-slot to avoid #VALUE!
         const slots = (doc && doc.slots) ? doc.slots : [];
         const liveSlots = slots.filter(s=>!s.leave && !s.off && s.start && s.end);
         const leaveCount = slots.filter(s=>s.leave).length;
-        const trip = [['D','E','F'],['G','H','I'],['J','K','L']];
-        for (let i=0;i<3;i++){
-          const [cs,ce,csum]=trip[i];
+        const sumCells = [];
+        slotCols.forEach((sc,i)=>{
+          const csL=L(sc.s), ceL=L(sc.e), csumL=L(sc.sum);
           if (liveSlots[i]) {
             const sv=toXlsxTime(liveSlots[i].start), ev=toXlsxTime(liveSlots[i].end);
-            if (sv!=null){ ws.getCell(cs+row).value=sv; ws.getCell(cs+row).numFmt=timeFmt; }
-            if (ev!=null){ ws.getCell(ce+row).value=ev; ws.getCell(ce+row).numFmt=timeFmt; }
-            ws.getCell(csum+row).value={formula:`${ce}${row}-${cs}${row}`};
-          } else if (leaveCount>0 && i<Math.min(3,leaveCount)) {
-            ws.getCell(cs+row).value='ลา';
-            ws.getCell(csum+row).value=0;
+            if (sv!=null){ ws.getCell(csL+row).value=sv; ws.getCell(csL+row).numFmt=timeFmt; }
+            if (ev!=null){ ws.getCell(ceL+row).value=ev; ws.getCell(ceL+row).numFmt=timeFmt; }
+            ws.getCell(csumL+row).value={formula:`${ceL}${row}-${csL}${row}`};
+          } else if (leaveCount>0 && i<Math.min(slotCols.length,leaveCount)) {
+            ws.getCell(csL+row).value='ลา';
+            ws.getCell(csumL+row).value=0;
           } else {
-            ws.getCell(csum+row).value=0;
+            ws.getCell(csumL+row).value=0;
           }
-          ws.getCell(csum+row).numFmt=timeFmt;
-        }
-        // ไลฟ์แทน (M,N -> O)
-        const mv=ws.getCell('M'+row).value, nv=ws.getCell('N'+row).value;
-        if (mv!=null && nv!=null) { ws.getCell('O'+row).value={formula:`N${row}-M${row}`}; }
-        else { ws.getCell('O'+row).value=0; }
-        ws.getCell('O'+row).numFmt=timeFmt;
+          ws.getCell(csumL+row).numFmt=timeFmt;
+          sumCells.push(csumL+row);
+        });
+        // ไลฟ์แทน (default 0)
+        const tanSumL=L(tanCols.sum);
+        ws.getCell(tanSumL+row).value=0; ws.getCell(tanSumL+row).numFmt=timeFmt;
+        sumCells.push(tanSumL+row);
         // รวมเวลา/วัน
-        ws.getCell('P'+row).value={formula:`F${row}+I${row}+L${row}+O${row}`}; ws.getCell('P'+row).numFmt=timeFmt;
+        ws.getCell(L(colP)+row).value={formula: sumCells.join('+')}; ws.getCell(L(colP)+row).numFmt=timeFmt;
 
-        // styling for row
-        for (let col=1; col<=18; col++){
+        for (let col=1; col<=lastCol; col++){
           const cell=r.getCell(col);
           cell.font={name:F,size:16};
           if(!cell.alignment || !cell.alignment.horizontal) cell.alignment={horizontal:'center'};
@@ -1092,16 +1112,16 @@
         row++;
       });
 
-      // total row (row = after last, matches template row33 => A:L merged)
+      // total row
       const totalRow = row;
-      ws.mergeCells('A'+totalRow+':L'+totalRow);
+      ws.mergeCells(`A${totalRow}:${L(tanCols.sum)}${totalRow}`);
       const tc = ws.getCell('A'+totalRow);
-      tc.value = 'รวม 150 ชั่วโมง/เดือน ';
+      tc.value = 'รวม '+HOURS_TARGET+' ชั่วโมง/เดือน ';
       tc.font={name:F,size:18}; tc.alignment={horizontal:'center'}; tc.border=border;
-      ws.getCell('P'+totalRow).value={formula:`SUM(P5:P${row-1})`}; ws.getCell('P'+totalRow).numFmt=sumFmt;
-      ws.getCell('Q'+totalRow).value={formula:`SUM(Q5:Q${row-1})`};
-      ws.getCell('R'+totalRow).value={formula:`SUM(R5:R${row-1})`};
-      ['P','Q','R'].forEach(c2=>{ const cc=ws.getCell(c2+totalRow); cc.font={name:F,size:16}; cc.alignment={horizontal:'center'}; cc.border=border; });
+      ws.getCell(L(colP)+totalRow).value={formula:`SUM(${L(colP)}5:${L(colP)}${row-1})`}; ws.getCell(L(colP)+totalRow).numFmt=sumFmt;
+      ws.getCell(L(colQ)+totalRow).value={formula:`SUM(${L(colQ)}5:${L(colQ)}${row-1})`};
+      ws.getCell(L(colR)+totalRow).value={formula:`SUM(${L(colR)}5:${L(colR)}${row-1})`};
+      [colP,colQ,colR].forEach(cc=>{ const c3=ws.getCell(L(cc)+totalRow); c3.font={name:F,size:16}; c3.alignment={horizontal:'center'}; c3.border=border; });
       ws.getRow(totalRow).height=24;
 
       // filename: ชื่อ_ร้าน_เดือน_ปี
