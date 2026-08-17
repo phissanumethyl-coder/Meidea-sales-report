@@ -1051,6 +1051,35 @@
         aCell.numFmt='[$-1870000]d/m/yy;@';
         aCell.alignment={horizontal:'right'};
         ws.getCell('B'+row).value = seller;
+        ws.getCell('C'+row).value = shop;
+
+        // map slots -> 3 live slots + "ไลฟ์แทน"; sum cells set per-slot to avoid #VALUE!
+        const slots = (doc && doc.slots) ? doc.slots : [];
+        const liveSlots = slots.filter(s=>!s.leave && !s.off && s.start && s.end);
+        const leaveCount = slots.filter(s=>s.leave).length;
+        const trip = [['D','E','F'],['G','H','I'],['J','K','L']];
+        for (let i=0;i<3;i++){
+          const [cs,ce,csum]=trip[i];
+          if (liveSlots[i]) {
+            const sv=toXlsxTime(liveSlots[i].start), ev=toXlsxTime(liveSlots[i].end);
+            if (sv!=null){ ws.getCell(cs+row).value=sv; ws.getCell(cs+row).numFmt=timeFmt; }
+            if (ev!=null){ ws.getCell(ce+row).value=ev; ws.getCell(ce+row).numFmt=timeFmt; }
+            ws.getCell(csum+row).value={formula:`${ce}${row}-${cs}${row}`};
+          } else if (leaveCount>0 && i<Math.min(3,leaveCount)) {
+            ws.getCell(cs+row).value='ลา';
+            ws.getCell(csum+row).value=0;
+          } else {
+            ws.getCell(csum+row).value=0;
+          }
+          ws.getCell(csum+row).numFmt=timeFmt;
+        }
+        // ไลฟ์แทน (M,N -> O)
+        const mv=ws.getCell('M'+row).value, nv=ws.getCell('N'+row).value;
+        if (mv!=null && nv!=null) { ws.getCell('O'+row).value={formula:`N${row}-M${row}`}; }
+        else { ws.getCell('O'+row).value=0; }
+        ws.getCell('O'+row).numFmt=timeFmt;
+        // รวมเวลา/วัน
+        ws.getCell('P'+row).value={formula:`F${row}+I${row}+L${row}+O${row}`}; ws.getCell('P'+row).numFmt=timeFmt;
 
         // styling for row
         for (let col=1; col<=18; col++){
