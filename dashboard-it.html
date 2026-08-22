@@ -60,6 +60,19 @@
     .vl-pct.ok { background:#dcfce7; color:#15803d; }
     .vl-pct.over { background:#fee2e2; color:#b91c1c; }
     .vl-pct.muted { background:var(--tertiary); color:var(--muted); }
+    /* watchlist */
+    .watch-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+    .watch-card { background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:14px 16px; cursor:pointer; transition:box-shadow .15s, transform .15s; }
+    .watch-card:hover { box-shadow:0 6px 18px rgba(249,115,22,0.18); transform:translateY(-2px); }
+    .watch-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+    .watch-name { font-weight:700; font-size:14px; color:#9a3412; }
+    .watch-branch { font-weight:400; font-size:12px; color:var(--muted); }
+    .watch-net { font-size:12px; font-weight:600; color:#15803d; }
+    .watch-net.neg { color:#ef4444; }
+    .watch-flags { display:flex; flex-wrap:wrap; gap:5px; }
+    .watch-flag { font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; }
+    .watch-flag.over { background:#fee2e2; color:#b91c1c; }
+    .watch-flag.danger { background:#7f1d1d; color:#fff; }
     /* employee daily modal */
     .ed-sum { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px; }
     .ed-card { background:var(--tertiary); border-radius:10px; padding:12px 14px; text-align:center; }
@@ -212,6 +225,11 @@
       <div class="section-title" style="justify-content:center;">🏆 ภาพรวมฝ่ายไอที <span id="overallMonthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
       <div class="summary-note" style="text-align:center;">เทียบกับเดือนก่อนหน้า (ทุกสาขารวมกัน)</div>
       <div class="cards-center" id="overallGrid" style="margin-bottom:24px;"></div>
+
+      <!-- Sellers to watch -->
+      <div class="section-title" style="justify-content:center;">🚨 ฝ่ายขายที่น่าเป็นห่วง</div>
+      <div class="summary-note" style="text-align:center;">คนที่ % เกินเกณฑ์ (ต้นทุน &gt;45% · โฆษณา FB &gt;50% · Shopee/Lazada &gt;25%) หรือกำไรน้อย/ติดลบ — ควรโฟกัสปรับปรุง</div>
+      <div id="watchList" style="margin-bottom:32px;"></div>
 
       <!-- 6-month trend -->
       <div class="section-title" style="justify-content:center;">📈 แนวโน้มย้อนหลัง 6 เดือน</div>
@@ -488,8 +506,52 @@
       renderOverall(month);
       renderPlatforms();
       renderCards();
+      renderWatchList();
       renderSellers();
       renderTrend(month);
+    }
+
+    // ---- sellers to watch (over thresholds / low profit) ----
+    function renderWatchList() {
+      const box = document.getElementById('watchList');
+      const branch = document.getElementById('fBranch').value;
+      const rows = (branch==='all' ? monthRows : monthRows.filter(r=>r.branch===branch));
+      if (!rows.length) { box.innerHTML = '<div class="empty" style="padding:16px;">ไม่มีข้อมูล</div>'; return; }
+
+      const items = rows.map(r => {
+        const sales = r.totalSales||0;
+        const ads = r.totalAdsCost||0;
+        const cost = sales - (r.netProfit||0);
+        const net = (r.netProfit||0) - ads;
+        const costPct = sales>0 ? cost/sales*100 : 0;
+        const fbPct = (r.salesFacebook||0)>0 ? (r.adsFacebook||0)/(r.salesFacebook)*100 : ((r.adsFacebook||0)>0?999:0);
+        const spPct = (r.salesShopee||0)>0 ? (r.adsShopee||0)/(r.salesShopee)*100 : ((r.adsShopee||0)>0?999:0);
+        const lzPct = (r.salesLazada||0)>0 ? (r.adsLazada||0)/(r.salesLazada)*100 : ((r.adsLazada||0)>0?999:0);
+        const flags = [];
+        if (costPct > 45) flags.push({t:`ต้นทุน ${costPct.toFixed(0)}%`, s:'over'});
+        if (fbPct > 50) flags.push({t:`โฆษณา FB ${fbPct>900?'ไม่มียอดขาย':fbPct.toFixed(0)+'%'}`, s:'over'});
+        if (spPct > 25) flags.push({t:`โฆษณา Shopee ${spPct>900?'ไม่มียอดขาย':spPct.toFixed(0)+'%'}`, s:'over'});
+        if (lzPct > 25) flags.push({t:`โฆษณา Lazada ${lzPct>900?'ไม่มียอดขาย':lzPct.toFixed(0)+'%'}`, s:'over'});
+        if (net < 0) flags.push({t:'กำไรติดลบ', s:'danger'});
+        return { name:r.employeeName, branch:r.branch, sales, net, cost, costPct, flags,
+                 severity: flags.length + (net<0?2:0) - (net<=0?0:0) };
+      }).filter(x => x.flags.length > 0);
+
+      if (!items.length) {
+        box.innerHTML = '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:18px;text-align:center;color:#15803d;font-weight:600;">✅ ไม่มีฝ่ายขายที่น่าเป็นห่วง — ทุกคนอยู่ในเกณฑ์ที่ดี</div>';
+        return;
+      }
+      // sort: most flags first, then lowest net
+      items.sort((a,b2)=> (b2.flags.length-a.flags.length) || (a.net-b2.net));
+      const showBranch = branch==='all';
+      box.innerHTML = '<div class="watch-grid">' + items.map(it => `
+        <div class="watch-card" onclick="openEmpDaily('${it.branch.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}')" title="ดูยอดขายรายวันของ ${it.name}">
+          <div class="watch-head">
+            <span class="watch-name">⚠️ ${it.name}${showBranch?` <span class="watch-branch">· ${it.branch}</span>`:''}</span>
+            <span class="watch-net ${it.net<0?'neg':''}">กำไร ${fmt(it.net)}</span>
+          </div>
+          <div class="watch-flags">${it.flags.map(f=>`<span class="watch-flag ${f.s}">${f.t}</span>`).join('')}</div>
+        </div>`).join('') + '</div>';
     }
 
     // ---- 6-month trend ----
@@ -676,6 +738,7 @@
       { key:'totalSales',   title:'ยอดขายรวม',       ic:'💰', col:'#f59e0b' },
       { key:'totalAdsCost', title:'ค่าโฆษณารวม',      ic:'📣', col:'#ef4444', pctBase:'totalSales' },
       { key:'net',          title:'กำไรสุทธิ',        ic:'📈', col:'#22c55e' },
+      { key:'cost',         title:'ต้นทุน',           ic:'📦', col:'#64748b', pctBase:'totalSales', limit:45 },
       { key:'salesFacebook',title:'ยอดขาย Facebook',  ic:'📘', col:'#1877f2' },
       { key:'salesShopee',  title:'ยอดขาย Shopee',    ic:'🛒', col:'#ee4d2d' },
       { key:'salesLazada',  title:'ยอดขาย Lazada',    ic:'🛍️', col:'#8b5cf6' },
@@ -687,6 +750,7 @@
 
     function rowValue(r, key) {
       if (key === 'net') return (r.netProfit||0) - (r.totalAdsCost||0);
+      if (key === 'cost') return (r.totalSales||0) - (r.netProfit||0);
       return r[key] || 0;
     }
 
