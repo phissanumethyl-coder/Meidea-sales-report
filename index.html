@@ -1937,9 +1937,22 @@
       try {
         const now = Date.now();
         if (liveTableList && (now - liveTableTime) < cache.TTL) { renderLiveTable(); return; }
-        const snap = await db.collection('live_sales').orderBy('date','desc').limit(200).get();
+        // Fetch the whole selected month (not a blanket limit) so month-to-date
+        // totals include every seller — even those with only early-month records.
+        const selDate = (document.getElementById('liveFilterDate') && document.getElementById('liveFilterDate').value) || todayStr();
+        const monthPrefix = selDate.slice(0,7);
+        const snap = await db.collection('live_sales')
+          .where('date','>=', monthPrefix + '-01')
+          .where('date','<=', monthPrefix + '-31')
+          .get();
         if (snap.empty) { container.innerHTML = '<p class="empty-msg">ยังไม่มีข้อมูล</p>'; return; }
         liveTableList = []; snap.forEach(d => liveTableList.push(d.data())); liveTableTime = now;
+        // ensure the "yesterday" comparison day is present even if it's in the previous month
+        const yKey = prevDateStr(selDate);
+        if (yKey.slice(0,7) !== monthPrefix) {
+          const ySnap = await db.collection('live_sales').where('date','==', yKey).get();
+          ySnap.forEach(d => liveTableList.push(d.data()));
+        }
         renderLiveTable();
       } catch (err) { console.error(err); container.innerHTML = '<p class="empty-msg" style="color:var(--danger)">เกิดข้อผิดพลาด</p>'; }
     }
