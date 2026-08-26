@@ -2198,8 +2198,11 @@
     async function renderLiveHoursMonthChart(dateStr) {
       const ctx = document.getElementById('liveHoursMonthChart').getContext('2d');
       if (liveCharts.hoursMonth) liveCharts.hoursMonth.destroy();
-      // Live-hours "month" = billing cycle 26 -> 25. The cycle's END month is what we label.
-      const cs = cycleStartForDate(new Date(dateStr));            // start month of the cycle
+      // Live-hours "month" = billing cycle 26 -> 25, counted up to YESTERDAY.
+      // Base the cycle on yesterday (the data window), so on the 26th (first day of a
+      // new cycle) we still show the cycle that just ended (26th prev .. 25th).
+      const cutoff = prevDateStr(dateStr);   // yesterday
+      const cs = cycleStartForDate(new Date(cutoff));            // start month of the cycle
       const cycle = cs.y + '-' + pad2(cs.m+1);                    // stored cycle key (start month)
       const endM = (cs.m+1) % 12, endY = cs.m===11 ? cs.y+1 : cs.y;
       const t = document.getElementById('liveHoursMonthTitle');
@@ -2207,7 +2210,6 @@
         ' (26 ' + TH_MONTHS[cs.m] + ' – 25 ' + TH_MONTHS[endM] + ')';
       try {
         // query by the cycle field so it always spans 26 -> 25, but only count up to YESTERDAY
-        const cutoff = prevDateStr(dateStr);   // yesterday
         const snap = await db.collection('live_hours').where('cycle','==',cycle).get();
         const bySeller = {};
         snap.forEach(doc => { const x = doc.data(); if (x.date <= cutoff) bySeller[x.seller] = (bySeller[x.seller]||0) + dayHours(x); });
