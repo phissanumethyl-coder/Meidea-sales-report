@@ -1361,7 +1361,17 @@
       try {
         const now = Date.now();
         if (itDailyList && (now - itDailyTime) < cache.TTL) { renderItCostTable(); return; }
-        const snap = await db.collection('it_daily').orderBy('date','desc').limit(100).get();
+        // Fetch the current + previous month in full so month-to-date totals include
+        // every day (a blanket limit() dropped early-month records for some branches).
+        const t = todayStr();
+        const [ty, tm] = t.split('-').map(Number);
+        let py = ty, pm = tm - 1; if (pm < 1) { pm = 12; py -= 1; }
+        const curPrefix = ty + '-' + pad2(tm);
+        const prevPrefix = py + '-' + pad2(pm);
+        const snap = await db.collection('it_daily')
+          .where('date','>=', prevPrefix + '-01')
+          .where('date','<=', curPrefix + '-31')
+          .get();
         if (snap.empty) { container.innerHTML = '<p class="empty-msg">ยังไม่มีข้อมูล</p>'; return; }
         itDailyList = []; snap.forEach(d => itDailyList.push(d.data())); itDailyTime = now;
         renderItCostTable();
