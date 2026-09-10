@@ -328,7 +328,10 @@
       </div>
       <div class="team-switch">
         <button class="team-btn active" data-team="it" onclick="switchTeam('it')">💻 ฝ่ายไอที</button>
+        <button class="team-btn" data-team="central" onclick="switchTeam('central')">🏢 ส่วนกลาง</button>
         <button class="team-btn" data-team="live" onclick="switchTeam('live')">🎥 ฝ่ายไลฟ์สด</button>
+        <button class="team-btn" data-team="fees" onclick="switchTeam('fees')">💳 ค่าธรรมเนียม</button>
+        <button class="team-btn" data-team="summary" onclick="switchTeam('summary')">📋 สรุปเดือน</button>
       </div>
     </div>
   </div>
@@ -343,6 +346,14 @@
         <button class="nav-tab" data-page="it-daily">ยอดขาย/ต้นทุนรายวัน</button>
         <button class="nav-tab" data-page="it-dashboard">Dashboard</button>
         <button class="nav-tab" data-page="it-manage">👥 จัดการพนักงาน</button>
+      </nav>
+      <!-- CENTRAL tabs -->
+      <nav class="nav-tabs team-nav" data-team="central" style="display:none;">
+        <button class="nav-tab active" data-page="central-input">กรอกยอดขาย</button>
+        <button class="nav-tab" data-page="central-check">✅ เช็คการกรอก</button>
+        <button class="nav-tab" data-page="central-daily">ยอดขาย/ต้นทุนรายวัน</button>
+        <button class="nav-tab" data-page="central-dashboard">Dashboard</button>
+        <button class="nav-tab" data-page="central-manage">👥 จัดการพนักงาน</button>
       </nav>
       <!-- LIVE tabs -->
       <nav class="nav-tabs team-nav" data-team="live" style="display:none;">
@@ -546,6 +557,138 @@
   </section>
 
   <!-- ======================================================= -->
+  <!-- ================== TEAM: CENTRAL ======================= -->
+  <!-- ======================================================= -->
+  <section id="team-central" class="team-section">
+    <div id="page-central-input" class="page active">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🏢 กรอกยอดขายส่วนกลาง (สะสมตั้งแต่วันที่ 1 ถึงปัจจุบัน)</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="openCtEmployeeModal()">+ เพิ่มพนักงาน</button>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">📅 วันที่บันทึก</label><input type="date" id="ctDate" class="form-input"><small class="hint">เว้นว่าง = วันนี้</small></div>
+          <div class="form-group"><label class="form-label">ชื่อพนักงาน (เซลล์)</label><select id="ctEmployee" class="form-select" onchange="onCtEmployeePicked()"><option value="">เลือกพนักงาน</option></select></div>
+        </div>
+        <div id="ctEmpStatusBar" class="status-bar" style="display:none;"></div>
+        <div class="pull-latest-wrap">
+          <button class="btn-pull-latest" onclick="loadCtLastRecord()">
+            <span class="pull-icon">🔄</span>
+            <span class="pull-text"><b>ดึงยอดล่าสุดมากรอก</b><small>ยกยอดสะสมของเซลล์คนนี้มาแก้ต่อ</small></span>
+          </button>
+        </div>
+        <div class="zone zone-sales">
+          <div class="zone-title">💰 ยอดขาย (สะสมเดือน)</div>
+          <div class="form-grid">
+            <div class="form-group input-facebook"><label class="form-label">ยอดขาย Facebook</label><input type="text" inputmode="decimal" id="ctSalesFacebook" class="form-input no-spin" placeholder="0" oninput="calcCtTotals()"></div>
+            <div class="form-group input-shopee"><label class="form-label">ยอดขาย Shopee</label><input type="text" inputmode="decimal" id="ctSalesShopee" class="form-input no-spin" placeholder="0" oninput="calcCtTotals()"></div>
+            <div class="form-group input-lazada"><label class="form-label">ยอดขาย Lazada</label><input type="text" inputmode="decimal" id="ctSalesLazada" class="form-input no-spin" placeholder="0" oninput="calcCtTotals()"></div>
+            <div class="form-group input-lineoa"><label class="form-label">ยอดขาย LineOA</label><input type="text" inputmode="decimal" id="ctSalesLineOA" class="form-input no-spin" placeholder="0" oninput="calcCtTotals()"></div>
+            <div class="form-group input-total"><label class="form-label">ยอดขายรวม</label><input type="text" id="ctTotalSales" class="form-input no-spin" disabled></div>
+          </div>
+        </div>
+        <div class="zone zone-ads">
+          <div class="zone-title">📣 ค่าโฆษณา (สะสมเดือน)</div>
+          <div class="form-grid">
+            <div class="form-group input-facebook"><label class="form-label">ค่าโฆษณา Facebook</label><input type="text" inputmode="decimal" id="ctAdsFacebook" class="form-input no-spin" placeholder="0" oninput="calcCtTotals()"></div>
+            <div class="form-group input-shopee"><label class="form-label">ค่าโฆษณา Shopee</label><input type="text" inputmode="decimal" id="ctAdsShopee" class="form-input no-spin" placeholder="0" oninput="calcCtTotals()"></div>
+            <div class="form-group input-lazada"><label class="form-label">ค่าโฆษณา Lazada</label><input type="text" inputmode="decimal" id="ctAdsLazada" class="form-input no-spin" placeholder="0" oninput="calcCtTotals()"></div>
+            <div class="form-group input-total"><label class="form-label">ค่าโฆษณารวม</label><input type="text" id="ctTotalAds" class="form-input no-spin" disabled></div>
+            <div class="form-group"><label class="form-label">กำไรสุทธิ (กรอกเอง)</label><input type="text" inputmode="decimal" id="ctNetProfit" class="form-input no-spin" placeholder="0"></div>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="submitCtSales()">💾 บันทึกข้อมูล</button>
+          <button class="btn btn-secondary" onclick="clearCtForm()">🗑️ ล้างฟอร์ม</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-central-check" class="page">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">✅ เช็คสถานะการกรอกยอดรายวัน (ส่วนกลาง)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="date" id="ctCheckDate" class="form-input" style="padding:8px 12px;" onchange="loadCtCheck()">
+            <button class="btn btn-outline btn-sm" onclick="loadCtCheckForce()">🔄 รีเฟรช</button>
+          </div>
+        </div>
+        <div id="ctCheckSummary" class="check-summary"></div>
+        <div id="ctCheckContainer"><div class="loading active"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <div id="page-central-manage" class="page">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">👥 จัดการพนักงานส่วนกลาง (เปิด/ปิดการใช้งาน)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);"><input type="checkbox" id="ctShowInactive" onchange="renderCtManage()"> แสดงคนที่ปิดใช้งานด้วย</label>
+            <button class="btn btn-secondary btn-sm" onclick="openCtEmployeeModal()">+ เพิ่มพนักงาน</button>
+            <button class="btn btn-outline btn-sm" onclick="loadCtManageForce()">🔄 รีเฟรช</button>
+          </div>
+        </div>
+        <p class="hint" style="margin-bottom:16px;">💡 เมื่อพนักงานลาออก กด "ปิดใช้งาน" — ชื่อจะหายจาก dropdown แต่ข้อมูลเดิมยังอยู่ครบ</p>
+        <div id="ctManageContainer"><div class="loading active"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <div id="page-central-daily" class="page">
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">📈 กรอกยอดขายและต้นทุนรายวัน (ส่วนกลาง)</h2></div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="ctDailyDate" class="form-input"></div>
+          <div class="form-group"><label class="form-label">ชื่อพนักงาน (เซลล์)</label><select id="ctDailySeller" class="form-select"><option value="">เลือกพนักงาน</option></select></div>
+          <div class="form-group"><label class="form-label">ยอดขายวันนี้</label><input type="text" inputmode="decimal" id="ctSalesToday" class="form-input no-spin" placeholder="0"></div>
+          <div class="form-group"><label class="form-label">ต้นทุนวันนี้</label><input type="text" inputmode="decimal" id="ctCostToday" class="form-input no-spin" placeholder="0"></div>
+        </div>
+        <div class="btn-group"><button class="btn btn-primary" onclick="submitCtDaily()">💾 บันทึกข้อมูล</button>
+          <button class="btn btn-outline" onclick="openCtDailyEdit()">✏️ แก้ไขยอดย้อนหลัง</button></div>
+      </div>
+      <div class="card" id="ctCostTableContainer">
+        <div class="card-header">
+          <h2 class="card-title">📊 ตารางสรุป %ต้นทุนต่อยอดขาย (ส่วนกลาง)</h2>
+          <div style="display:flex;gap:8px;align-items:center;" class="no-capture">
+            <span id="ctDateRangeInfo" style="font-size:12px;color:var(--accent-purple);font-weight:500;"></span>
+            <button class="btn btn-outline btn-sm" onclick="loadCtDailyComparisonForce()">🔄 รีเฟรช</button>
+            <button class="btn btn-primary btn-sm" onclick="saveNode('ctCostTableContainer','central_cost_table')">📷 บันทึก</button>
+          </div>
+        </div>
+        <div id="ctCostComparisonTable" class="table-container"><div class="loading active"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <div id="page-central-dashboard" class="page">
+      <div class="filter-section">
+        <div class="filter-row">
+          <div class="filter-group"><label class="filter-label">📅 เลือกวันที่</label><input type="date" id="ctFilterDate" class="form-input" onchange="loadCtDashboard()"></div>
+          <div class="filter-group"><label class="filter-label">📊 เรียงตาม</label><select id="ctFilterSort" class="form-select" onchange="applyCtFilters()"><option value="netProfit">กำไรสุทธิ (มาก → น้อย)</option><option value="totalSales">ยอดขายรวม (มาก → น้อย)</option></select></div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="ctStatTotalSales">0</div><div class="stat-label">ยอดขายรวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="ctStatTotalAds">0</div><div class="stat-label">ค่าโฆษณารวม</div></div>
+        <div class="stat-card"><div class="stat-value" id="ctStatNetProfit">0</div><div class="stat-label">กำไรสุทธิรวม</div></div>
+      </div>
+      <div class="chart-container" id="ctMainChartContainer">
+        <button class="save-btn" onclick="saveNode('ctMainChartContainer','central_main_chart')">📷 บันทึก</button>
+        <div class="chart-header">
+          <h3 class="chart-title">ยอดขายตามช่องทาง ค่าโฆษณา และกำไรสุทธิ</h3>
+          <p class="chart-subtitle">ส่วนกลาง</p>
+        </div>
+        <div class="main-chart-wrapper"><canvas id="ctMainChart"></canvas></div>
+      </div>
+      <div class="chart-container" id="ctTopChartContainer">
+        <button class="save-btn" onclick="saveNode('ctTopChartContainer','central_top6')">📷 บันทึก</button>
+        <div class="chart-header"><h3 class="chart-title">🏆 Top 6 กำไรสุทธิสูงสุด</h3></div>
+        <div class="medium-chart-wrapper"><canvas id="ctTopChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= -->
   <!-- ==================== TEAM: LIVE ======================== -->
   <!-- ======================================================= -->
   <section id="team-live" class="team-section">
@@ -726,6 +869,29 @@
     </div>
   </div>
 
+  <div id="ctAddEmployeeModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h3 class="modal-title">เพิ่มพนักงานใหม่ (ส่วนกลาง)</h3><button class="modal-close" onclick="closeModal('ctAddEmployeeModal')">✕</button></div>
+      <div class="form-group"><label class="form-label">ชื่อพนักงาน</label><input type="text" id="ctNewEmpName" class="form-input"></div>
+      <div class="btn-group"><button class="btn btn-primary" onclick="addCtEmployee()">บันทึก</button><button class="btn btn-secondary" onclick="closeModal('ctAddEmployeeModal')">ยกเลิก</button></div>
+    </div>
+  </div>
+  <div id="ctDailyEditModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h3 class="modal-title">✏️ แก้ไขยอดขาย/ต้นทุนย้อนหลัง (ส่วนกลาง)</h3><button class="modal-close" onclick="closeModal('ctDailyEditModal')">✕</button></div>
+      <p class="hint" style="margin-bottom:12px;">เลือกวันที่และพนักงาน ระบบจะดึงยอดเดิมมาให้ — แก้แล้วกดบันทึก ยอดรวมจะคำนวณใหม่</p>
+      <div class="form-group"><label class="form-label">📅 วันที่</label><input type="date" id="ctEditDate" class="form-input" onchange="loadCtEditRecord()"></div>
+      <div class="form-group"><label class="form-label">พนักงาน</label><select id="ctEditSeller" class="form-select" onchange="loadCtEditRecord()"><option value="">เลือกพนักงาน</option></select></div>
+      <div id="ctEditStatus" style="font-size:13px;margin:4px 0 10px;min-height:18px;color:var(--accent-purple);"></div>
+      <div class="form-group"><label class="form-label">ยอดขาย</label><input type="number" id="ctEditSales" class="form-input" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">ต้นทุน</label><input type="number" id="ctEditCost" class="form-input" placeholder="0"></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveCtDailyEdit()">💾 บันทึกการแก้ไข</button>
+        <button class="btn btn-secondary" onclick="closeModal('ctDailyEditModal')">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
   <div id="liveHoursDayModal" class="modal-overlay">
     <div class="modal-content" style="max-width:520px;padding-bottom:0;">
       <div class="modal-header"><h3 class="modal-title" id="liveHoursDayTitle">บันทึกชั่วโมงไลฟ์</h3><button class="modal-close" onclick="closeModal('liveHoursDayModal')">✕</button></div>
@@ -856,6 +1022,9 @@
       if (team === 'it') {
         root.setProperty('--team-gradient', 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)');
         root.setProperty('--team-color', '#2563eb');
+      } else if (team === 'central') {
+        root.setProperty('--team-gradient', 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)');
+        root.setProperty('--team-color', '#7c3aed');
       } else {
         root.setProperty('--team-gradient', 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)');
         root.setProperty('--team-color', '#f97316');
@@ -880,6 +1049,10 @@
           else if (page === 'it-daily') loadItDailyComparison();
           else if (page === 'it-check') loadItCheck();
           else if (page === 'it-manage') renderItManage();
+          else if (page === 'central-dashboard') loadCtDashboard();
+          else if (page === 'central-daily') loadCtDailyComparison();
+          else if (page === 'central-check') loadCtCheck();
+          else if (page === 'central-manage') renderCtManage();
           else if (page === 'live-dashboard') loadLiveDashboard();
           else if (page === 'live-hours') loadLiveHours();
           else if (page === 'live-manage') renderLiveManage();
@@ -914,7 +1087,7 @@
 
     function setDefaultDates() {
       const t = todayStr();
-      ['itDate','itDailyDate','itFilterDate','itCheckDate','liveDate','liveFilterDate'].forEach(id => {
+      ['itDate','itDailyDate','itFilterDate','itCheckDate','liveDate','liveFilterDate','ctDate','ctDailyDate','ctFilterDate','ctCheckDate'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = t;
       });
     }
@@ -937,7 +1110,7 @@
       initNavigation();
       setDefaultDates();
       initEnterKeyNavigation();
-      await Promise.all([loadItBranchesEmployees(), loadLiveSellers()]);
+      await Promise.all([loadItBranchesEmployees(), loadLiveSellers(), loadCtEmployees()]);
       console.log('⚡ Loaded in ' + (performance.now()-t0).toFixed(0) + 'ms');
     });
 
@@ -2654,6 +2827,323 @@
     // =====================================================
     // SAVE ANY CONTAINER AS PNG (html2canvas)
     // =====================================================
+    // =====================================================
+    // ================ TEAM: CENTRAL (ส่วนกลาง) ============
+    // seller-based clone of IT (no branch). Collections:
+    // central_employees {name, active}, central_sales {...}, central_daily {...}
+    // =====================================================
+    let ctEmployeeList = [];   // [{id,name,active}]
+    let ctEmployeesLoaded = false;
+
+    async function loadCtEmployees() {
+      if (ctEmployeesLoaded) return;
+      try {
+        const snap = await db.collection('central_employees').get();
+        ctEmployeeList = [];
+        snap.forEach(d => { const x=d.data(); ctEmployeeList.push({ id:d.id, name:x.name, active:x.active!==false }); });
+        ctEmployeesLoaded = true;
+        populateCtSelects();
+      } catch(e){ console.error('loadCtEmployees', e); }
+    }
+    function activeCtNames() {
+      return ctEmployeeList.filter(e=>e.active!==false).map(e=>e.name).sort((a,b)=>a.localeCompare(b,'th'));
+    }
+    function populateCtSelects() {
+      const names = activeCtNames();
+      [['ctEmployee','เลือกพนักงาน'],['ctDailySeller','เลือกพนักงาน'],['ctEditSeller','เลือกพนักงาน']].forEach(([id,ph])=>{
+        const sel = document.getElementById(id); if(!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">'+ph+'</option>' + names.map(n=>`<option value="${n}">${n}</option>`).join('');
+        if (names.includes(cur)) sel.value = cur;
+      });
+    }
+
+    function calcCtTotals() {
+      const ts = num('ctSalesFacebook')+num('ctSalesShopee')+num('ctSalesLazada')+num('ctSalesLineOA');
+      document.getElementById('ctTotalSales').value = ts ? fmt(ts) : '';
+      const ta = num('ctAdsFacebook')+num('ctAdsShopee')+num('ctAdsLazada');
+      document.getElementById('ctTotalAds').value = ta ? fmt(ta) : '';
+    }
+    function clearCtForm() {
+      ['ctSalesFacebook','ctSalesShopee','ctSalesLazada','ctSalesLineOA','ctTotalSales','ctAdsFacebook','ctAdsShopee','ctAdsLazada','ctTotalAds','ctNetProfit'].forEach(id => document.getElementById(id).value = '');
+    }
+
+    async function fetchLatestCtRecord(emp) {
+      const snap = await db.collection('central_sales').where('employeeName','==',emp).get();
+      let latest = null;
+      snap.forEach(doc => { const d = doc.data(); if (!latest || d.date > latest.date) latest = d; });
+      return latest;
+    }
+    async function onCtEmployeePicked() {
+      const emp = document.getElementById('ctEmployee').value;
+      const bar = document.getElementById('ctEmpStatusBar');
+      if (!emp) { bar.style.display='none'; return; }
+      const date = document.getElementById('ctDate').value || todayStr();
+      bar.style.display='flex'; bar.className='status-bar carry';
+      bar.innerHTML = '⏳ กำลังตรวจสอบข้อมูลของ ' + emp + '...';
+      try {
+        const todayDoc = await db.collection('central_sales').doc(date + '_' + safeId(emp)).get();
+        if (todayDoc.exists) {
+          const d = todayDoc.data();
+          bar.className='status-bar done';
+          bar.innerHTML = '<span class="status-chip" style="background:#047857;color:#fff;">✅ กรอกวันนี้แล้ว</span> ' + emp + ' — ยอดขายรวม ' + fmt(d.totalSales||0) + ' บาท (กรอกใหม่ = ทับข้อมูลเดิม)';
+          return;
+        }
+        const d = await fetchLatestCtRecord(emp);
+        if (!d) {
+          bar.className='status-bar pending';
+          bar.innerHTML = '<span class="status-chip" style="background:#b45309;color:#fff;">⬜ ยังไม่เคยมีข้อมูล</span> ' + emp + ' — กรอกยอดเริ่มต้นได้เลย';
+        } else {
+          bar.className='status-bar carry';
+          bar.innerHTML = '<span class="status-chip" style="background:#4338ca;color:#fff;">📌 ยังไม่กรอกวันนี้</span> พบยอดล่าสุด (' + d.date + ') = ' + fmt(d.totalSales||0) + ' บาท ' +
+            '<button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadCtLastRecord()">ยกยอดสะสมมากรอก</button>';
+        }
+      } catch(err){ console.error(err); bar.className='status-bar pending'; bar.innerHTML='⚠️ ตรวจสอบข้อมูลไม่สำเร็จ'; }
+    }
+    async function loadCtLastRecord() {
+      const emp = document.getElementById('ctEmployee').value;
+      if (!emp) { showToast('เลือกพนักงานก่อน','error'); return; }
+      try {
+        const d = await fetchLatestCtRecord(emp);
+        if (!d) { showToast('ไม่พบข้อมูลเดิม','error'); return; }
+        const map = { ctSalesFacebook:'salesFacebook', ctSalesShopee:'salesShopee', ctSalesLazada:'salesLazada', ctSalesLineOA:'salesLineOA', ctAdsFacebook:'adsFacebook', ctAdsShopee:'adsShopee', ctAdsLazada:'adsLazada', ctNetProfit:'netProfit' };
+        Object.entries(map).forEach(([id,k])=>{ const v=d[k]; document.getElementById(id).value=(v===0||v==null||v==='')?'':v; });
+        calcCtTotals(); showToast('ดึงข้อมูลสำเร็จ','success');
+      } catch(err){ console.error(err); showToast('ผิดพลาด','error'); }
+    }
+
+    function submitCtSales() {
+      const emp = document.getElementById('ctEmployee').value;
+      if (!emp) { showToast('เลือกพนักงาน','error'); return; }
+      const date = document.getElementById('ctDate').value || todayStr();
+      const docId = date + '_' + safeId(emp);
+      confirmOverwrite('central_sales', docId, 'พนักงาน ' + emp + ' วันที่ ' + date, () => doSubmitCtSales(date, emp, docId));
+    }
+    async function doSubmitCtSales(date, emp, docId) {
+      const totalSales = num('ctSalesFacebook')+num('ctSalesShopee')+num('ctSalesLazada')+num('ctSalesLineOA');
+      const totalAds = num('ctAdsFacebook')+num('ctAdsShopee')+num('ctAdsLazada');
+      const data = { date, employeeName:emp,
+        salesFacebook:num('ctSalesFacebook'), salesShopee:num('ctSalesShopee'), salesLazada:num('ctSalesLazada'), salesLineOA:num('ctSalesLineOA'),
+        totalSales,
+        adsFacebook:num('ctAdsFacebook'), adsShopee:num('ctAdsShopee'), adsLazada:num('ctAdsLazada'),
+        totalAdsCost:totalAds, netProfit:num('ctNetProfit'), updatedAt:new Date().toISOString() };
+      setFormDisabled('#page-central-input', true); showToast('กำลังบันทึก...','');
+      try {
+        await db.collection('central_sales').doc(docId).set(data);
+        setFormDisabled('#page-central-input', false); showToast('บันทึกสำเร็จ!','success');
+        clearCtForm(); onCtEmployeePicked();
+      } catch(err){ console.error(err); setFormDisabled('#page-central-input', false); showToast('ผิดพลาด: '+err.message,'error'); }
+    }
+
+    // manage
+    function openCtEmployeeModal(){ loadCtEmployees(); openModal('ctAddEmployeeModal'); }
+    async function addCtEmployee() {
+      const name = document.getElementById('ctNewEmpName').value.trim();
+      if (!name) { showToast('กรอกชื่อพนักงาน','error'); return; }
+      try {
+        const id = safeId(name);
+        await db.collection('central_employees').doc(id).set({ name, active:true, createdAt:new Date().toISOString() });
+        const ex = ctEmployeeList.find(e=>e.id===id);
+        if (ex) ex.active=true; else ctEmployeeList.push({ id, name, active:true });
+        populateCtSelects(); closeModal('ctAddEmployeeModal'); document.getElementById('ctNewEmpName').value='';
+        renderCtManage(); showToast('เพิ่มพนักงานสำเร็จ','success');
+      } catch(err){ console.error(err); showToast('ผิดพลาด','error'); }
+    }
+    function loadCtManageForce(){ ctEmployeesLoaded=false; loadCtEmployees().then(renderCtManage); }
+    function renderCtManage() {
+      loadCtEmployees();
+      const container = document.getElementById('ctManageContainer');
+      const showInactive = document.getElementById('ctShowInactive').checked;
+      if (!ctEmployeeList.length) { container.innerHTML='<p class="empty-msg">ยังไม่มีพนักงาน</p>'; return; }
+      const list = ctEmployeeList.filter(e=>showInactive || e.active!==false)
+        .sort((a,b)=>(b.active?1:0)-(a.active?1:0) || a.name.localeCompare(b.name,'th'));
+      let html='';
+      list.forEach(e=>{
+        const active = e.active!==false;
+        html += '<div class="manage-row"><span class="manage-name">'+e.name+'</span>';
+        html += '<span class="'+(active?'badge-active':'badge-inactive')+'">'+(active?'ทำงานอยู่':'ลาออก/ปิดใช้งาน')+'</span>';
+        html += '<span class="manage-actions">';
+        if (active) html += '<button class="btn btn-outline btn-sm" onclick="setCtEmployeeActive(\''+e.id.replace(/'/g,"\\'")+'\', false)">🚫 ปิดใช้งาน</button>';
+        else html += '<button class="btn btn-primary btn-sm" onclick="setCtEmployeeActive(\''+e.id.replace(/'/g,"\\'")+'\', true)">↩️ กู้คืน</button>';
+        html += '</span></div>';
+      });
+      container.innerHTML = html || '<p class="empty-msg">ไม่มีพนักงานที่แสดง</p>';
+    }
+    async function setCtEmployeeActive(id, active) {
+      try {
+        await db.collection('central_employees').doc(id).update({ active });
+        const e = ctEmployeeList.find(x=>x.id===id); if (e) e.active=active;
+        renderCtManage(); populateCtSelects();
+        showToast(active?'กู้คืนพนักงานแล้ว':'ปิดใช้งานพนักงานแล้ว','success');
+      } catch(err){ console.error(err); showToast('ผิดพลาด','error'); }
+    }
+
+    // check submission
+    function loadCtCheckForce(){ loadCtCheck(); }
+    async function loadCtCheck() {
+      await loadCtEmployees();
+      const dateEl = document.getElementById('ctCheckDate');
+      if (!dateEl.value) dateEl.value = todayStr();
+      const date = dateEl.value;
+      const container = document.getElementById('ctCheckContainer');
+      const summary = document.getElementById('ctCheckSummary');
+      container.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      try {
+        const snap = await db.collection('central_sales').where('date','==',date).get();
+        const submitted = new Set(); snap.forEach(d=>submitted.add(d.data().employeeName));
+        const names = activeCtNames();
+        const done = names.filter(n=>submitted.has(n));
+        const pending = names.filter(n=>!submitted.has(n));
+        summary.innerHTML = '<div class="check-stat"><b>'+done.length+'</b>/'+names.length+' กรอกแล้ว · เหลือ <b style="color:#dc2626">'+pending.length+'</b> คน</div>';
+        let html = '<div class="check-grid">';
+        names.forEach(n=>{ const ok=submitted.has(n);
+          html += '<div class="check-item '+(ok?'ok':'no')+'">'+(ok?'✅':'⬜')+' '+n+'</div>'; });
+        html += '</div>';
+        container.innerHTML = html;
+      } catch(err){ console.error(err); container.innerHTML='<p class="empty-msg" style="color:var(--danger)">เกิดข้อผิดพลาด</p>'; }
+    }
+
+    // daily
+    function submitCtDaily() {
+      const seller = document.getElementById('ctDailySeller').value;
+      if (!seller) { showToast('เลือกพนักงาน','error'); return; }
+      const date = document.getElementById('ctDailyDate').value || todayStr();
+      const docId = date + '_' + safeId(seller);
+      confirmOverwrite('central_daily', docId, 'พนักงาน ' + seller + ' วันที่ ' + date, () => doSubmitCtDaily(date, seller, docId));
+    }
+    async function doSubmitCtDaily(date, seller, docId) {
+      const data = { date, seller, salesToday:num('ctSalesToday'), costToday:num('ctCostToday'), updatedAt:new Date().toISOString() };
+      setFormDisabled('#page-central-daily', true); showToast('กำลังบันทึก...','');
+      try {
+        await db.collection('central_daily').doc(docId).set(data);
+        setFormDisabled('#page-central-daily', false); showToast('บันทึกสำเร็จ!','success');
+        ['ctSalesToday','ctCostToday'].forEach(id=>document.getElementById(id).value='');
+        ctDailyList = null;
+        setTimeout(async()=>{ await loadCtDailyComparison(); showToast('อัพเดทตารางเรียบร้อย!','success'); }, 1200);
+      } catch(err){ console.error(err); setFormDisabled('#page-central-daily', false); showToast('ผิดพลาด: '+err.message,'error'); }
+    }
+
+    let ctDailyList = null, ctDailyTime = 0;
+    function loadCtDailyComparisonForce(){ ctDailyList=null; ctDailyTime=0; loadCtDailyComparison(); }
+    async function loadCtDailyComparison() {
+      const container = document.getElementById('ctCostComparisonTable');
+      container.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      try {
+        const now = Date.now();
+        if (ctDailyList && (now - ctDailyTime) < cache.TTL) { renderCtCostTable(); return; }
+        const t = todayStr(); const [ty,tm]=t.split('-').map(Number);
+        let py=ty, pm=tm-1; if(pm<1){pm=12;py-=1;}
+        const curPrefix = ty+'-'+pad2(tm), prevPrefix = py+'-'+pad2(pm);
+        const snap = await db.collection('central_daily')
+          .where('date','>=', prevPrefix+'-01').where('date','<=', curPrefix+'-31').get();
+        if (snap.empty) { container.innerHTML='<p class="empty-msg">ยังไม่มีข้อมูล</p>'; return; }
+        ctDailyList=[]; snap.forEach(d=>ctDailyList.push(d.data())); ctDailyTime=now;
+        renderCtCostTable();
+      } catch(err){ console.error(err); container.innerHTML='<p class="empty-msg" style="color:var(--danger)">เกิดข้อผิดพลาด</p>'; }
+    }
+    function renderCtCostTable() {
+      const byDate = {};
+      ctDailyList.forEach(d => { (byDate[d.date]=byDate[d.date]||[]).push(d); });
+      const dates = Object.keys(byDate).sort().reverse();
+      const todayDate = dates[0], yDate = dates[1] || null;
+      document.getElementById('ctDateRangeInfo').textContent = '📅 ล่าสุด: ' + todayDate;
+      const monthPrefix = todayDate.slice(0,7);
+      const monthAgg = {};
+      ctDailyList.forEach(d=>{ if(d.date.slice(0,7)===monthPrefix && d.date<=todayDate){
+        if(!monthAgg[d.seller]) monthAgg[d.seller]={sales:0,cost:0};
+        monthAgg[d.seller].sales += d.salesToday||0; monthAgg[d.seller].cost += d.costToday||0; } });
+      const todayRows = (byDate[todayDate]||[]).map(d=>({ ...d, salesMonth:(monthAgg[d.seller]||{}).sales||0, costMonth:(monthAgg[d.seller]||{}).cost||0 }));
+      buildCostTable('ctCostComparisonTable', 'เซลล์', todayRows, byDate[yDate]||[], todayDate, yDate, 'seller');
+    }
+
+    // daily edit
+    function openCtDailyEdit() {
+      loadCtEmployees();
+      document.getElementById('ctEditDate').value = todayStr();
+      document.getElementById('ctEditSales').value=''; document.getElementById('ctEditCost').value='';
+      document.getElementById('ctEditStatus').textContent='';
+      openModal('ctDailyEditModal');
+    }
+    async function loadCtEditRecord() {
+      const date=document.getElementById('ctEditDate').value, seller=document.getElementById('ctEditSeller').value;
+      const status=document.getElementById('ctEditStatus');
+      if(!date||!seller){ status.textContent=''; return; }
+      status.textContent='กำลังดึงข้อมูล...';
+      try {
+        const snap = await db.collection('central_daily').doc(date+'_'+safeId(seller)).get();
+        if (snap.exists) { const d=snap.data();
+          document.getElementById('ctEditSales').value=d.salesToday!=null?d.salesToday:'';
+          document.getElementById('ctEditCost').value=d.costToday!=null?d.costToday:'';
+          status.textContent='✅ พบข้อมูลเดิม — แก้ไขแล้วกดบันทึก'; status.style.color='var(--accent-purple)';
+        } else {
+          document.getElementById('ctEditSales').value=''; document.getElementById('ctEditCost').value='';
+          status.textContent='⚠️ วันนี้ยังไม่มีข้อมูล — กรอกแล้วบันทึกเพื่อเพิ่มใหม่ได้'; status.style.color='#f59e0b';
+        }
+      } catch(err){ console.error(err); status.textContent='❌ ผิดพลาด: '+err.message; }
+    }
+    async function saveCtDailyEdit() {
+      const date=document.getElementById('ctEditDate').value, seller=document.getElementById('ctEditSeller').value;
+      if(!date||!seller){ showToast('เลือกวันที่และพนักงาน','error'); return; }
+      const salesToday=parseFloat(document.getElementById('ctEditSales').value)||0;
+      const costToday=parseFloat(document.getElementById('ctEditCost').value)||0;
+      const status=document.getElementById('ctEditStatus'); status.textContent='กำลังบันทึก...';
+      try {
+        await db.collection('central_daily').doc(date+'_'+safeId(seller)).set({ date, seller, salesToday, costToday, updatedAt:new Date().toISOString() });
+        status.textContent='✅ บันทึกการแก้ไขแล้ว'; status.style.color='#22c55e';
+        ctDailyList=null; ctDailyTime=0;
+        showToast('แก้ไขสำเร็จ! ยอดรวมถูกคำนวณใหม่','success');
+        setTimeout(async()=>{ await loadCtDailyComparison(); closeModal('ctDailyEditModal'); }, 1000);
+      } catch(err){ console.error(err); status.textContent='❌ ผิดพลาด: '+err.message; status.style.color='#ef4444'; }
+    }
+
+    // dashboard (central) — simple: month totals per seller
+    let ctCharts = {};
+    async function fetchCtMonthRows(month) {
+      const snap = await db.collection('central_sales').where('date','<=', month+'-31').get();
+      const latest = {};
+      snap.forEach(doc=>{ const s=doc.data(); if(s.date.slice(0,7)!==month) return;
+        const k=s.employeeName; if(!latest[k]||s.date>latest[k].date) latest[k]=s; });
+      return Object.values(latest);
+    }
+    function applyCtFilters(){ loadCtDashboard(); }
+    async function loadCtDashboard() {
+      await loadCtEmployees();
+      const dEl = document.getElementById('ctFilterDate'); if(!dEl.value) dEl.value = todayStr();
+      const month = dEl.value.slice(0,7);
+      let rows;
+      try { rows = await fetchCtMonthRows(month); } catch(e){ console.error(e); rows=[]; }
+      const sortKey = document.getElementById('ctFilterSort').value;
+      rows = rows.map(r=>({ ...r, net:(r.netProfit||0)-(r.totalAdsCost||0) }));
+      rows.sort((a,b)=> sortKey==='totalSales' ? (b.totalSales||0)-(a.totalSales||0) : (b.net-a.net));
+      const totS = rows.reduce((s,r)=>s+(r.totalSales||0),0);
+      const totA = rows.reduce((s,r)=>s+(r.totalAdsCost||0),0);
+      const totN = rows.reduce((s,r)=>s+r.net,0);
+      document.getElementById('ctStatTotalSales').textContent = fmt(totS);
+      document.getElementById('ctStatTotalAds').textContent = fmt(totA);
+      document.getElementById('ctStatNetProfit').textContent = fmt(totN);
+      if (typeof Chart==='undefined') return;
+      // main chart: sales/ads/net per seller
+      if (ctCharts.main) ctCharts.main.destroy();
+      ctCharts.main = new Chart(document.getElementById('ctMainChart').getContext('2d'), {
+        type:'bar',
+        data:{ labels: rows.map(r=>r.employeeName), datasets:[
+          { label:'ยอดขาย', data:rows.map(r=>r.totalSales||0), backgroundColor:'#f59e0b' },
+          { label:'ค่าโฆษณา', data:rows.map(r=>r.totalAdsCost||0), backgroundColor:'#ef4444' },
+          { label:'กำไรสุทธิ', data:rows.map(r=>r.net), backgroundColor:'#22c55e' } ]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{font:{family:'Kanit'}}}},
+          scales:{ x:{ticks:{font:{family:'Kanit',size:11}}}, y:{ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}} } }
+      });
+      // top 6 net
+      const top = rows.slice().sort((a,b)=>b.net-a.net).slice(0,6);
+      if (ctCharts.top) ctCharts.top.destroy();
+      ctCharts.top = new Chart(document.getElementById('ctTopChart').getContext('2d'), {
+        type:'bar',
+        data:{ labels: top.map(r=>r.employeeName), datasets:[{ label:'กำไรสุทธิ', data:top.map(r=>r.net), backgroundColor:'#7c3aed' }] },
+        options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+          scales:{ x:{ticks:{callback:v=>fmt(v),font:{family:'Kanit'}}}, y:{ticks:{font:{family:'Kanit'}}} } }
+      });
+    }
+
     async function saveNode(containerId, filename) {
       const container = document.getElementById(containerId);
       const btn = container.querySelector('.save-btn');
