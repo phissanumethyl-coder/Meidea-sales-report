@@ -681,9 +681,19 @@
         <div class="main-chart-wrapper"><canvas id="ctMainChart"></canvas></div>
       </div>
       <div class="chart-container" id="ctTodayChartContainer">
-        <button class="save-btn" onclick="saveNode('ctTodayChartContainer','central_today')">📷 บันทึก</button>
+        <button class="save-btn" onclick="saveNode('ctTodayChartContainer','central_today')">📷 บันทึก (พร้อมกราฟวงกลม)</button>
         <div class="chart-header"><h3 class="chart-title">📊 ยอดขายวันนี้ และค่าโฆษณาวันนี้</h3></div>
         <div class="medium-chart-wrapper"><canvas id="ctTodayChart"></canvas></div>
+        <div class="summary-pies">
+          <div class="summary-pie-item">
+            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม (ตัวเลข)</div>
+            <div class="summary-pie-canvas"><canvas id="ctSummaryPieNum"></canvas></div>
+          </div>
+          <div class="summary-pie-item">
+            <div class="summary-pie-title">📊 ยอดขายรวม vs ค่าโฆษณารวม (เปอร์เซ็นต์)</div>
+            <div class="summary-pie-canvas"><canvas id="ctSummaryPiePct"></canvas></div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -3132,6 +3142,17 @@
       } catch(e){ console.error(e); }
       const adsBySeller = {}; rows.forEach(r=>{ adsBySeller[r.employeeName]=r.totalAdsCost||0; });
       renderCtTodayChart(dailyRows, adsBySeller, date);
+      renderCtSummaryPies(totS, totA);
+    }
+    function renderCtSummaryPies(totalSales, totalAds) {
+      if (typeof Chart==='undefined' || typeof makePie!=='function') return;
+      const total = totalSales + totalAds;
+      const sp = total>0?totalSales/total*100:0, cp = total>0?totalAds/total*100:0;
+      const labels = ['ยอดขายรวม '+sp.toFixed(0)+'% ('+fmt(totalSales)+')', 'ค่าโฆษณารวม '+cp.toFixed(0)+'% ('+fmt(totalAds)+')'];
+      if (ctCharts.pieNum) ctCharts.pieNum.destroy();
+      if (ctCharts.piePct) ctCharts.piePct.destroy();
+      ctCharts.pieNum = makePie('ctSummaryPieNum', labels, [totalSales,totalAds], ['#7c3aed','#ef4444'], false);
+      ctCharts.piePct = makePie('ctSummaryPiePct', labels, [sp,cp], ['#7c3aed','#ef4444'], true);
     }
     function renderCtMainChart(data) {
       if (typeof Chart==='undefined') return;
