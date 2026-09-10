@@ -130,6 +130,9 @@
     .spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--team-color); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .summary-pies { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 24px; }
+    .fee-table .fee-branch-row td { background:#eff6ff; font-weight:700; color:#1d4ed8; text-align:left; }
+    .fee-input { width:100%; max-width:160px; padding:7px 10px; border:1px solid var(--border,#e2e8f0); border-radius:8px; font-family:'Kanit',sans-serif; font-size:14px; text-align:right; }
+    .fee-input:focus { outline:none; border-color:var(--team-color); }
     .summary-pie-item { background: var(--bg-primary); border-radius: var(--radius-md); padding: 24px; text-align: center; }
     .summary-pie-title { font-size: 15px; font-weight: 600; color: var(--team-color); margin-bottom: 16px; }
     .summary-pie-canvas { max-width: 420px; margin: 0 auto; }
@@ -838,6 +841,62 @@
     </div>
   </section>
 
+  <!-- ======================================================= -->
+  <!-- ==================== TEAM: FEES ======================== -->
+  <!-- ======================================================= -->
+  <section id="team-fees" class="team-section">
+    <div class="page active">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">💳 กรอกค่าธรรมเนียม (เดือนละครั้ง)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="feeTeam" class="form-select" style="padding:8px 12px;" onchange="loadFeeEditor()">
+              <option value="it">💻 ฝ่ายไอที</option>
+              <option value="central">🏢 ส่วนกลาง</option>
+              <option value="live">🎥 ฝ่ายไลฟ์สด</option>
+            </select>
+            <input type="month" id="feeMonth" class="form-input" style="padding:8px 12px;" onchange="loadFeeEditor()">
+            <button class="btn btn-outline btn-sm" onclick="loadFeeEditor()">🔄 โหลด</button>
+          </div>
+        </div>
+        <p class="hint" style="margin-bottom:16px;">💡 กรอกค่าธรรมเนียม Shopee / Lazada ของแต่ละคน (Facebook ไม่มีค่าธรรมเนียม) · กรอกเดือนละครั้ง · กด "บันทึกทั้งหมด" เมื่อกรอกครบ · ข้อมูลนี้ใช้คำนวณในหน้าสรุปเดือน</p>
+        <div id="feeEditorContainer"><div class="loading active"><div class="spinner"></div></div></div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="saveAllFees()">💾 บันทึกทั้งหมด</button>
+          <span id="feeSaveMsg" style="font-size:13px;color:var(--text-secondary);align-self:center;"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= -->
+  <!-- ================== TEAM: SUMMARY ======================= -->
+  <!-- ======================================================= -->
+  <section id="team-summary" class="team-section">
+    <div class="page active">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">📋 สรุปตารางเดือน</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="sumScope" class="form-select" style="padding:8px 12px;" onchange="loadSummary()">
+              <option value="office">ไอที + ส่วนกลาง</option>
+              <option value="live">ไลฟ์สด</option>
+            </select>
+            <input type="month" id="sumMonth" class="form-input" style="padding:8px 12px;" onchange="loadSummary()">
+            <button class="btn btn-outline btn-sm" onclick="loadSummary()">🔄 โหลด</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" class="no-capture">
+          <button class="btn btn-primary btn-sm" onclick="saveNode('summaryTableCard','summary_table')">📷 บันทึกรูป</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportSummaryExcel()">📥 ดาวน์โหลด Excel</button>
+        </div>
+        <div id="summaryTableCard">
+          <div id="summaryContainer" style="overflow-x:auto;"><div class="loading active"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   </main>
 
   <!-- ================= MODALS ================= -->
@@ -1035,6 +1094,14 @@
       } else if (team === 'central') {
         root.setProperty('--team-gradient', 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)');
         root.setProperty('--team-color', '#7c3aed');
+      } else if (team === 'fees') {
+        root.setProperty('--team-gradient', 'linear-gradient(135deg, #0891b2 0%, #06b6d4 100%)');
+        root.setProperty('--team-color', '#0891b2');
+        if (typeof loadFeeEditor === 'function') loadFeeEditor();
+      } else if (team === 'summary') {
+        root.setProperty('--team-gradient', 'linear-gradient(135deg, #059669 0%, #10b981 100%)');
+        root.setProperty('--team-color', '#059669');
+        if (typeof loadSummary === 'function') loadSummary();
       } else {
         root.setProperty('--team-gradient', 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)');
         root.setProperty('--team-color', '#f97316');
@@ -3208,6 +3275,82 @@
         }
       });
     }
+
+    // =====================================================
+    // ================ FEES (ค่าธรรมเนียม) ================
+    // collection per team: it_fees / central_fees / live_fees
+    // doc id = month__safeId(name)__platform ; fields {month,name,platform,fee}
+    // =====================================================
+    function feeCollection(team){ return team+'_fees'; }
+    function feeTeamNames(team){
+      if (team==='it') return itEmployeeList.filter(e=>e.active!==false).map(e=>({name:e.name, branch:e.branch})).sort((a,b)=>(a.branch||'').localeCompare(b.branch||'','th')||a.name.localeCompare(b.name,'th'));
+      if (team==='central') return activeCtNames().map(n=>({name:n, branch:''}));
+      return (liveSellers||[]).slice().sort((a,b)=>a.localeCompare(b,'th')).map(n=>({name:n, branch:''}));
+    }
+    let feeData = {};   // "name__platform" -> fee (for current editor)
+    async function loadFeeEditor() {
+      const team = document.getElementById('feeTeam').value;
+      const monthEl = document.getElementById('feeMonth'); if(!monthEl.value) monthEl.value = todayStr().slice(0,7);
+      const month = monthEl.value;
+      const container = document.getElementById('feeEditorContainer');
+      document.getElementById('feeSaveMsg').textContent = '';
+      container.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      // ensure member lists are loaded
+      if (team==='it') await loadItBranchesEmployees();
+      else if (team==='central') await loadCtEmployees();
+      else await loadLiveSellers();
+      // fetch existing fees for the month
+      feeData = {};
+      try {
+        const snap = await db.collection(feeCollection(team)).where('month','==',month).get();
+        snap.forEach(d=>{ const x=d.data(); if(x.name&&x.platform) feeData[x.name+'__'+x.platform]=x.fee||0; });
+      } catch(e){ console.warn('load fees', e); }
+      const members = feeTeamNames(team);
+      if (!members.length) { container.innerHTML='<p class="empty-msg">ยังไม่มีพนักงานในฝ่ายนี้</p>'; return; }
+      let curBranch = null;
+      let html = '<table class="data-table fee-table"><thead><tr><th style="text-align:left;">ชื่อ</th><th style="text-align:center;">ค่าธรรมเนียม Shopee</th><th style="text-align:center;">ค่าธรรมเนียม Lazada</th></tr></thead><tbody>';
+      members.forEach(m=>{
+        if (team==='it' && m.branch !== curBranch) { curBranch=m.branch; html += '<tr class="fee-branch-row"><td colspan="3">🏢 '+curBranch+'</td></tr>'; }
+        const nEsc = m.name.replace(/"/g,'&quot;');
+        const sp = feeData[m.name+'__Shopee'] || '';
+        const lz = feeData[m.name+'__Lazada'] || '';
+        html += '<tr><td style="text-align:left;font-weight:500;">'+m.name+'</td>'+
+          '<td><input type="number" class="fee-input" data-name="'+nEsc+'" data-plat="Shopee" value="'+sp+'" placeholder="0"></td>'+
+          '<td><input type="number" class="fee-input" data-name="'+nEsc+'" data-plat="Lazada" value="'+lz+'" placeholder="0"></td></tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+    async function saveAllFees() {
+      const team = document.getElementById('feeTeam').value;
+      const month = document.getElementById('feeMonth').value;
+      if (!month) { showToast('เลือกเดือน','error'); return; }
+      const msg = document.getElementById('feeSaveMsg');
+      msg.textContent = 'กำลังบันทึก...';
+      const inputs = Array.from(document.querySelectorAll('#feeEditorContainer .fee-input'));
+      try {
+        const batch = db.batch();
+        inputs.forEach(inp=>{
+          const name = inp.dataset.name, plat = inp.dataset.plat;
+          const fee = parseFloat(inp.value)||0;
+          const id = month+'__'+safeId(name)+'__'+plat;
+          const ref = db.collection(feeCollection(team)).doc(id);
+          batch.set(ref, { month, name, platform:plat, fee, updatedAt:new Date().toISOString() });
+          feeData[name+'__'+plat] = fee;
+        });
+        await batch.commit();
+        msg.textContent = '✅ บันทึกทั้งหมดเรียบร้อย ('+inputs.length+' ช่อง)';
+        showToast('บันทึกค่าธรรมเนียมสำเร็จ','success');
+        setTimeout(()=>msg.textContent='', 3000);
+      } catch(err){ console.error(err); msg.textContent='❌ ผิดพลาด: '+err.message; }
+    }
+
+    // ---- SUMMARY (phase 3 — coming next) ----
+    function loadSummary() {
+      const c = document.getElementById('summaryContainer');
+      if (c) c.innerHTML = '<p class="empty-msg" style="padding:24px;">📋 หน้าสรุปตารางเดือนกำลังจะเพิ่มในเฟสถัดไป</p>';
+    }
+    function exportSummaryExcel() { showToast('ฟีเจอร์นี้กำลังจะเพิ่มในเฟสถัดไป','error'); }
 
     async function saveNode(containerId, filename) {
       const container = document.getElementById(containerId);
