@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <style>
@@ -133,6 +134,16 @@
     .fee-table .fee-branch-row td { background:#eff6ff; font-weight:700; color:#1d4ed8; text-align:left; }
     .fee-input { width:100%; max-width:160px; padding:7px 10px; border:1px solid var(--border,#e2e8f0); border-radius:8px; font-family:'Kanit',sans-serif; font-size:14px; text-align:right; }
     .fee-input:focus { outline:none; border-color:var(--team-color); }
+    .sum-title { text-align:center; font-size:18px; font-weight:700; margin-bottom:14px; color:#166534; }
+    .sum-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .sum-table th, .sum-table td { border:1px solid #d1d5db; padding:5px 8px; white-space:nowrap; }
+    .sum-head-plat th { color:#fff; text-align:center; font-weight:700; font-size:13px; }
+    .sum-head-sub th { background:#fbbf24; color:#78350f; text-align:center; font-size:11px; }
+    .sum-table .sum-nm { text-align:left; font-weight:500; background:#fff; position:sticky; left:0; }
+    .sum-group td { background:#f3f4f6; font-weight:700; text-align:left !important; }
+    .sum-num { text-align:right; }
+    .sum-pct { text-align:center; color:#166534; font-weight:600; }
+    .sum-total td { background:#fef9c3; font-weight:700; }
     .summary-pie-item { background: var(--bg-primary); border-radius: var(--radius-md); padding: 24px; text-align: center; }
     .summary-pie-title { font-size: 15px; font-weight: 600; color: var(--team-color); margin-bottom: 16px; }
     .summary-pie-canvas { max-width: 420px; margin: 0 auto; }
@@ -3345,12 +3356,209 @@
       } catch(err){ console.error(err); msg.textContent='❌ ผิดพลาด: '+err.message; }
     }
 
-    // ---- SUMMARY (phase 3 — coming next) ----
-    function loadSummary() {
-      const c = document.getElementById('summaryContainer');
-      if (c) c.innerHTML = '<p class="empty-msg" style="padding:24px;">📋 หน้าสรุปตารางเดือนกำลังจะเพิ่มในเฟสถัดไป</p>';
+    // ================= SUMMARY (สรุปตารางเดือน) =================
+    // office = IT + central (per-platform). live = totals only (no platform split).
+    let summaryCache = null;   // {scope, month, rows}
+
+    async function fetchTeamMonthLatest(collection, month, keyField) {
+      // latest cumulative record per person within the month
+      const snap = await db.collection(collection).where('date','<=', month+'-31').get();
+      const latest = {};
+      snap.forEach(doc=>{ const s=doc.data(); if(s.date.slice(0,7)!==month) return;
+        const k = s[keyField]; if(!k) return;
+        if(!latest[k] || s.date>latest[k].date) latest[k]=s; });
+      return latest;
     }
-    function exportSummaryExcel() { showToast('ฟีเจอร์นี้กำลังจะเพิ่มในเฟสถัดไป','error'); }
+    async function fetchFeesMap(collection, month) {
+      const map = {};   // name -> {Shopee, Lazada}
+      try {
+        const snap = await db.collection(collection).where('month','==',month).get();
+        snap.forEach(d=>{ const x=d.data(); if(!x.name) return; (map[x.name]=map[x.name]||{})[x.platform]=x.fee||0; });
+      } catch(e){ console.warn('fees', e); }
+      return map;
+    }
+
+    async function loadSummary() {
+      const scope = document.getElementById('sumScope').value;
+      const mEl = document.getElementById('sumMonth'); if(!mEl.value) mEl.value = todayStr().slice(0,7);
+      const month = mEl.value;
+      const container = document.getElementById('summaryContainer');
+      container.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      try {
+        if (scope === 'office') {
+          // IT (by branch+emp) + central (by seller)
+          const [itLatest, ctLatest, itFees, ctFees] = await Promise.all([
+            fetchTeamMonthLatest('it_sales', month, 'employeeName'),
+            fetchTeamMonthLatest('central_sales', month, 'employeeName'),
+            fetchFeesMap('it_fees', month),
+            fetchFeesMap('central_fees', month)
+          ]);
+          const rows = [];
+          Object.values(itLatest).forEach(s=>rows.push(summaryRow(s, itFees, s.branch||'ไอที')));
+          Object.values(ctLatest).forEach(s=>rows.push(summaryRow(s, ctFees, 'ส่วนกลาง')));
+          summaryCache = { scope, month, rows };
+          container.innerHTML = buildPlatformSummaryTable(rows, month);
+        } else {
+          // live: totals only
+          const liveLatest = await fetchTeamMonthLatestLive(month);
+          const liveFees = await fetchFeesMap('live_fees', month);
+          const rows = Object.values(liveLatest).map(s=>{
+            const fee = ((liveFees[s.seller]||{}).Shopee||0) + ((liveFees[s.seller]||{}).Lazada||0);
+            return { name:s.seller, sales:s.sales||0, cost:s.cost||0, ads:s.ads||0, fee };
+          });
+          summaryCache = { scope, month, rows };
+          container.innerHTML = buildLiveSummaryTable(rows, month);
+        }
+      } catch(err){ console.error(err); container.innerHTML='<p class="empty-msg" style="color:var(--danger)">เกิดข้อผิดพลาด: '+err.message+'</p>'; }
+    }
+
+    function summaryRow(s, feesMap, group) {
+      const f = feesMap[s.employeeName] || {};
+      return {
+        group, name: s.employeeName,
+        shopee: { ads:s.adsShopee||0, sales:s.salesShopee||0, fee:f.Shopee||0 },
+        lazada: { ads:s.adsLazada||0, sales:s.salesLazada||0, fee:f.Lazada||0 },
+        facebook: { ads:s.adsFacebook||0, sales:s.salesFacebook||0 }
+      };
+    }
+
+    // aggregate live_sales (sum of daily) per seller for the month
+    async function fetchTeamMonthLatestLive(month) {
+      const snap = await db.collection('live_sales').where('date','>=',month+'-01').where('date','<=',month+'-31').get();
+      const agg = {};
+      snap.forEach(d=>{ const x=d.data(); if(x.date.slice(0,7)!==month) return;
+        if(!agg[x.seller]) agg[x.seller]={ seller:x.seller, sales:0, cost:0, ads:0 };
+        agg[x.seller].sales += x.salesToday||0; agg[x.seller].cost += x.costToday||0;
+        agg[x.seller].ads += (x.adsToday!=null?x.adsToday:x.ads)||0; });
+      return agg;
+    }
+
+    const pctCell = (num, den) => { const p = den>0 ? num/den*100 : 0; return p.toFixed(2)+'%'; };
+
+    function buildPlatformSummaryTable(rows, month) {
+      const [y,m] = month.split('-').map(Number);
+      const THM = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      // group by branch/group
+      const byGroup = {};
+      rows.forEach(r=>{ (byGroup[r.group]=byGroup[r.group]||[]).push(r); });
+      let h = '<div class="sum-title">ตารางสรุปเดือน '+THM[m-1]+' '+(y+543)+'</div>';
+      h += '<table class="sum-table"><thead>';
+      h += '<tr class="sum-head-plat"><th rowspan="2" class="sum-nm">เซลส์</th>'+
+           '<th colspan="5" style="background:#f97316;">SHOPEE</th>'+
+           '<th colspan="5" style="background:#38bdf8;">LAZADA</th>'+
+           '<th colspan="3" style="background:#2563eb;">FACEBOOK</th></tr>';
+      h += '<tr class="sum-head-sub">';
+      ['Ads','ยอดขาย','%','ค่าธรรมเนียม','%','Ads','ยอดขาย','%','ค่าธรรมเนียม','%','Ads','ยอดขาย','%'].forEach(t=>h+='<th>'+t+'</th>');
+      h += '</tr></thead><tbody>';
+      Object.keys(byGroup).forEach(group=>{
+        h += '<tr class="sum-group"><td colspan="14">'+group+'</td></tr>';
+        const gt = { sAds:0,sSales:0,sFee:0, lAds:0,lSales:0,lFee:0, fAds:0,fSales:0 };
+        byGroup[group].forEach(r=>{
+          gt.sAds+=r.shopee.ads; gt.sSales+=r.shopee.sales; gt.sFee+=r.shopee.fee;
+          gt.lAds+=r.lazada.ads; gt.lSales+=r.lazada.sales; gt.lFee+=r.lazada.fee;
+          gt.fAds+=r.facebook.ads; gt.fSales+=r.facebook.sales;
+          h += '<tr><td class="sum-nm">'+r.name+'</td>'+
+            cellNum(r.shopee.ads)+cellNum(r.shopee.sales)+cellPct(r.shopee.ads,r.shopee.sales)+cellNum(r.shopee.fee)+cellPct(r.shopee.fee,r.shopee.sales)+
+            cellNum(r.lazada.ads)+cellNum(r.lazada.sales)+cellPct(r.lazada.ads,r.lazada.sales)+cellNum(r.lazada.fee)+cellPct(r.lazada.fee,r.lazada.sales)+
+            cellNum(r.facebook.ads)+cellNum(r.facebook.sales)+cellPct(r.facebook.ads,r.facebook.sales)+'</tr>';
+        });
+        h += '<tr class="sum-total"><td class="sum-nm">รวม</td>'+
+          cellNum(gt.sAds)+cellNum(gt.sSales)+cellPct(gt.sAds,gt.sSales)+cellNum(gt.sFee)+cellPct(gt.sFee,gt.sSales)+
+          cellNum(gt.lAds)+cellNum(gt.lSales)+cellPct(gt.lAds,gt.lSales)+cellNum(gt.lFee)+cellPct(gt.lFee,gt.lSales)+
+          cellNum(gt.fAds)+cellNum(gt.fSales)+cellPct(gt.fAds,gt.fSales)+'</tr>';
+      });
+      h += '</tbody></table>';
+      return h;
+    }
+    function cellNum(v){ return '<td class="sum-num">'+(v?fmt(v):'')+'</td>'; }
+    function cellPct(num,den){ const p = den>0?num/den*100:0; return '<td class="sum-pct">'+(den>0?p.toFixed(2)+'%':'-')+'</td>'; }
+
+    function buildLiveSummaryTable(rows, month) {
+      const [y,m] = month.split('-').map(Number);
+      const THM = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      let h = '<div class="sum-title">ตารางสรุปไลฟ์สด เดือน '+THM[m-1]+' '+(y+543)+'</div>';
+      h += '<table class="sum-table"><thead><tr class="sum-head-plat">'+
+        '<th class="sum-nm">เซลส์</th><th>ยอดขาย</th><th>ต้นทุน</th><th>%ต้นทุน</th><th>ค่าโฆษณา</th><th>%โฆษณา</th><th>ค่าธรรมเนียม</th><th>กำไรสุทธิ</th></tr></thead><tbody>';
+      let tS=0,tC=0,tA=0,tF=0;
+      rows.sort((a,b)=>b.sales-a.sales).forEach(r=>{
+        const net = r.sales - r.cost - r.ads - r.fee;
+        tS+=r.sales; tC+=r.cost; tA+=r.ads; tF+=r.fee;
+        h += '<tr><td class="sum-nm">'+r.name+'</td>'+cellNum(r.sales)+cellNum(r.cost)+cellPct(r.cost,r.sales)+cellNum(r.ads)+cellPct(r.ads,r.sales)+cellNum(r.fee)+cellNum(net)+'</tr>';
+      });
+      const tNet = tS-tC-tA-tF;
+      h += '<tr class="sum-total"><td class="sum-nm">รวม</td>'+cellNum(tS)+cellNum(tC)+cellPct(tC,tS)+cellNum(tA)+cellPct(tA,tS)+cellNum(tF)+cellNum(tNet)+'</tr>';
+      h += '</tbody></table>';
+      return h;
+    }
+
+    // ---------- Excel export ----------
+    async function exportSummaryExcel() {
+      if (!summaryCache) { showToast('ยังไม่มีข้อมูล','error'); return; }
+      if (typeof ExcelJS==='undefined') { showToast('กำลังโหลดไลบรารี Excel ลองอีกครั้ง','error'); return; }
+      const { scope, month, rows } = summaryCache;
+      const [y,m] = month.split('-').map(Number);
+      const THM = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('สรุป', { views:[{showGridLines:false}] });
+      const F='Kanit', thin={style:'thin',color:{argb:'FFBBBBBB'}}, border={top:thin,left:thin,bottom:thin,right:thin};
+      const hstyle=(c,fill,color)=>{ c.font={name:F,bold:true,size:12,color:{argb:color||'FF000000'}}; c.alignment={horizontal:'center',vertical:'middle'}; if(fill)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}}; c.border=border; };
+
+      if (scope==='office') {
+        ws.mergeCells('A1:N1'); const t=ws.getCell('A1'); t.value='ตารางสรุปเดือน '+THM[m-1]+' '+(y+543);
+        t.font={name:F,bold:true,size:16}; t.alignment={horizontal:'center'};
+        // header row 2-3
+        ws.mergeCells('A2:A3'); hstyle(ws.getCell('A2'),'FFEC4899','FFFFFFFF'); ws.getCell('A2').value='เซลส์';
+        ws.mergeCells('B2:F2'); hstyle(ws.getCell('B2'),'FFF97316','FFFFFFFF'); ws.getCell('B2').value='SHOPEE';
+        ws.mergeCells('G2:K2'); hstyle(ws.getCell('G2'),'FF38BDF8','FFFFFFFF'); ws.getCell('G2').value='LAZADA';
+        ws.mergeCells('L2:N2'); hstyle(ws.getCell('L2'),'FF2563EB','FFFFFFFF'); ws.getCell('L2').value='FACEBOOK';
+        const subs=['Ads','ยอดขาย','%','ค่าธรรมเนียม','%','Ads','ยอดขาย','%','ค่าธรรมเนียม','%','Ads','ยอดขาย','%'];
+        subs.forEach((s,i)=>{ const c=ws.getCell(3,i+2); c.value=s; hstyle(c,'FFFBBF24'); });
+        ws.columns=[{width:16}].concat(new Array(13).fill({width:13}));
+        let r=4;
+        const byGroup={}; rows.forEach(x=>{(byGroup[x.group]=byGroup[x.group]||[]).push(x);});
+        Object.keys(byGroup).forEach(group=>{
+          ws.mergeCells(r,1,r,14); const gc=ws.getCell(r,1); gc.value=group; gc.font={name:F,bold:true}; gc.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F4F6'}}; gc.border=border; r++;
+          const gt={sAds:0,sSales:0,sFee:0,lAds:0,lSales:0,lFee:0,fAds:0,fSales:0};
+          byGroup[group].forEach(x=>{
+            gt.sAds+=x.shopee.ads;gt.sSales+=x.shopee.sales;gt.sFee+=x.shopee.fee;gt.lAds+=x.lazada.ads;gt.lSales+=x.lazada.sales;gt.lFee+=x.lazada.fee;gt.fAds+=x.facebook.ads;gt.fSales+=x.facebook.sales;
+            const vals=[x.name, x.shopee.ads,x.shopee.sales, pctV(x.shopee.ads,x.shopee.sales), x.shopee.fee, pctV(x.shopee.fee,x.shopee.sales),
+              x.lazada.ads,x.lazada.sales,pctV(x.lazada.ads,x.lazada.sales),x.lazada.fee,pctV(x.lazada.fee,x.lazada.sales),
+              x.facebook.ads,x.facebook.sales,pctV(x.facebook.ads,x.facebook.sales)];
+            writeRow(ws,r,vals,F,border,false,new Set([3,5,8,10,13])); r++;
+          });
+          const tvals=['รวม',gt.sAds,gt.sSales,pctV(gt.sAds,gt.sSales),gt.sFee,pctV(gt.sFee,gt.sSales),gt.lAds,gt.lSales,pctV(gt.lAds,gt.lSales),gt.lFee,pctV(gt.lFee,gt.lSales),gt.fAds,gt.fSales,pctV(gt.fAds,gt.fSales)];
+          writeRow(ws,r,tvals,F,border,true,new Set([3,5,8,10,13])); r++;
+        });
+      } else {
+        ws.mergeCells('A1:H1'); const t=ws.getCell('A1'); t.value='ตารางสรุปไลฟ์สด เดือน '+THM[m-1]+' '+(y+543);
+        t.font={name:F,bold:true,size:16}; t.alignment={horizontal:'center'};
+        ['เซลส์','ยอดขาย','ต้นทุน','%ต้นทุน','ค่าโฆษณา','%โฆษณา','ค่าธรรมเนียม','กำไรสุทธิ'].forEach((s,i)=>{ const c=ws.getCell(2,i+1); c.value=s; hstyle(c,'FFF97316','FFFFFFFF'); });
+        ws.columns=[{width:16}].concat(new Array(7).fill({width:14}));
+        let r=3, tS=0,tC=0,tA=0,tF=0;
+        rows.sort((a,b)=>b.sales-a.sales).forEach(x=>{ const net=x.sales-x.cost-x.ads-x.fee; tS+=x.sales;tC+=x.cost;tA+=x.ads;tF+=x.fee;
+          writeRow(ws,r,[x.name,x.sales,x.cost,pctV(x.cost,x.sales),x.ads,pctV(x.ads,x.sales),x.fee,net],F,border,false,new Set([3,5])); r++; });
+        writeRow(ws,r,['รวม',tS,tC,pctV(tC,tS),tA,pctV(tA,tS),tF,tS-tC-tA-tF],F,border,true,new Set([3,5]));
+      }
+      const fname = (scope==='office'?'สรุปเดือน_ไอที+ส่วนกลาง_':'สรุปเดือน_ไลฟ์สด_')+THM[m-1]+'_'+(y+543)+'.xlsx';
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+      showToast('ดาวน์โหลด Excel แล้ว','success');
+    }
+    function pctV(num,den){ return den>0 ? num/den : 0; }   // fraction for Excel % format
+    // pctCols = set of 0-based column indexes that are percentages
+    function writeRow(ws,r,vals,F,border,isTotal,pctCols){
+      pctCols = pctCols || new Set();
+      vals.forEach((v,i)=>{ const c=ws.getCell(r,i+1);
+        c.value=v; c.border=border;
+        c.font={name:F, bold:isTotal, size:11};
+        if(i===0){ c.alignment={horizontal:'left'}; }
+        else if(pctCols.has(i)){ c.numFmt='0.00%'; c.alignment={horizontal:'center'}; }
+        else { c.alignment={horizontal:'right'}; if(typeof v==='number') c.numFmt='#,##0.00'; }
+        if(isTotal) c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFEF9C3'}};
+      });
+    }
 
     async function saveNode(containerId, filename) {
       const container = document.getElementById(containerId);
