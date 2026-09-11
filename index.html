@@ -3209,15 +3209,32 @@
       document.getElementById('ctStatNetProfit').textContent = fmt(totN);
       document.getElementById('ctMainChartSubtitle').textContent = 'ส่วนกลาง' + (rows.length===0 ? '  ·  ⚠️ ยังไม่มีข้อมูลของเดือนนี้' : '');
       renderCtMainChart(rows);
-      // today chart: daily sales (central_daily) + month ads ÷ day number
-      let dailyRows = [];
-      try {
-        const dsnap = await db.collection('central_daily').where('date','==',date).get();
-        dsnap.forEach(d=>dailyRows.push(d.data()));
-      } catch(e){ console.error(e); }
-      const adsBySeller = {}; rows.forEach(r=>{ adsBySeller[r.employeeName]=r.totalAdsCost||0; });
-      renderCtTodayChart(dailyRows, adsBySeller, date);
+      // today chart: per-person sales & ads for the selected day
+      // = cumulative(today) − cumulative(previous record) per seller (from central_sales)
+      const todayBySeller = await computeCtTodayPerSeller(month, date);
+      renderCtTodayChart(todayBySeller);
       renderCtSummaryPies(totS, totA);
+    }
+    // returns [{name, sales, ads}] = today's delta per seller
+    async function computeCtTodayPerSeller(month, date) {
+      const snap = await db.collection('central_sales').where('date','<=', date).get();
+      // group by seller, sorted by date, within month
+      const bySeller = {};
+      snap.forEach(doc=>{ const s=doc.data(); if(s.date.slice(0,7)!==month) return;
+        (bySeller[s.employeeName]=bySeller[s.employeeName]||[]).push(s); });
+      const out = [];
+      Object.entries(bySeller).forEach(([name, recs])=>{
+        recs.sort((a,b)=>a.date.localeCompare(b.date));
+        // find record ON the selected date (if any) and the one before it
+        const idx = recs.findIndex(r=>r.date===date);
+        if (idx === -1) return;  // no record entered on this date -> no "today" delta
+        const cur = recs[idx];
+        const prev = idx>0 ? recs[idx-1] : null;
+        const daySales = (cur.totalSales||0) - (prev ? (prev.totalSales||0) : 0);
+        const dayAds = (cur.totalAdsCost||0) - (prev ? (prev.totalAdsCost||0) : 0);
+        out.push({ name, sales:daySales, ads:dayAds });
+      });
+      return out;
     }
     function renderCtSummaryPies(totalSales, totalAds) {
       if (typeof Chart==='undefined' || typeof makePie!=='function') return;
@@ -3257,29 +3274,23 @@
         plugins:[categorySeparatorPlugin]
       });
     }
-    function renderCtTodayChart(dailyData, adsBySeller, selectedDate) {
+    function renderCtTodayChart(rows) {
       if (typeof Chart==='undefined') return;
       const ctx = document.getElementById('ctTodayChart').getContext('2d');
       if (ctCharts.today) ctCharts.today.destroy();
-      adsBySeller = adsBySeller || {};
-      const date = selectedDate || todayStr();
-      const dayNum = parseInt(date.slice(8,10),10) || 1;
-      const salesBySeller = {};
-      (dailyData||[]).forEach(d=>{ salesBySeller[d.seller]=(salesBySeller[d.seller]||0)+(d.salesToday||0); });
-      const sellers = [...new Set([...Object.keys(salesBySeller), ...Object.keys(adsBySeller)])];
-      const rows = sellers.map(s=>({ name:s, sales:salesBySeller[s]||0, ads:(adsBySeller[s]||0)/dayNum })).sort((a,b)=>b.sales-a.sales);
+      rows = (rows||[]).slice().sort((a,b)=>b.sales-a.sales);
       if (!rows.length) { ctCharts.today=null; ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
       let ts=0,ta=0; rows.forEach(r=>{ts+=r.sales;ta+=r.ads;});
-      rows.push({ name:'รวมทั้งหมด', sales:ts, ads:ta });
+      const data = rows.concat([{ name:'รวมทั้งหมด', sales:ts, ads:ta }]);
       ctCharts.today = new Chart(ctx, {
         type:'bar',
-        data:{ labels:rows.map(r=>r.name), datasets:[
-          { label:'ยอดขายวันนี้', data:rows.map(r=>r.sales), backgroundColor:rows.map(r=>r.name==='รวมทั้งหมด'?'#6d28d9':'#a855f7'), borderRadius:{topLeft:6,topRight:6} },
-          { label:'ค่าโฆษณาวันนี้', data:rows.map(r=>r.ads), backgroundColor:rows.map(r=>r.name==='รวมทั้งหมด'?'#e53e3e':'#ff6b6b'), borderRadius:{topLeft:6,topRight:6} }
+        data:{ labels:data.map(r=>r.name), datasets:[
+          { label:'ยอดขายวันนี้', data:data.map(r=>r.sales), backgroundColor:data.map(r=>r.name==='รวมทั้งหมด'?'#6d28d9':'#a855f7'), borderRadius:{topLeft:6,topRight:6} },
+          { label:'ค่าโฆษณาวันนี้', data:data.map(r=>r.ads), backgroundColor:data.map(r=>r.name==='รวมทั้งหมด'?'#e53e3e':'#ff6b6b'), borderRadius:{topLeft:6,topRight:6} }
         ]},
         options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:22}},
           plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}}, datalabels:{ color:'#262626', anchor:dynAnchor, align:dynAlign, formatter:v=>v===0?'':fmt(Math.round(v)), font:{family:'Kanit',weight:'600',size:11} } },
-          scales:{ y:{ ...headroom(rows.map(r=>Math.max(r.sales,r.ads)),0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}} }, x:{ticks:{font:{family:'Kanit',size:11}}} }
+          scales:{ y:{ ...headroom(data.map(r=>Math.max(r.sales,r.ads)),0.15), ticks:{callback:v=>fmt(v),font:{family:'Kanit'}} }, x:{ticks:{font:{family:'Kanit',size:11}}} }
         }
       });
     }
