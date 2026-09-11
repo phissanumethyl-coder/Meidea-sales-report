@@ -3209,30 +3209,30 @@
       document.getElementById('ctStatNetProfit').textContent = fmt(totN);
       document.getElementById('ctMainChartSubtitle').textContent = 'ส่วนกลาง' + (rows.length===0 ? '  ·  ⚠️ ยังไม่มีข้อมูลของเดือนนี้' : '');
       renderCtMainChart(rows);
-      // today chart: per-person sales & ads for the selected day
-      // = cumulative(today) − cumulative(previous record) per seller (from central_sales)
-      const todayBySeller = await computeCtTodayPerSeller(month, date);
-      renderCtTodayChart(todayBySeller);
+      // today chart (IT-style):
+      //   ยอดขายวันนี้ = ยอดสะสมวันที่เลือก − ยอดสะสมก่อนหน้า (per seller)
+      //   ค่าโฆษณาวันนี้ = ค่าโฆษณารวมสะสมเดือน ÷ เลขวันที่ (per seller)
+      const dayNum = parseInt(date.slice(8,10),10) || 1;
+      const salesTodayBySeller = await computeCtTodaySales(month, date);
+      const adsMonthBySeller = {}; rows.forEach(r=>{ adsMonthBySeller[r.employeeName] = r.totalAdsCost||0; });
+      const names = [...new Set([...Object.keys(salesTodayBySeller), ...Object.keys(adsMonthBySeller)])];
+      const todayRows = names.map(n=>({ name:n, sales: salesTodayBySeller[n]||0, ads: (adsMonthBySeller[n]||0)/dayNum }));
+      renderCtTodayChart(todayRows);
       renderCtSummaryPies(totS, totA);
     }
-    // returns [{name, sales, ads}] = today's delta per seller
-    async function computeCtTodayPerSeller(month, date) {
+    // today's sales delta per seller = cumulative(selected date) − cumulative(previous record)
+    async function computeCtTodaySales(month, date) {
       const snap = await db.collection('central_sales').where('date','<=', date).get();
-      // group by seller, sorted by date, within month
       const bySeller = {};
       snap.forEach(doc=>{ const s=doc.data(); if(s.date.slice(0,7)!==month) return;
         (bySeller[s.employeeName]=bySeller[s.employeeName]||[]).push(s); });
-      const out = [];
+      const out = {};
       Object.entries(bySeller).forEach(([name, recs])=>{
         recs.sort((a,b)=>a.date.localeCompare(b.date));
-        // find record ON the selected date (if any) and the one before it
         const idx = recs.findIndex(r=>r.date===date);
-        if (idx === -1) return;  // no record entered on this date -> no "today" delta
-        const cur = recs[idx];
-        const prev = idx>0 ? recs[idx-1] : null;
-        const daySales = (cur.totalSales||0) - (prev ? (prev.totalSales||0) : 0);
-        const dayAds = (cur.totalAdsCost||0) - (prev ? (prev.totalAdsCost||0) : 0);
-        out.push({ name, sales:daySales, ads:dayAds });
+        if (idx === -1) return;
+        const cur = recs[idx], prev = idx>0 ? recs[idx-1] : null;
+        out[name] = (cur.totalSales||0) - (prev ? (prev.totalSales||0) : 0);
       });
       return out;
     }
