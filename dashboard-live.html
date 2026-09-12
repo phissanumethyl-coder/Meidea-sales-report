@@ -12,6 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     :root {
@@ -207,6 +208,25 @@
     .lot-preview svg { width:100% !important; height:100% !important; }
     .lot-actions { grid-area:actions; display:flex; gap:8px; flex-wrap:wrap; }
     .lot-file { cursor:pointer; margin:0; }
+    .view-tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+    .view-tab { padding:10px 20px; border:1px solid var(--border); background:var(--card); border-radius:10px; cursor:pointer; font-family:'Kanit',sans-serif; font-size:14px; font-weight:600; color:var(--muted); }
+    .view-tab.active { background:linear-gradient(135deg,#f97316,#ec4899); color:#fff; border-color:transparent; }
+    .pf-shop-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
+    .pf-shop-item { display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; cursor:pointer; }
+    .pf-shop-item:hover { background:#fff7ed; }
+    .pf-shop-item input { width:18px; height:18px; }
+    .pf-shop-name { font-size:13px; font-weight:500; }
+    .pf-fee-input { width:120px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; font-family:'Kanit',sans-serif; text-align:right; }
+    .pf-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .pf-table th, .pf-table td { border:1px solid #d1d5db; padding:8px 10px; white-space:nowrap; }
+    .pf-table thead th { background:linear-gradient(135deg,#f97316,#ec4899); color:#fff; text-align:center; font-weight:600; }
+    .pf-table td.name { text-align:left; font-weight:500; }
+    .pf-table td.num { text-align:right; }
+    .pf-table td.pct { text-align:center; font-weight:600; }
+    .pf-table td.pos { color:#16a34a; }
+    .pf-table td.neg { color:#dc2626; }
+    .pf-table tfoot td { background:#fef9c3; font-weight:700; }
+    .pf-title { text-align:center; font-size:17px; font-weight:700; margin-bottom:12px; color:#be185d; }
   </style>
 </head>
 <body>
@@ -223,11 +243,16 @@
   </div>
 
   <div class="wrap">
-    <div class="filters">
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="dashboard" onclick="switchView('dashboard')">📊 Dashboard</button>
+      <button class="view-tab" data-view="profit" onclick="switchView('profit')">💰 วิเคราะห์กำไร (ค่าธรรมเนียม)</button>
+    </div>
+    <div class="filters" id="dashFilters">
       <div class="fg"><label>📅 เลือกเดือน (ยอดขาย = เดือนปฏิทิน)</label><input type="month" id="fMonth"></div>
       <button class="btn btn-primary btn-sm" onclick="reload()">🔄 โหลดข้อมูล</button>
     </div>
 
+    <div id="view-dashboard">
     <div id="loading" class="loading"><div class="spinner"></div><div>กำลังโหลด...</div></div>
 
     <div id="content" style="display:none;">
@@ -297,6 +322,30 @@
           </table>
         </div>
         <div id="hoursEmpty" class="empty" style="display:none;">ไม่มีข้อมูลชั่วโมงไลฟ์ในรอบนี้</div>
+      </div>
+    </div>
+    </div><!-- /view-dashboard -->
+
+    <div id="view-profit" style="display:none;">
+      <div class="section-title" style="justify-content:center;">💰 วิเคราะห์กำไร (กรอกค่าธรรมเนียมรายช่วง)</div>
+      <div class="summary-note" style="text-align:center;">เลือกช่วงวันที่ + เลือกร้าน (หลายร้านได้) → ระบบรวมยอดขาย/ต้นทุน/ค่าโฆษณาในช่วงนั้น แล้วกรอกค่าธรรมเนียมเพื่อวิเคราะห์กำไรสุทธิ</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:20px;">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+          <div class="fg"><label>📅 วันที่เริ่ม</label><input type="date" id="pfStart"></div>
+          <div class="fg"><label>📅 วันที่สิ้นสุด</label><input type="date" id="pfEnd"></div>
+          <button class="btn btn-primary btn-sm" onclick="loadProfitShops()">🔄 ดึงรายการร้าน</button>
+        </div>
+        <div id="pfShopSelect"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
+          <button class="btn btn-primary" onclick="calcProfit()">📊 คำนวณกำไร</button>
+        </div>
+      </div>
+      <div class="no-capture" id="pfExportBar" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        <button class="btn btn-primary btn-sm" onclick="saveNode('pfResultCard','profit_analysis')">📷 บันทึกรูป</button>
+        <button class="btn btn-outline btn-sm" onclick="exportProfitExcel()">📥 ดาวน์โหลด Excel</button>
+      </div>
+      <div id="pfResultCard">
+        <div id="pfResult"></div>
       </div>
     </div>
   </div>
@@ -377,6 +426,7 @@
     const TH_MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
     const fmt = n => (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
     function pad2(n){ return String(n).padStart(2,'0'); }
+    function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
     function safeId(s){ return String(s).replace(/[\/\\]/g,'_'); }
     function currentMonth(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1); }
     function prevMonthStr(month){ let [y,m]=month.split('-').map(Number); m-=1; if(m<1){m=12;y-=1;} return y+'-'+pad2(m); }
@@ -1201,6 +1251,188 @@
           </div>`;
         }).join('') + '</div>';
       } catch(err){ console.error(err); box.innerHTML='<div class="empty" style="padding:16px;color:var(--red)">โหลดประวัติไม่สำเร็จ</div>'; }
+    }
+
+    // ============ PROFIT ANALYSIS (วิเคราะห์กำไร + ค่าธรรมเนียม) ============
+    async function saveNode(containerId, filename) {
+      const container = document.getElementById(containerId);
+      if (!container || typeof html2canvas==='undefined') { alert('กำลังโหลดไลบรารี ลองอีกครั้ง'); return; }
+      const hidden = Array.from(container.querySelectorAll('.no-capture, #pfSaveMsg, button'));
+      hidden.forEach(el=>{ el.dataset._d=el.style.display; el.style.display='none'; });
+      // replace fee inputs with plain text so the column shows values in the image
+      const feeInputs = Array.from(container.querySelectorAll('.pf-fee-input'));
+      const restores = [];
+      feeInputs.forEach(inp=>{ const span=document.createElement('span'); span.textContent = inp.value?fmt(parseFloat(inp.value)):'0';
+        inp.style.display='none'; inp.parentNode.insertBefore(span, inp); restores.push([inp,span]); });
+      try {
+        const canvas = await html2canvas(container, { backgroundColor:'#ffffff', scale:2, useCORS:true });
+        const a=document.createElement('a'); a.download=filename+'_'+todayStr()+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
+      } catch(e){ console.error(e); alert('บันทึกรูปไม่สำเร็จ'); }
+      finally {
+        hidden.forEach(el=>{ el.style.display=el.dataset._d||''; delete el.dataset._d; });
+        restores.forEach(([inp,span])=>{ inp.style.display=''; span.remove(); });
+      }
+    }
+    function switchView(v) {
+      document.querySelectorAll('.view-tab').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+      document.getElementById('view-dashboard').style.display = v==='dashboard'?'':'none';
+      document.getElementById('view-profit').style.display = v==='profit'?'':'none';
+      document.getElementById('dashFilters').style.display = v==='dashboard'?'':'none';
+      if (v==='profit' && !document.getElementById('pfStart').value) {
+        // default: last 15 days
+        const end = new Date(); const start = new Date(); start.setDate(start.getDate()-14);
+        document.getElementById('pfEnd').value = end.getFullYear()+'-'+pad2(end.getMonth()+1)+'-'+pad2(end.getDate());
+        document.getElementById('pfStart').value = start.getFullYear()+'-'+pad2(start.getMonth()+1)+'-'+pad2(start.getDate());
+      }
+    }
+    let pfShopList = [];   // [{seller, shop}]
+    async function loadProfitShops() {
+      await fetchShops();
+      // sellers list from live_sellers or shopMap keys
+      let sellers = [];
+      try { const snap = await db.collection('live_sellers').get(); snap.forEach(d=>{ const x=d.data(); if(x.active!==false && x.name) sellers.push(x.name); }); }
+      catch(e){ console.warn(e); }
+      if (!sellers.length) sellers = Object.keys(shopMap);
+      pfShopList = sellers.sort((a,b)=>a.localeCompare(b,'th')).map(s=>({ seller:s, shop:shopMap[s]||'' }));
+      const box = document.getElementById('pfShopSelect');
+      if (!pfShopList.length) { box.innerHTML='<p class="empty">ไม่พบร้าน/เซลล์</p>'; return; }
+      box.innerHTML = '<div style="margin-bottom:8px;font-size:13px;font-weight:600;">เลือกร้านที่จะคำนวณ (เลือกได้หลายร้าน): '+
+        '<button class="btn btn-outline btn-sm" onclick="pfToggleAll(true)">เลือกทั้งหมด</button> '+
+        '<button class="btn btn-outline btn-sm" onclick="pfToggleAll(false)">ล้าง</button></div>'+
+        '<div class="pf-shop-grid">' + pfShopList.map((s,i)=>{
+          const label = s.seller + (s.shop?(' ('+s.shop+')'):'');
+          return `<label class="pf-shop-item"><input type="checkbox" class="pf-shop-cb" data-seller="${s.seller.replace(/"/g,'&quot;')}" checked><span class="pf-shop-name">${label}</span></label>`;
+        }).join('') + '</div>';
+    }
+    function pfToggleAll(on){ document.querySelectorAll('.pf-shop-cb').forEach(cb=>cb.checked=on); }
+
+    let pfResultData = null;
+    async function calcProfit() {
+      const start = document.getElementById('pfStart').value, end = document.getElementById('pfEnd').value;
+      if (!start || !end) { alert('เลือกช่วงวันที่'); return; }
+      if (start > end) { alert('วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด'); return; }
+      const sellers = Array.from(document.querySelectorAll('.pf-shop-cb')).filter(cb=>cb.checked).map(cb=>cb.dataset.seller);
+      if (!sellers.length) { alert('เลือกอย่างน้อย 1 ร้าน'); return; }
+      const box = document.getElementById('pfResult');
+      box.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      try {
+        // fetch live_sales in date range
+        const snap = await db.collection('live_sales').where('date','>=',start).where('date','<=',end).get();
+        const agg = {};
+        snap.forEach(d=>{ const x=d.data(); if(!sellers.includes(x.seller)) return;
+          if(!agg[x.seller]) agg[x.seller]={ seller:x.seller, sales:0, cost:0, ads:0 };
+          agg[x.seller].sales += x.salesToday||0; agg[x.seller].cost += x.costToday||0;
+          agg[x.seller].ads += (x.adsToday!=null?x.adsToday:x.ads)||0; });
+        // load saved fees for this exact range
+        const feeKeyBase = start+'_'+end;
+        const savedFees = {};
+        try { const fsnap = await db.collection('live_profit_fees').where('rangeKey','==',feeKeyBase).get();
+          fsnap.forEach(d=>{ const x=d.data(); if(x.seller) savedFees[x.seller]=x.fee||0; }); } catch(e){ console.warn(e); }
+        pfResultData = { start, end, rows: sellers.map(s=>{
+          const a = agg[s] || { seller:s, sales:0, cost:0, ads:0 };
+          return { seller:s, shop:shopMap[s]||'', sales:a.sales, cost:a.cost, ads:a.ads, fee: savedFees[s]||0 };
+        }) };
+        renderProfitTable();
+      } catch(err){ console.error(err); box.innerHTML='<p class="empty" style="color:var(--red)">ผิดพลาด: '+err.message+'</p>'; }
+    }
+    function renderProfitTable() {
+      const { start, end, rows } = pfResultData;
+      const box = document.getElementById('pfResult');
+      let h = '<div class="pf-title">วิเคราะห์กำไร ช่วง '+start+' ถึง '+end+'</div>';
+      h += '<div style="overflow-x:auto;"><table class="pf-table"><thead><tr>'+
+        '<th>ร้าน</th><th>ยอดขาย</th><th>ต้นทุน</th><th>%ต้นทุน</th><th>ค่าโฆษณา</th><th>%โฆษณา</th><th>ROAS</th><th>ค่าธรรมเนียม</th><th>กำไรสุทธิ</th><th>%กำไร</th></tr></thead><tbody>';
+      let tS=0,tC=0,tA=0,tF=0;
+      rows.forEach((r,i)=>{
+        const net = r.sales - r.cost - r.ads - r.fee;
+        const costPct = r.sales>0? r.cost/r.sales*100:0;
+        const adsPct = r.sales>0? r.ads/r.sales*100:0;
+        const roas = r.ads>0? r.sales/r.ads : 0;
+        const netPct = r.sales>0? net/r.sales*100:0;
+        tS+=r.sales; tC+=r.cost; tA+=r.ads; tF+=r.fee;
+        const label = r.seller + (r.shop?(' ('+r.shop+')'):'');
+        h += '<tr>'+
+          '<td class="name">'+label+'</td>'+
+          '<td class="num">'+fmt(r.sales)+'</td>'+
+          '<td class="num">'+fmt(r.cost)+'</td>'+
+          '<td class="pct">'+(r.sales>0?costPct.toFixed(2)+'%':'-')+'</td>'+
+          '<td class="num">'+fmt(r.ads)+'</td>'+
+          '<td class="pct">'+(r.sales>0?adsPct.toFixed(2)+'%':'-')+'</td>'+
+          '<td class="pct">'+(r.ads>0?roas.toFixed(2):'-')+'</td>'+
+          '<td class="num"><input type="number" class="pf-fee-input" data-seller="'+r.seller.replace(/"/g,'&quot;')+'" value="'+(r.fee||'')+'" placeholder="0" oninput="pfFeeChanged(this,'+i+')"></td>'+
+          '<td class="num '+(net>=0?'pos':'neg')+'">'+fmt(net)+'</td>'+
+          '<td class="pct '+(net>=0?'pos':'neg')+'">'+(r.sales>0?netPct.toFixed(2)+'%':'-')+'</td>'+
+          '</tr>';
+      });
+      const tNet=tS-tC-tA-tF;
+      const tRoas = tA>0? tS/tA:0;
+      h += '</tbody><tfoot><tr>'+
+        '<td class="name">รวม</td>'+
+        '<td class="num">'+fmt(tS)+'</td><td class="num">'+fmt(tC)+'</td><td class="pct">'+(tS>0?(tC/tS*100).toFixed(2)+'%':'-')+'</td>'+
+        '<td class="num">'+fmt(tA)+'</td><td class="pct">'+(tS>0?(tA/tS*100).toFixed(2)+'%':'-')+'</td>'+
+        '<td class="pct">'+(tA>0?tRoas.toFixed(2):'-')+'</td>'+
+        '<td class="num">'+fmt(tF)+'</td>'+
+        '<td class="num '+(tNet>=0?'pos':'neg')+'">'+fmt(tNet)+'</td>'+
+        '<td class="pct '+(tNet>=0?'pos':'neg')+'">'+(tS>0?(tNet/tS*100).toFixed(2)+'%':'-')+'</td>'+
+        '</tr></tfoot></table></div>'+
+        '<div style="margin-top:12px;"><button class="btn btn-primary btn-sm" onclick="saveProfitFees()">💾 บันทึกค่าธรรมเนียมช่วงนี้</button> <span id="pfSaveMsg" style="font-size:12px;color:var(--muted);"></span></div>';
+      box.innerHTML = h;
+      const bar = document.getElementById('pfExportBar'); if(bar) bar.style.display='flex';
+    }
+    function pfFeeChanged(input, idx) {
+      const v = parseFloat(input.value)||0;
+      pfResultData.rows[idx].fee = v;
+      // re-render to update net/percent columns but keep focus
+      const seller = input.dataset.seller;
+      renderProfitTable();
+      const again = document.querySelector('.pf-fee-input[data-seller="'+seller.replace(/"/g,'&quot;')+'"]');
+      if (again){ again.focus(); const val=again.value; again.value=''; again.value=val; }
+    }
+    async function saveProfitFees() {
+      if (!pfResultData) return;
+      const { start, end, rows } = pfResultData;
+      const rangeKey = start+'_'+end;
+      const msg = document.getElementById('pfSaveMsg'); msg.textContent='กำลังบันทึก...';
+      try {
+        const batch = db.batch();
+        rows.forEach(r=>{ const id = rangeKey+'__'+safeId(r.seller);
+          batch.set(db.collection('live_profit_fees').doc(id), { rangeKey, start, end, seller:r.seller, fee:r.fee||0, updatedAt:new Date().toISOString() }); });
+        await batch.commit();
+        msg.textContent='✅ บันทึกแล้ว';
+        setTimeout(()=>msg.textContent='',2500);
+      } catch(err){ console.error(err); msg.textContent='❌ '+err.message; }
+    }
+    async function exportProfitExcel() {
+      if (!pfResultData) { alert('ยังไม่มีข้อมูล'); return; }
+      if (typeof ExcelJS==='undefined') { alert('กำลังโหลด Excel ลองอีกครั้ง'); return; }
+      const { start, end, rows } = pfResultData;
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('วิเคราะห์กำไร', {views:[{showGridLines:false}]});
+      const F='Kanit', thin={style:'thin',color:{argb:'FFBBBBBB'}}, border={top:thin,left:thin,bottom:thin,right:thin};
+      ws.mergeCells('A1:J1'); const t=ws.getCell('A1'); t.value='วิเคราะห์กำไร ช่วง '+start+' ถึง '+end;
+      t.font={name:F,bold:true,size:16}; t.alignment={horizontal:'center'};
+      const heads=['ร้าน','ยอดขาย','ต้นทุน','%ต้นทุน','ค่าโฆษณา','%โฆษณา','ROAS','ค่าธรรมเนียม','กำไรสุทธิ','%กำไร'];
+      heads.forEach((s,i)=>{ const c=ws.getCell(2,i+1); c.value=s; c.font={name:F,bold:true,color:{argb:'FFFFFFFF'}}; c.alignment={horizontal:'center'}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEC4899'}}; c.border=border; });
+      ws.columns=[{width:22},{width:14},{width:14},{width:10},{width:14},{width:10},{width:8},{width:14},{width:14},{width:10}];
+      let r=3, tS=0,tC=0,tA=0,tF=0;
+      const pctCols=new Set([3,5,9]);
+      rows.forEach(x=>{ const net=x.sales-x.cost-x.ads-x.fee; tS+=x.sales;tC+=x.cost;tA+=x.ads;tF+=x.fee;
+        const vals=[x.seller+(x.shop?(' ('+x.shop+')'):''), x.sales, x.cost, x.sales>0?x.cost/x.sales:0, x.ads, x.sales>0?x.ads/x.sales:0, x.ads>0?x.sales/x.ads:0, x.fee, net, x.sales>0?net/x.sales:0];
+        vals.forEach((v,i)=>{ const c=ws.getCell(r,i+1); c.value=v; c.border=border; c.font={name:F,size:11};
+          if(i===0)c.alignment={horizontal:'left'};
+          else if(pctCols.has(i)){c.numFmt='0.00%';c.alignment={horizontal:'center'};}
+          else if(i===6){c.numFmt='0.00';c.alignment={horizontal:'center'};}
+          else {c.numFmt='#,##0.00';c.alignment={horizontal:'right'};}
+        });
+        r++;
+      });
+      const tNet=tS-tC-tA-tF;
+      const tv=['รวม',tS,tC,tS>0?tC/tS:0,tA,tS>0?tA/tS:0,tA>0?tS/tA:0,tF,tNet,tS>0?tNet/tS:0];
+      tv.forEach((v,i)=>{ const c=ws.getCell(r,i+1); c.value=v; c.border=border; c.font={name:F,bold:true,size:11}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFEF9C3'}};
+        if(i===0)c.alignment={horizontal:'left'}; else if(pctCols.has(i)){c.numFmt='0.00%';c.alignment={horizontal:'center'};}
+        else if(i===6){c.numFmt='0.00';c.alignment={horizontal:'center'};} else {c.numFmt='#,##0.00';c.alignment={horizontal:'right'};} });
+      const fname='วิเคราะห์กำไร_'+start+'_ถึง_'+end+'.xlsx';
+      const buf=await wb.xlsx.writeBuffer(); const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },100);
     }
 
     init();
