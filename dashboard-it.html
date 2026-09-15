@@ -155,6 +155,9 @@
     .cc-tip .tt-line, .mb-tip .tt-line { display:flex; justify-content:space-between; gap:14px; padding:3px 0; }
     .cc-tip .tt-line:not(:last-child), .mb-tip .tt-line:not(:last-child) { border-bottom:1px solid rgba(255,255,255,0.12); }
     .mbox.has-tip { cursor:help; }
+    .mbox.clickable-box { cursor:pointer; transition:box-shadow .15s, transform .15s; }
+    .mbox.clickable-box:hover { box-shadow:0 4px 14px rgba(37,99,235,0.18); transform:translateY(-1px); }
+    .mb-click { font-size:10px; color:var(--blue); font-weight:600; }
     .net-pos { color:#15803d; }
     .net-neg { color:#b91c1c; }
     @media(max-width:760px){ .scard-body{grid-template-columns:1fr;} .scard-exp{border-left:none;border-top:1px solid var(--border);} }
@@ -246,27 +249,6 @@
       <div class="section-title">📊 สรุปรายเดือน (รายเซลล์) <span id="monthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
       <div class="summary-note" id="branchNote"></div>
       <div class="cards" id="cardsGrid"></div>
-
-      <!-- Fee editor -->
-      <div class="fee-box">
-        <h3>💳 ค่าธรรมเนียม (กรอกรายเซลล์ + แพลตฟอร์ม)</h3>
-        <div class="fee-row">
-          <div class="fg"><label>สาขา</label><select id="feeBranch" onchange="fillFeeSellers()"></select></div>
-          <div class="fg"><label>เซลล์</label><select id="feeSeller" onchange="prefillFee()"></select></div>
-          <div class="fg"><label>แพลตฟอร์ม</label>
-            <select id="feePlatform" onchange="prefillFee()">
-              <option value="Shopee">Shopee</option>
-              <option value="Lazada">Lazada</option>
-              <option value="Facebook">Facebook</option>
-              <option value="TikTok">TikTok</option>
-            </select>
-          </div>
-          <div class="fg"><label>ค่าธรรมเนียม (บาท)</label><input type="number" id="feeValue" placeholder="0"></div>
-          <button class="btn btn-primary btn-sm" onclick="saveFee()">💾 บันทึก</button>
-          <span id="feeMsg" style="font-size:13px;color:var(--muted);"></span>
-        </div>
-        <div class="fee-hint" id="feeHint" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
-      </div>
 
       <!-- Target editor -->
       <div class="fee-box" style="background:#eff6ff;border-color:#bfdbfe;">
@@ -365,12 +347,17 @@
     let branches = [];
     let monthRows = [];   // per-employee month-end cumulative records
     let feeData = {};     // "branch||employee||platform" -> fee (for selected month)
+    let feeByNamePlat = {}; // "name||platform" -> fee (from MEIDEA Sales Report)
 
     const feeKey = (b,e,p) => b + '||' + e + '||' + p;
-    function feeForEmpPlatform(branch, emp, platform) { return feeData[feeKey(branch,emp,platform)] || 0; }
+    function feeForEmpPlatform(branch, emp, platform) {
+      return feeData[feeKey(branch,emp,platform)] || feeByNamePlat[emp + '||' + platform] || 0;
+    }
     function feeForEmp(branch, emp) {
       let s = 0;
       for (const k in feeData) { const [b,e] = k.split('||'); if (b===branch && e===emp) s += feeData[k]||0; }
+      // add name+platform fees (from main app) not already counted
+      ['Shopee','Lazada'].forEach(p=>{ if(!(feeKey(branch,emp,p) in feeData)) s += feeByNamePlat[emp+'||'+p]||0; });
       return s;
     }
     function feeForBranch(branch) {
@@ -396,7 +383,7 @@
       fb.innerHTML = '<option value="all">ทุกสาขา</option>';
       branches.forEach(b => fb.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
       // fee & target editors: branches only (must pick a specific branch)
-      ['feeBranch','tgtBranch'].forEach(id => {
+      ['tgtBranch'].forEach(id => {
         const el = document.getElementById(id);
         el.innerHTML = '';
         branches.forEach(b => el.insertAdjacentHTML('beforeend', `<option value="${b}">${b}</option>`));
@@ -457,14 +444,19 @@
 
         // fetch fees for the month
         feeData = {};
+        feeByNamePlat = {};
         try {
           const fSnap = await db.collection('it_fees').where('month','==',month).get();
           fSnap.forEach(d => {
             const x = d.data();
             if (x.employeeName && x.platform) {
+              // legacy dashboard format (branch known)
               feeData[feeKey(x.branch, x.employeeName, x.platform)] = x.fee||0;
+              feeByNamePlat[x.employeeName + '||' + x.platform] = x.fee||0;
+            } else if (x.name && x.platform) {
+              // MEIDEA Sales Report format (name + platform, no branch)
+              feeByNamePlat[x.name + '||' + x.platform] = x.fee||0;
             } else if (x.branch) {
-              // legacy branch-level fee -> keep under a generic bucket so totals still show
               feeData[feeKey(x.branch, '(รวมสาขาเดิม)', 'รวม')] = x.fee||0;
             }
           });
@@ -499,8 +491,6 @@
       const b = document.getElementById('fBranch').value;
       document.getElementById('branchNote').textContent =
         (b==='all' ? 'แสดงทุกสาขา' : 'แสดงเฉพาะสาขา ' + b) + ' · แต่ละการ์ดเรียงเซลล์จากมากไปน้อย';
-      // fee editor: refresh seller dropdown + prefill
-      fillFeeSellers();
       prefillTarget();
       renderTargetProgress();
       renderOverall(month);
@@ -634,22 +624,9 @@
       }).join('');
     }
 
-    // ---- fee editor ----
-    function fillFeeSellers() {
-      const branch = document.getElementById('feeBranch').value;
-      const sel = document.getElementById('feeSeller');
-      const names = [...new Set(monthRows.filter(r=>!branch||r.branch===branch).map(r=>r.employeeName))].sort((a,b)=>a.localeCompare(b,'th'));
-      sel.innerHTML = names.length ? names.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option value="">— ไม่มีเซลล์ —</option>';
-      prefillFee();
-    }
-    function prefillFee() {
-      const b = document.getElementById('feeBranch').value;
-      const e = document.getElementById('feeSeller').value;
-      const p = document.getElementById('feePlatform').value;
-      const v = feeForEmpPlatform(b,e,p);
-      document.getElementById('feeValue').value = v || '';
-      document.getElementById('feeHint').textContent = e ? `ค่าธรรมเนียมรวมของ ${e}: ${fmt(feeForEmp(b,e))} บาท (ทุกแพลตฟอร์ม)` : '';
-    }
+    // ---- fee editor removed: fees are now entered in MEIDEA Sales Report ----
+    function fillFeeSellers() { /* removed — fees entered in main app */ }
+    function prefillFee() { /* removed */ }
 
     // sum a set of rows into totals (respecting the branch filter)
     function sumRows(rows) {
@@ -745,7 +722,8 @@
       { key:'adsFacebook',  title:'ค่าโฆษณา Facebook', ic:'📘', col:'#38bdf8', pctBase:'salesFacebook', limit:50 },
       { key:'adsShopee',    title:'ค่าโฆษณา Shopee',   ic:'🛒', col:'#fbbf24', pctBase:'salesShopee', limit:25 },
       { key:'adsLazada',    title:'ค่าโฆษณา Lazada',   ic:'🛍️', col:'#f472b6', pctBase:'salesLazada', limit:25 },
-      { key:'fee',          title:'ค่าธรรมเนียมรวม',  ic:'💳', col:'#0ea5e9', empFee:true }
+      { key:'feeShopee',    title:'ค่าธรรมเนียม Shopee', ic:'🛒', col:'#0ea5e9', empFeePlat:'Shopee', pctBase:'salesShopee' },
+      { key:'feeLazada',    title:'ค่าธรรมเนียม Lazada', ic:'🛍️', col:'#0891b2', empFeePlat:'Lazada', pctBase:'salesLazada' }
     ];
 
     function rowValue(r, key) {
@@ -774,41 +752,47 @@
         const fb=day('salesFacebook'), sp=day('salesShopee'), lz=day('salesLazada'), lo=day('salesLineOA');
         const totalSales = fb+sp+lz+lo;
         const ads = day(A);
-        const out = { date:r.date, fb, sp, lz, lo, totalSales, ads, cumSales:(r.totalSales||0), cumAds:(r[A]||0) };
+        const cost = totalSales - day('netProfit');   // ต้นทุน = ยอดขาย − กำไรที่กรอก (ต่อวัน)
+        const out = { date:r.date, fb, sp, lz, lo, totalSales, ads, cost, cumSales:(r.totalSales||0), cumAds:(r[A]||0) };
         prev = r;
         return out;
       });
 
-      const tot = rows.reduce((t,x)=>{ t.fb+=x.fb;t.sp+=x.sp;t.lz+=x.lz;t.lo+=x.lo;t.totalSales+=x.totalSales;t.ads+=x.ads; return t; },
-        {fb:0,sp:0,lz:0,lo:0,totalSales:0,ads:0});
+      const tot = rows.reduce((t,x)=>{ t.fb+=x.fb;t.sp+=x.sp;t.lz+=x.lz;t.lo+=x.lo;t.totalSales+=x.totalSales;t.ads+=x.ads;t.cost+=x.cost; return t; },
+        {fb:0,sp:0,lz:0,lo:0,totalSales:0,ads:0,cost:0});
       const last = rows[rows.length-1];
       sumEl.innerHTML =
         `<div class="ed-card"><div class="v">${fmt(last.cumSales)}</div><div class="l">ยอดขายรวมสะสม (ล่าสุด)</div></div>
-         <div class="ed-card"><div class="v">${fmt(last.cumAds)}</div><div class="l">ค่าโฆษณาสะสม (ล่าสุด)</div></div>
+         <div class="ed-card"><div class="v">${fmt(tot.cost)}</div><div class="l">ต้นทุนรวมทั้งเดือน</div></div>
          <div class="ed-card"><div class="v">${fmt(last.totalSales)}</div><div class="l">ยอดขายวันล่าสุด (${last.date.slice(8,10)})</div></div>
-         <div class="ed-card"><div class="v">${fmt(last.ads)}</div><div class="l">ค่าโฆษณาวันล่าสุด</div></div>`;
+         <div class="ed-card"><div class="v">${tot.totalSales>0?(tot.cost/tot.totalSales*100).toFixed(1)+'%':'-'}</div><div class="l">%ต้นทุนเฉลี่ยทั้งเดือน</div></div>`;
 
       const maxSale = Math.max(1, ...rows.map(r=>r.totalSales));
       let body = `<thead><tr>
         <th style="text-align:left;">วันที่</th>
         <th>Facebook</th><th>Shopee</th><th>Lazada</th><th>LineOA</th>
-        <th>รวม/วัน</th><th>ค่าโฆษณา/วัน</th>
+        <th>รวม/วัน</th><th>ต้นทุน/วัน</th><th>%ต้นทุน</th>
       </tr></thead><tbody>`;
       rows.forEach(r => {
         const d = parseInt(r.date.slice(8,10),10), mo = parseInt(r.date.slice(5,7),10);
         const zero = r.totalSales===0;
         const barW = r.totalSales/maxSale*100;
+        const costPct = r.totalSales>0 ? r.cost/r.totalSales*100 : 0;
+        const costOver = costPct > 45;
         body += `<tr class="${zero?'ed-zero':''}">
           <td class="ed-date">${d} ${TH_MONTHS[mo-1]}</td>
           <td>${fmt(r.fb)}</td><td>${fmt(r.sp)}</td><td>${fmt(r.lz)}</td><td>${fmt(r.lo)}</td>
           <td class="ed-total"><div class="ed-bar"><div class="ed-fill" style="width:${barW}%"></div></div><span>${zero?'<span style="color:#ef4444">ขายไม่ได้</span>':fmt(r.totalSales)}</span></td>
-          <td>${fmt(r.ads)}</td>
+          <td>${fmt(r.cost)}</td>
+          <td style="text-align:center;font-weight:600;color:${r.totalSales>0?(costOver?'#dc2626':'#16a34a'):'#94a3b8'}">${r.totalSales>0?costPct.toFixed(1)+'%':'-'}</td>
         </tr>`;
       });
+      const totCostPct = tot.totalSales>0 ? tot.cost/tot.totalSales*100 : 0;
       body += `</tbody><tfoot><tr>
         <td style="text-align:left;">รวมทั้งเดือน</td>
         <td>${fmt(tot.fb)}</td><td>${fmt(tot.sp)}</td><td>${fmt(tot.lz)}</td><td>${fmt(tot.lo)}</td>
-        <td>${fmt(tot.totalSales)}</td><td>${fmt(tot.ads)}</td>
+        <td>${fmt(tot.totalSales)}</td><td>${fmt(tot.cost)}</td>
+        <td style="text-align:center;">${tot.totalSales>0?totCostPct.toFixed(1)+'%':'-'}</td>
       </tr></tfoot>`;
       tbl.innerHTML = body;
       document.getElementById('empDailyModal').classList.add('on');
@@ -822,8 +806,13 @@
       let html = '';
       METRICS.forEach(mt => {
         let items, total;
-        if (mt.empFee) {
-          // fee is per employee (sum across platforms), respecting branch filter
+        if (mt.empFeePlat) {
+          // per-platform fee (Shopee / Lazada) from it_fees, carry row for pctBase
+          items = rows.map(r => ({ name:r.employeeName, branch:r.branch, val: feeForEmpPlatform(r.branch, r.employeeName, mt.empFeePlat), row:r }))
+                      .filter(x => x.val !== 0)
+                      .sort((a,b2)=>b2.val-a.val);
+          total = items.reduce((s,x)=>s+x.val,0);
+        } else if (mt.empFee) {
           items = rows.map(r => ({ name:r.employeeName, branch:r.branch, val: feeForEmp(r.branch, r.employeeName) }))
                       .filter(x => x.val !== 0)
                       .sort((a,b2)=>b2.val-a.val);
@@ -932,7 +921,7 @@
         return `<span class="mini-delta ${cls}">${ar} ${Math.abs(pct).toFixed(1)}% ${label}</span>`;
       };
       // metric box (left side)
-      const box = (label, value, color, showPct, sales, prevLine, breakdown) => {
+      const box = (label, value, color, showPct, sales, prevLine, breakdown, clickInfo) => {
         const pctHtml = showPct ? `<span class="mb-pct" style="background:${color}22;color:${color}">${pctOf(value,sales).toFixed(1)}%</span>` : '';
         const prevHtml = prevLine ? `<div class="mb-prev">${prevLine}</div>` : '';
         let tip = '';
@@ -943,8 +932,10 @@
             return `<span class="tt-line"><span>${b.lb}</span><span>${fmt(b.vl)} <b>${p.toFixed(1)}%</b></span></span>`;
           }).join('') + '</div>';
         }
-        return `<div class="mbox ${breakdown?'has-tip':''}" style="border-left-color:${color}">
-          <div class="mb-label">${label}${breakdown?' <span class="info-i">ⓘ</span>':''}</div>
+        const clickAttr = clickInfo ? ` onclick="openEmpDaily('${clickInfo.b}','${clickInfo.n}')" style="border-left-color:${color};cursor:pointer;" title="คลิกดูยอดขายรายวัน"` : ` style="border-left-color:${color}"`;
+        const clickHint = clickInfo ? ' <span class="mb-click">🔍 คลิกดูรายวัน</span>' : '';
+        return `<div class="mbox ${breakdown?'has-tip':''} ${clickInfo?'clickable-box':''}"${clickAttr}>
+          <div class="mb-label">${label}${breakdown?' <span class="info-i">ⓘ</span>':''}${clickHint}</div>
           <div class="mb-value" style="color:${color}">${fmt(value)}</div>
           ${prevHtml}${pctHtml}${tip}
         </div>`;
@@ -989,7 +980,7 @@
           </div>
           <div class="scard-body">
             <div class="scard-metrics">
-              ${box('ยอดขาย', r.sales, salesColor, false, r.sales, r.pSales!==null?('เดือนก่อน '+fmt(r.pSales)):'', salesBd)}
+              ${box('ยอดขาย', r.sales, salesColor, false, r.sales, r.pSales!==null?('เดือนก่อน '+fmt(r.pSales)):'', salesBd, {b:r.branch.replace(/'/g,"\\'"), n:r.name.replace(/'/g,"\\'")})}
               ${box('ต้นทุน', r.cost, costColor, true, r.sales, '', costBd)}
               ${box('ค่าโฆษณารวม', r.ads, adsColor, true, r.sales, '', adsBd)}
               ${box('กำไรสุทธิ', r.net, netColor, true, r.sales, '', netBd)}
@@ -1009,26 +1000,7 @@
       }).join('');
     }
 
-    async function saveFee() {
-      const month = document.getElementById('fMonth').value;
-      const branch = document.getElementById('feeBranch').value;
-      const emp = document.getElementById('feeSeller').value;
-      const platform = document.getElementById('feePlatform').value;
-      const fee = parseFloat(document.getElementById('feeValue').value) || 0;
-      if (!month || !branch || !emp || !platform) { document.getElementById('feeMsg').textContent='กรอกข้อมูลให้ครบ'; return; }
-      const msg = document.getElementById('feeMsg');
-      msg.textContent = 'กำลังบันทึก...';
-      try {
-        const docId = [month, safeId(branch), safeId(emp), platform].join('__');
-        await db.collection('it_fees').doc(docId).set({ month, branch, employeeName:emp, platform, fee, updatedAt:new Date().toISOString() });
-        feeData[feeKey(branch,emp,platform)] = fee;
-        msg.textContent = '✅ บันทึกแล้ว';
-        prefillFee();
-        renderCards();
-        renderSellers();
-        setTimeout(()=>msg.textContent='', 2500);
-      } catch (err) { console.error(err); msg.textContent = '❌ ผิดพลาด: '+err.message; }
-    }
+    function saveFee() { /* removed — fees entered in MEIDEA Sales Report */ }
 
     // =========================================================
     // COMMISSION CALCULATOR
