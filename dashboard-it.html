@@ -217,9 +217,9 @@
 
   <div class="wrap">
     <div class="filters">
-      <div class="fg"><label>📅 เลือกเดือน</label><input type="month" id="fMonth"></div>
+      <div class="fg"><label>📅 เลือกเดือน</label><input type="month" id="fMonth" onchange="reload()"></div>
       <div class="fg"><label>🏢 สาขา (การ์ดสรุป)</label><select id="fBranch" onchange="rerender()"><option value="all">ทุกสาขา</option></select></div>
-      <button class="btn btn-primary btn-sm" onclick="reload()">🔄 โหลดข้อมูล</button>
+      <button class="btn btn-primary btn-sm" onclick="reload()">🔄 รีเฟรช</button>
     </div>
 
     <div id="loading" class="loading"><div class="spinner"></div><div>กำลังโหลด...</div></div>
