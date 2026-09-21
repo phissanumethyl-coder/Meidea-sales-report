@@ -51,6 +51,9 @@
     .mcard-total { font-size:22px; font-weight:700; }
     .mcard-ic { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:17px; color:#fff; }
     .mcard-list { display:flex; flex-direction:column; gap:7px; }
+    .mcard-total-pct { font-size:12px; font-weight:600; margin-left:4px; }
+    .vl-pct { display:inline-block; margin-left:5px; font-size:10.5px; font-weight:600; padding:1px 6px; border-radius:999px; white-space:nowrap; }
+    .mrow .vl { white-space:nowrap; }
     .mrow { display:flex; align-items:center; gap:8px; font-size:13px; }
     .mrow .rank { width:20px; height:20px; border-radius:50%; background:var(--tertiary); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--muted); flex-shrink:0; }
     .mrow .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -664,26 +667,30 @@
     // ---------- summary cards ----------
     const METRICS = [
       { key:'sales', title:'ยอดขายรวม',  ic:'💰', col:'#f59e0b' },
-      { key:'cost',  title:'ต้นทุนรวม',   ic:'📦', col:'#64748b' },
-      { key:'ads',   title:'ค่าโฆษณารวม', ic:'📣', col:'#ef4444' },
-      { key:'net',   title:'กำไรสุทธิ',   ic:'📈', col:'#22c55e' }
+      { key:'cost',  title:'ต้นทุนรวม',   ic:'📦', col:'#64748b', pctBase:'sales' },
+      { key:'ads',   title:'ค่าโฆษณารวม', ic:'📣', col:'#ef4444', pctBase:'sales' },
+      { key:'net',   title:'กำไรสุทธิ',   ic:'📈', col:'#22c55e', pctBase:'sales' }
     ];
     function renderCards(){
       const grid=document.getElementById('cardsGrid');
       if(!monthRows.length){ grid.innerHTML='<div class="empty">ไม่มีข้อมูลยอดขายในเดือนนี้</div>'; return; }
       grid.innerHTML = METRICS.map(mt=>{
-        const items = monthRows.map(r=>({ name:r.seller, val:r[mt.key] })).sort((a,b)=>b.val-a.val);
+        const items = monthRows.map(r=>({ name:r.seller, val:r[mt.key], base:(mt.pctBase?(r[mt.pctBase]||0):0) })).sort((a,b)=>b.val-a.val);
         const total = items.reduce((s,x)=>s+x.val,0);
+        const totalBase = items.reduce((s,x)=>s+x.base,0);
         const maxAbs = Math.max(1, ...items.map(i=>Math.abs(i.val)));
+        // % of sales after the value (for cost / ads / net cards)
+        const pctTag = (val,base)=> mt.pctBase ? ` <span class="vl-pct" style="background:${mt.col}22;color:${mt.col}">${base>0?(val/base*100).toFixed(1)+'%':'-'}</span>` : '';
         let rows='';
         items.slice(0,12).forEach((it,i)=>{
           const pct=Math.abs(it.val)/maxAbs*100;
           rows+=`<div class="mrow ${it.val<0?'neg':''}"><span class="rank">${i+1}</span>
             <span class="nm">${it.name}<div class="mini-bar"><div style="width:${pct}%;background:${mt.col}"></div></div></span>
-            <span class="vl">${fmt(it.val)}</span></div>`;
+            <span class="vl">${fmt(it.val)}${pctTag(it.val,it.base)}</span></div>`;
         });
+        const headPct = mt.pctBase ? `<span class="mcard-total-pct" style="color:${mt.col}">${totalBase>0?(total/totalBase*100).toFixed(1)+'% ของยอดขาย':''}</span>` : '';
         return `<div class="mcard"><div class="mcard-head">
-          <div><div class="mcard-title">${mt.title}</div><div class="mcard-total" style="color:${mt.col}">${fmt(total)}</div></div>
+          <div><div class="mcard-title">${mt.title}</div><div class="mcard-total" style="color:${mt.col}">${fmt(total)} ${headPct}</div></div>
           <div class="mcard-ic" style="background:${mt.col}">${mt.ic}</div>
         </div><div class="mcard-list">${rows}</div></div>`;
       }).join('');
