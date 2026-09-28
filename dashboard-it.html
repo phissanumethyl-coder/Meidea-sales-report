@@ -10,6 +10,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root {
       --bg:#0b1120; --bg2:#0f172a;
@@ -200,6 +202,52 @@
     @keyframes tgtStripes { from{ background-position:0 0; } to{ background-position:24px 0; } }
     .tgt-done .tgt-fill { animation: tgtStripes 0.8s linear infinite, tgtGlow 1.4s ease-in-out infinite; }
     @keyframes tgtGlow { 0%,100%{ box-shadow:0 0 0 0 rgba(52,211,153,0); } 50%{ box-shadow:0 0 14px 2px rgba(52,211,153,0.6); } }
+    /* KPI hero row */
+    .kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:28px; }
+    .kpi { position:relative; overflow:hidden; background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; box-shadow:var(--shadow); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); transition:transform .2s, box-shadow .25s; }
+    .kpi:hover { transform:translateY(-4px); box-shadow:var(--glow); }
+    .kpi-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .kpi-label { font-size:13px; color:var(--muted); font-weight:600; }
+    .kpi-ic { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; color:#fff; }
+    .kpi-val { font-size:28px; font-weight:800; letter-spacing:.3px; }
+    .kpi-sub { display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12.5px; }
+    .kpi-spark { position:absolute; right:0; bottom:0; width:100%; height:38px; opacity:0.5; }
+    .kpi-delta { padding:2px 9px; border-radius:999px; font-weight:700; font-size:12px; }
+    .kpi-delta.up { background:rgba(52,211,153,0.18); color:#6ee7b7; }
+    .kpi-delta.down { background:rgba(248,113,113,0.18); color:#fca5a5; }
+    .kpi-delta.flat { background:var(--tertiary); color:var(--muted); }
+    /* alert bar */
+    #alertBar { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+    .alert { display:flex; align-items:center; gap:12px; padding:13px 18px; border-radius:14px; font-size:13.5px; font-weight:500; animation:rise .5s ease both; border:1px solid; }
+    .alert.warn { background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.35); color:#fcd34d; }
+    .alert.danger { background:rgba(248,113,113,0.12); border-color:rgba(248,113,113,0.4); color:#fca5a5; }
+    .alert.good { background:rgba(52,211,153,0.12); border-color:rgba(52,211,153,0.35); color:#6ee7b7; }
+    .alert .a-ic { font-size:18px; }
+    /* compare 2 months */
+    .cmp-grid { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--r); overflow:hidden; background:var(--card); backdrop-filter:blur(14px); }
+    .cmp-grid > div { padding:13px 16px; border-bottom:1px solid var(--border); font-size:13.5px; display:flex; align-items:center; }
+    .cmp-grid .cmp-h { background:linear-gradient(135deg,rgba(59,130,246,0.14),transparent); font-weight:700; color:var(--text); font-size:13px; }
+    .cmp-grid .cmp-lb { color:var(--muted); font-weight:600; justify-content:flex-start; }
+    .cmp-grid .cmp-v { justify-content:flex-end; font-weight:700; }
+    .cmp-grid .cmp-d { justify-content:flex-end; }
+    .cmp-chip { padding:2px 9px; border-radius:999px; font-weight:700; font-size:12px; }
+    .cmp-chip.up { background:rgba(52,211,153,0.18); color:#6ee7b7; }
+    .cmp-chip.down { background:rgba(248,113,113,0.18); color:#fca5a5; }
+    .cmp-chip.flat { background:var(--tertiary); color:var(--muted); }
+    @media(max-width:600px){ .cmp-grid{ grid-template-columns:1fr 1fr; } .cmp-grid .cmp-d{ display:none; } }
+
+    /* ===== LIGHT MODE ===== */
+    body.light { --bg:#eef2f9; --bg2:#f8fafc; --card:rgba(255,255,255,0.85); --card-solid:#ffffff; --tertiary:#f1f5f9; --text:#1e293b; --muted:#64748b; --border:#e2e8f0; --blue:#2563eb; --shadow:0 4px 18px rgba(30,41,59,0.08); --glow:0 0 0 1px rgba(37,99,235,0.2), 0 12px 40px rgba(37,99,235,0.14); }
+    body.light::before { background:radial-gradient(circle,#93c5fd,transparent 70%); opacity:0.5; }
+    body.light::after { background:radial-gradient(circle,#a5f3fc,transparent 70%); opacity:0.5; }
+    body.light .topbar { background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(6,182,212,0.08)); }
+    body.light .brand h1 { background:linear-gradient(90deg,#1e40af,#0369a1); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    body.light .fg input, body.light .fg select { background:#fff; }
+    body.light .fg select option { background:#fff; color:#1e293b; }
+    body.light .btn-outline { background:#fff; }
+    body.light .mbox { background:#fff; }
+    body.light .cc-tip, body.light .mb-tip { background:#1e293b; color:#fff; border-color:#334155; }
+
     /* commission modal */
     .modal-ov { display:none; position:fixed; inset:0; background:rgba(2,6,23,0.7); backdrop-filter:blur(6px); z-index:1000; align-items:center; justify-content:center; padding:20px; }
     .modal-ov.on { display:flex; animation:rise .3s ease; }
@@ -235,7 +283,10 @@
         <div><h1>Dashboard ฝ่ายไอที</h1><p><span class="live-dot"></span> MEIDEA Sales Report · เชื่อมต่อ Firebase แบบเรียลไทม์</p></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-outline btn-sm" onclick="openCommission()">🧮 คำนวณคอมมิชชั่น</button>
+        <button class="btn btn-outline btn-sm" id="themeBtn" onclick="toggleTheme()" title="สลับโหมดสว่าง/มืด">🌙 มืด</button>
+        <button class="btn btn-outline btn-sm" onclick="exportPNG()">🖼️ PNG</button>
+        <button class="btn btn-outline btn-sm" onclick="exportPDF()">📄 PDF</button>
+        <button class="btn btn-outline btn-sm" onclick="openCommission()">🧮 คอมมิชชั่น</button>
         <a class="btn btn-outline btn-sm" href="index.html" style="text-decoration:none;">← กลับหน้ากรอกยอด</a>
       </div>
     </div>
@@ -251,6 +302,12 @@
     <div id="loading" class="loading"><div class="spinner"></div><div>กำลังโหลด...</div></div>
 
     <div id="content" style="display:none;">
+      <!-- Auto alerts -->
+      <div id="alertBar"></div>
+
+      <!-- KPI hero row -->
+      <div class="kpi-row" id="kpiRow"></div>
+
       <!-- Overall totals (all branches) vs last month -->
       <div class="section-title" style="justify-content:center;">🏆 ภาพรวมฝ่ายไอที <span id="overallMonthLabel" style="color:var(--muted);font-weight:400;font-size:14px;"></span></div>
       <div class="summary-note" style="text-align:center;">เทียบกับเดือนก่อนหน้า (ทุกสาขารวมกัน)</div>
@@ -267,6 +324,16 @@
       <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:32px;">
         <div style="height:320px;"><canvas id="trendChart"></canvas></div>
       </div>
+
+      <!-- Compare 2 months -->
+      <div class="section-title" style="justify-content:center;">⚖️ เปรียบเทียบ 2 เดือน</div>
+      <div class="summary-note" style="text-align:center;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;">
+        <span>เทียบ</span>
+        <input type="month" id="cmpA" onchange="renderCompare()" style="padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,0.06);color:var(--text);font-family:'Kanit';">
+        <span>กับ</span>
+        <input type="month" id="cmpB" onchange="renderCompare()" style="padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,0.06);color:var(--text);font-family:'Kanit';">
+      </div>
+      <div id="compareBox" style="margin-bottom:32px;"></div>
 
       <!-- Platform breakdown -->
       <div class="section-title" style="justify-content:center;">🧩 แยกตามแพลตฟอร์ม</div>
@@ -502,7 +569,15 @@
           tSnap.forEach(d => { const x=d.data(); targetMap[x.branch] = x.target||0; });
         } catch(e){ console.warn('targets', e); }
 
+        // default the compare pickers: selected month vs previous month
+        const cA=document.getElementById('cmpA'), cB=document.getElementById('cmpB');
+        if(cA && cB){
+          if(!cA.value) cA.value = month;
+          if(!cB.value) cB.value = prevMonthStr(month);
+        }
+
         renderAll(month);
+        renderCompare();
         document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
       } catch (err) {
@@ -532,6 +607,8 @@
       renderWatchList();
       renderSellers();
       renderTrend(month);
+      renderKPI();
+      renderAlerts();
     }
 
     // ---- sellers to watch (over thresholds / low profit) ----
@@ -599,6 +676,10 @@
         labels.push(TH_MONTHS[mm-1]+' '+String((yy+543)).slice(-2));
         salesArr.push(Math.round(s)); adsArr.push(Math.round(a)); netArr.push(Math.round(n));
       }
+      // feed KPI sparklines with the 6-month series, then refresh KPI cards
+      kpiTrend.sales = salesArr.slice();
+      kpiTrend.net = netArr.slice();
+      renderKPI();
       if (trendChart) trendChart.destroy();
       trendChart = new Chart(canvas.getContext('2d'), {
         type:'line',
@@ -699,6 +780,146 @@
     }
 
     // Section: overall totals (all/branch-filtered) vs previous month
+    // ============ THEME TOGGLE (light/dark) ============
+    function applyTheme(t){
+      document.body.classList.toggle('light', t==='light');
+      const btn=document.getElementById('themeBtn');
+      if(btn) btn.textContent = t==='light' ? '☀️ สว่าง' : '🌙 มืด';
+      try{ localStorage.setItem('it_theme', t); }catch(e){}
+      // refresh chart text colors
+      if(window.Chart){ Chart.defaults.color = t==='light'?'#475569':'#94a3b8'; Chart.defaults.borderColor = t==='light'?'rgba(30,41,59,0.1)':'rgba(255,255,255,0.08)'; }
+      if(monthRows.length){ const mo=document.getElementById('fMonth').value; if(mo){ renderTrend(mo); renderKPI(); } }
+    }
+    function toggleTheme(){ applyTheme(document.body.classList.contains('light')?'dark':'light'); }
+    (function(){ try{ const t=localStorage.getItem('it_theme'); if(t) applyTheme(t); }catch(e){} })();
+
+    // ============ COUNT-UP animation ============
+    function countUp(el, to){
+      if(!el) return;
+      const dur=900, start=performance.now(), from=0;
+      function step(now){ const p=Math.min(1,(now-start)/dur); const eased=1-Math.pow(1-p,3);
+        el.textContent=fmt(Math.round(from+(to-from)*eased)); if(p<1) requestAnimationFrame(step); }
+      requestAnimationFrame(step);
+    }
+
+    // ============ KPI HERO ROW ============
+    function sparkPath(vals, w, h){
+      if(!vals.length) return '';
+      const mn=Math.min(...vals), mx=Math.max(...vals), rng=(mx-mn)||1;
+      return vals.map((v,i)=>{ const x=vals.length>1?i/(vals.length-1)*w:0; const y=h-((v-mn)/rng)*h; return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1); }).join(' ');
+    }
+    let kpiTrend = { sales:[], net:[] };
+    function renderKPI(){
+      const cur = sumRows(applyBranchFilter(monthRows));
+      const prev = sumRows(applyBranchFilter(prevMonthRows));
+      const cost = cur.totalSales - cur.net - cur.totalAdsCost; // ต้นทุน
+      const roi = cur.totalAdsCost>0 ? cur.net/cur.totalAdsCost : 0;
+      const pRoi = prev.totalAdsCost>0 ? prev.net/prev.totalAdsCost : 0;
+      const light = document.body.classList.contains('light');
+      const items = [
+        { lb:'ยอดขายรวม', ic:'💰', c:'#f59e0b', val:cur.totalSales, prev:prev.totalSales, spark:kpiTrend.sales, money:true },
+        { lb:'กำไรสุทธิ', ic:'📈', c:'#22c55e', val:cur.net, prev:prev.net, spark:kpiTrend.net, money:true },
+        { lb:'ค่าโฆษณารวม', ic:'📣', c:'#ef4444', val:cur.totalAdsCost, prev:prev.totalAdsCost, money:true },
+        { lb:'ROI (กำไร/โฆษณา)', ic:'🚀', c:'#38bdf8', val:roi, prev:pRoi, money:false, suffix:'x' }
+      ];
+      const box=document.getElementById('kpiRow');
+      box.innerHTML = items.map((it,idx)=>{
+        const diff=it.val-it.prev, pct=it.prev!==0?diff/Math.abs(it.prev)*100:(it.val!==0?100:0);
+        const cls=diff>0?'up':(diff<0?'down':'flat'), ar=diff>0?'▲':(diff<0?'▼':'—');
+        const valId='kpiv'+idx;
+        const sp = it.spark&&it.spark.length>1 ? `<svg class="kpi-spark" viewBox="0 0 120 38" preserveAspectRatio="none"><path d="${sparkPath(it.spark,120,34)}" fill="none" stroke="${it.c}" stroke-width="2" stroke-linecap="round" opacity="0.7"/></svg>`:'';
+        const valTxt = it.money ? '0' : (it.val.toFixed(2)+(it.suffix||''));
+        return `<div class="kpi">
+          <div class="kpi-top"><span class="kpi-label">${it.lb}</span><span class="kpi-ic" style="background:${it.c}">${it.ic}</span></div>
+          <div class="kpi-val" id="${valId}" style="color:${it.c}">${valTxt}</div>
+          <div class="kpi-sub"><span class="kpi-delta ${cls}">${ar} ${Math.abs(pct).toFixed(1)}%</span><span style="color:var(--muted)">vs เดือนก่อน</span></div>
+          ${sp}
+        </div>`;
+      }).join('');
+      // animate money values
+      items.forEach((it,idx)=>{ if(it.money) countUp(document.getElementById('kpiv'+idx), it.val); });
+    }
+
+    // ============ AUTO ALERTS ============
+    function renderAlerts(){
+      const box=document.getElementById('alertBar'); if(!box) return;
+      const alerts=[];
+      // per-branch profit drop vs last month
+      const curByBranch={}, prevByBranch={};
+      applyBranchFilter(monthRows).forEach(r=>{ const s=sumRows([r]); curByBranch[r.branch]=(curByBranch[r.branch]||0)+s.net; });
+      applyBranchFilter(prevMonthRows).forEach(r=>{ const s=sumRows([r]); prevByBranch[r.branch]=(prevByBranch[r.branch]||0)+s.net; });
+      Object.keys(curByBranch).forEach(b=>{
+        const cur=curByBranch[b], prev=prevByBranch[b]||0;
+        if(prev>0){ const drop=(prev-cur)/prev*100;
+          if(drop>=20) alerts.push({t:'danger', m:`สาขา ${b} กำไรลดลง ${drop.toFixed(0)}% จากเดือนก่อน (${fmt(prev)} → ${fmt(cur)})`}); }
+      });
+      // sellers with negative net or cost over 45%
+      applyBranchFilter(monthRows).forEach(r=>{
+        const s=r.totalSales||0, net=(r.netProfit||0)-(r.totalAdsCost||0), cost=s-(r.netProfit||0);
+        const costPct=s>0?cost/s*100:0;
+        if(net<0) alerts.push({t:'danger', m:`${r.employeeName} (${r.branch}) กำไรติดลบ ${fmt(net)} บาท`});
+        else if(costPct>55) alerts.push({t:'warn', m:`${r.employeeName} (${r.branch}) ต้นทุนสูง ${costPct.toFixed(0)}% ของยอดขาย`});
+      });
+      if(!alerts.length){ box.innerHTML=`<div class="alert good"><span class="a-ic">✅</span> ทุกอย่างอยู่ในเกณฑ์ดี ไม่มีรายการที่ต้องเตือนในเดือนนี้</div>`; return; }
+      // cap to 6, prioritize danger
+      alerts.sort((a,b)=> (a.t==='danger'?0:1)-(b.t==='danger'?0:1));
+      box.innerHTML = alerts.slice(0,6).map(a=>`<div class="alert ${a.t}"><span class="a-ic">${a.t==='danger'?'🚨':'⚠️'}</span> ${a.m}</div>`).join('');
+    }
+
+    // ============ COMPARE 2 MONTHS ============
+    async function renderCompare(){
+      const box=document.getElementById('compareBox');
+      const a=document.getElementById('cmpA').value, b=document.getElementById('cmpB').value;
+      if(!a||!b){ return; }
+      box.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+      try{
+        const [ra, rb] = await Promise.all([fetchMonthRows(a), fetchMonthRows(b)]);
+        const sa=sumRows(ra), sb=sumRows(rb);
+        const costA=sa.totalSales-sa.net-sa.totalAdsCost, costB=sb.totalSales-sb.net-sb.totalAdsCost;
+        const rows=[
+          {lb:'ยอดขายรวม', a:sa.totalSales, b:sb.totalSales},
+          {lb:'ต้นทุนรวม', a:costA, b:costB, inv:true},
+          {lb:'ค่าโฆษณารวม', a:sa.totalAdsCost, b:sb.totalAdsCost, inv:true},
+          {lb:'กำไรสุทธิ', a:sa.net, b:sb.net},
+        ];
+        const [ya,ma]=a.split('-').map(Number),[yb,mb]=b.split('-').map(Number);
+        const la=TH_MONTHS[ma-1]+' '+(ya+543), lb=TH_MONTHS[mb-1]+' '+(yb+543);
+        let h=`<div class="cmp-grid"><div class="cmp-h cmp-lb">รายการ</div><div class="cmp-h cmp-v">${la}</div><div class="cmp-h cmp-v">${lb}</div><div class="cmp-h cmp-d">เปลี่ยนแปลง</div>`;
+        rows.forEach(r=>{
+          const diff=r.a-r.b, pct=r.b!==0?diff/Math.abs(r.b)*100:(r.a!==0?100:0);
+          // for cost/ads, up is bad
+          let good = diff>0; if(r.inv) good=diff<0;
+          const cls= diff===0?'flat':(good?'up':'down'), ar=diff>0?'▲':(diff<0?'▼':'—');
+          h+=`<div class="cmp-lb">${r.lb}</div><div class="cmp-v">${fmt(r.a)}</div><div class="cmp-v">${fmt(r.b)}</div><div class="cmp-d"><span class="cmp-chip ${cls}">${ar} ${Math.abs(pct).toFixed(1)}%</span></div>`;
+        });
+        h+='</div>';
+        box.innerHTML=h;
+      }catch(e){ console.error(e); box.innerHTML='<div class="empty" style="color:var(--red)">โหลดข้อมูลเปรียบเทียบไม่สำเร็จ</div>'; }
+    }
+
+    // ============ EXPORT PNG / PDF ============
+    async function captureContent(){
+      const el=document.getElementById('content');
+      return await html2canvas(el, { backgroundColor: document.body.classList.contains('light')?'#eef2f9':'#0b1120', scale:2, useCORS:true });
+    }
+    async function exportPNG(){
+      try{
+        const c=await captureContent(); const a=document.createElement('a');
+        a.download='Dashboard_IT_'+(document.getElementById('fMonth').value||'')+'.png'; a.href=c.toDataURL('image/png'); a.click();
+      }catch(e){ console.error(e); alert('บันทึกรูปไม่สำเร็จ'); }
+    }
+    async function exportPDF(){
+      try{
+        const c=await captureContent(); const img=c.toDataURL('image/png');
+        const { jsPDF }=window.jspdf; const pdf=new jsPDF('p','mm','a4');
+        const pw=210, ph=(c.height*pw)/c.width; let left=ph, pos=0; const pageH=297;
+        pdf.addImage(img,'PNG',0,0,pw,ph);
+        left-=pageH;
+        while(left>0){ pos-=pageH; pdf.addPage(); pdf.addImage(img,'PNG',0,pos,pw,ph); left-=pageH; }
+        pdf.save('Dashboard_IT_'+(document.getElementById('fMonth').value||'')+'.pdf');
+      }catch(e){ console.error(e); alert('บันทึก PDF ไม่สำเร็จ'); }
+    }
+
     function renderOverall() {
       const curRows = applyBranchFilter(monthRows);
       const cur = sumRows(curRows);
