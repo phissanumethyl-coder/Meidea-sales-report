@@ -266,7 +266,7 @@
 
       <!-- 6-month trend -->
       <div class="section-title" style="justify-content:center;">📈 แนวโน้มย้อนหลัง 6 เดือน</div>
-      <div class="summary-note" style="text-align:center;">ยอดขายรวม · ค่าโฆษณา · กำไรสุทธิ แต่ละเดือน</div>
+      <div class="summary-note" style="text-align:center;">ยอดขายรวม · ค่าโฆษณา · กำไรขั้นต้น แต่ละเดือน</div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:32px;">
         <div style="height:320px;"><canvas id="trendChart"></canvas></div>
       </div>
@@ -282,7 +282,7 @@
         <div class="seller-head">
           <div class="fg"><label>📊 เรียงตาม</label><select id="sSort" onchange="renderSellers()">
             <option value="sales">ยอดขายรวม</option>
-            <option value="net">กำไรสุทธิ</option>
+            <option value="net">กำไรขั้นต้น</option>
             <option value="ads">ค่าโฆษณารวม</option>
             <option value="cost">ต้นทุนรวม</option>
           </select></div>
@@ -331,7 +331,7 @@
 
     <div id="view-profit" style="display:none;">
       <div class="section-title" style="justify-content:center;">💰 วิเคราะห์กำไร (กรอกค่าธรรมเนียมรายช่วง)</div>
-      <div class="summary-note" style="text-align:center;">เลือกช่วงวันที่ + เลือกร้าน (หลายร้านได้) → ระบบรวมยอดขาย/ต้นทุน/ค่าโฆษณาในช่วงนั้น แล้วกรอกค่าธรรมเนียมเพื่อวิเคราะห์กำไรสุทธิ</div>
+      <div class="summary-note" style="text-align:center;">เลือกช่วงวันที่ + เลือกร้าน (หลายร้านได้) → ระบบรวมยอดขาย/ต้นทุน/ค่าโฆษณาในช่วงนั้น แล้วกรอกค่าธรรมเนียมเพื่อวิเคราะห์กำไรขั้นต้น</div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:20px;">
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
           <div class="fg"><label>📅 วันที่เริ่ม</label><input type="date" id="pfStart"></div>
@@ -617,7 +617,7 @@
         data:{ labels, datasets:[
           { label:'ยอดขายรวม', data:salesArr, borderColor:'#f59e0b', backgroundColor:'#f59e0b22', tension:0.3, fill:true, borderWidth:2 },
           { label:'ค่าโฆษณา', data:adsArr, borderColor:'#ef4444', backgroundColor:'transparent', tension:0.3, borderWidth:2 },
-          { label:'กำไรสุทธิ', data:netArr, borderColor:'#22c55e', backgroundColor:'#22c55e22', tension:0.3, fill:true, borderWidth:2 }
+          { label:'กำไรขั้นต้น', data:netArr, borderColor:'#22c55e', backgroundColor:'#22c55e22', tension:0.3, fill:true, borderWidth:2 }
         ]},
         options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
           plugins:{ legend:{position:'top',labels:{font:{family:'Kanit',size:12},usePointStyle:true}},
@@ -653,7 +653,7 @@
         {k:'sales', t:'ยอดขายรวม', ic:'💰', c:'#f59e0b', fn:r=>r.sales},
         {k:'cost',  t:'ต้นทุนรวม',  ic:'📦', c:'#64748b', fn:r=>r.cost},
         {k:'ads',   t:'ค่าโฆษณารวม',ic:'📣', c:'#ef4444', fn:r=>r.ads},
-        {k:'net',   t:'กำไรสุทธิ',  ic:'📈', c:'#22c55e', fn:r=>r.net}
+        {k:'net',   t:'กำไรขั้นต้น',  ic:'📈', c:'#22c55e', fn:r=>r.net}
       ];
       document.getElementById('overallGrid').innerHTML = defs.map(d=>`
         <div class="ccard has-cctip">
@@ -669,7 +669,7 @@
       { key:'sales', title:'ยอดขายรวม',  ic:'💰', col:'#f59e0b' },
       { key:'cost',  title:'ต้นทุนรวม',   ic:'📦', col:'#64748b', pctBase:'sales' },
       { key:'ads',   title:'ค่าโฆษณารวม', ic:'📣', col:'#ef4444', pctBase:'sales' },
-      { key:'net',   title:'กำไรสุทธิ',   ic:'📈', col:'#22c55e', pctBase:'sales' }
+      { key:'net',   title:'กำไรขั้นต้น',   ic:'📈', col:'#22c55e', pctBase:'sales' }
     ];
     function renderCards(){
       const grid=document.getElementById('cardsGrid');
@@ -766,13 +766,13 @@
               ${box('ยอดขาย', r.sales, 'var(--orange)', false, r.sales, r.pSales!==null?('เดือนก่อน '+fmt(r.pSales)):'', r.seller)}
               ${box('ต้นทุน', r.cost, '#64748b', true, r.sales)}
               ${box('ค่าโฆษณารวม', r.ads, '#ef4444', true, r.sales, '', r.seller)}
-              ${box('กำไรสุทธิ', r.net, netColor, true, r.sales)}
+              ${box('กำไรขั้นต้น', r.net, netColor, true, r.sales)}
             </div>
             <div class="scard-exp">
               <div class="exp-title">สัดส่วนค่าใช้จ่าย (ต่อยอดขาย)</div>
               ${expRow('ต้นทุน', r.cost, r.sales, '#64748b')}
               ${expRow('ค่าโฆษณา', r.ads, r.sales, '#ef4444')}
-              ${expRow('กำไรสุทธิ', r.net, r.sales, r.net>=0?'#22c55e':'#ef4444')}
+              ${expRow('กำไรขั้นต้น', r.net, r.sales, r.net>=0?'#22c55e':'#ef4444')}
               <div class="goal-title">🎯 เป้าหมายรายบุคคล</div>
               ${walkBar('เป้ายอดขาย', r.sales, salesTargetMap[r.seller]||0, '฿', '#f97316', 'sales')}
               ${walkBar('เป้าชั่วโมงไลฟ์ ('+HOURS_TARGET+' ชม./รอบ)', hoursBySeller[r.seller]||0, HOURS_TARGET, 'ชม.', '#0ea5e9', 'hours')}
@@ -1347,7 +1347,7 @@
       const box = document.getElementById('pfResult');
       let h = '<div class="pf-title">วิเคราะห์กำไร ช่วง '+start+' ถึง '+end+'</div>';
       h += '<div style="overflow-x:auto;"><table class="pf-table"><thead><tr>'+
-        '<th>ร้าน</th><th>ยอดขาย</th><th>ต้นทุน</th><th>%ต้นทุน</th><th>ค่าโฆษณา</th><th>%โฆษณา</th><th>ROAS</th><th>ค่าธรรมเนียม</th><th>กำไรสุทธิ</th><th>%กำไร</th></tr></thead><tbody>';
+        '<th>ร้าน</th><th>ยอดขาย</th><th>ต้นทุน</th><th>%ต้นทุน</th><th>ค่าโฆษณา</th><th>%โฆษณา</th><th>ROAS</th><th>ค่าธรรมเนียม</th><th>กำไรขั้นต้น</th><th>%กำไร</th></tr></thead><tbody>';
       let tS=0,tC=0,tA=0,tF=0;
       rows.forEach((r,i)=>{
         const net = r.sales - r.cost - r.ads - r.fee;
@@ -1416,7 +1416,7 @@
       const F='Kanit', thin={style:'thin',color:{argb:'FFBBBBBB'}}, border={top:thin,left:thin,bottom:thin,right:thin};
       ws.mergeCells('A1:J1'); const t=ws.getCell('A1'); t.value='วิเคราะห์กำไร ช่วง '+start+' ถึง '+end;
       t.font={name:F,bold:true,size:16}; t.alignment={horizontal:'center'};
-      const heads=['ร้าน','ยอดขาย','ต้นทุน','%ต้นทุน','ค่าโฆษณา','%โฆษณา','ROAS','ค่าธรรมเนียม','กำไรสุทธิ','%กำไร'];
+      const heads=['ร้าน','ยอดขาย','ต้นทุน','%ต้นทุน','ค่าโฆษณา','%โฆษณา','ROAS','ค่าธรรมเนียม','กำไรขั้นต้น','%กำไร'];
       heads.forEach((s,i)=>{ const c=ws.getCell(2,i+1); c.value=s; c.font={name:F,bold:true,color:{argb:'FFFFFFFF'}}; c.alignment={horizontal:'center'}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEC4899'}}; c.border=border; });
       ws.columns=[{width:22},{width:14},{width:14},{width:10},{width:14},{width:10},{width:8},{width:14},{width:14},{width:10}];
       let r=3, tS=0,tC=0,tA=0,tF=0;

@@ -772,13 +772,13 @@
         <div class="stat-card"><div class="stat-value" id="liveStatSales">0</div><div class="stat-label">ยอดขายรวม</div></div>
         <div class="stat-card"><div class="stat-value" id="liveStatCost">0</div><div class="stat-label">ต้นทุนรวม</div></div>
         <div class="stat-card"><div class="stat-value" id="liveStatAds">0</div><div class="stat-label">ค่าโฆษณารวม</div></div>
-        <div class="stat-card"><div class="stat-value" id="liveStatNet">0</div><div class="stat-label">กำไรสุทธิ</div></div>
+        <div class="stat-card"><div class="stat-value" id="liveStatNet">0</div><div class="stat-label">กำไรขั้นต้น</div></div>
       </div>
 
       <!-- Graph 1: totals (sales / ads / net) -->
       <div class="chart-container" id="liveTotalsContainer">
         <button class="save-btn" onclick="saveNode('liveTotalsContainer','live_totals')">📷 บันทึก</button>
-        <div class="chart-header"><h3 class="chart-title" id="liveTotalsTitle">ยอดขายรวม ค่าโฆษณา และกำไรสุทธิ</h3></div>
+        <div class="chart-header"><h3 class="chart-title" id="liveTotalsTitle">ยอดขายรวม ค่าโฆษณา และกำไรขั้นต้น</h3></div>
         <div class="medium-chart-wrapper"><canvas id="liveTotalsChart"></canvas></div>
       </div>
 
@@ -2159,7 +2159,7 @@
           '<div class="cum-item"><span>ยอดขายรวม</span><b>' + fmt(sales) + '</b></div>' +
           '<div class="cum-item"><span>ต้นทุนรวม</span><b>' + fmt(cost) + '</b></div>' +
           '<div class="cum-item"><span>ค่าโฆษณารวม</span><b>' + fmt(ads) + '</b></div>' +
-          '<div class="cum-item cum-net"><span>กำไรสุทธิ</span><b>' + fmt(netProfit) + '</b></div>' +
+          '<div class="cum-item cum-net"><span>กำไรขั้นต้น</span><b>' + fmt(netProfit) + '</b></div>' +
           '</div>';
       } catch (err) { console.error(err); box.innerHTML = '⚠️ โหลดยอดสะสมไม่สำเร็จ'; }
     }
@@ -2329,7 +2329,7 @@
       const dnum = parseInt((dateStr||todayStr()).slice(8,10),10);
       const rt = document.getElementById('liveRankTitle'); if (rt) rt.textContent = 'ยอดขายรวม เดือน ' + my;
       const st = document.getElementById('liveSalesAdsTitle'); if (st) st.textContent = 'ยอดขายและค่าโฆษณา รายเซลล์ วันที่ ' + dnum + ' ' + my;
-      const tt = document.getElementById('liveTotalsTitle'); if (tt) tt.textContent = 'ยอดขายรวม ต้นทุน ค่าโฆษณา และกำไรสุทธิ เดือน ' + my;
+      const tt = document.getElementById('liveTotalsTitle'); if (tt) tt.textContent = 'ยอดขายรวม ต้นทุน ค่าโฆษณา และกำไรขั้นต้น เดือน ' + my;
 
       // day-only rows for the sales-ads chart
       const dayRows = liveDayData.map(d => ({ seller:d.seller, sales:d.sales||0, cost:d.cost||0, ads:d.ads||0 }));
@@ -2343,7 +2343,7 @@
     }
 
     // Graph 1: overall totals (sales / ads / net)
-    // Graph 1: per-seller — ยอดขายรวม Tiktok / ค่าโฆษณารวม / กำไรสุทธิ (grouped, like IT main chart)
+    // Graph 1: per-seller — ยอดขายรวม Tiktok / ค่าโฆษณารวม / กำไรขั้นต้น (grouped, like IT main chart)
     function renderLiveTotals(rows) {
       const ctx = document.getElementById('liveTotalsChart').getContext('2d');
       if (liveCharts.totals) liveCharts.totals.destroy();
@@ -2358,7 +2358,7 @@
           { label:'ยอดขายรวม Tiktok', data: salesArr, backgroundColor:'#f59e0b', borderRadius:4 },
           { label:'ต้นทุนรวม', data: costArr, backgroundColor:'#64748b', borderRadius:4 },
           { label:'ค่าโฆษณารวม', data: adsArr, backgroundColor:'#ef4444', borderRadius:4 },
-          { label:'กำไรสุทธิ', data: netArr, backgroundColor:'#22c55e', borderRadius:4 }
+          { label:'กำไรขั้นต้น', data: netArr, backgroundColor:'#22c55e', borderRadius:4 }
         ]},
         options:{ responsive:true, maintainAspectRatio:false,
           layout:{ padding:{ top:28, bottom:24 } },
