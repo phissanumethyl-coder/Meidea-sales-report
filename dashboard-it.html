@@ -27,12 +27,12 @@
     html { overflow-y:scroll; scroll-behavior:smooth; }
     body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; position:relative; overflow-x:hidden; }
     /* animated aurora background */
-    body::before, body::after { content:''; position:fixed; z-index:0; border-radius:50%; filter:blur(90px); opacity:0.45; pointer-events:none; }
-    body::before { width:520px; height:520px; background:radial-gradient(circle,#2563eb,transparent 70%); top:-160px; left:-120px; animation:floatA 18s ease-in-out infinite; }
-    body::after { width:600px; height:600px; background:radial-gradient(circle,#0891b2,transparent 70%); bottom:-220px; right:-160px; animation:floatB 22s ease-in-out infinite; }
-    @keyframes floatA { 0%,100%{ transform:translate(0,0) scale(1);} 50%{ transform:translate(120px,80px) scale(1.15);} }
-    @keyframes floatB { 0%,100%{ transform:translate(0,0) scale(1);} 50%{ transform:translate(-100px,-70px) scale(1.1);} }
-    .topbar { position:relative; z-index:5; background:linear-gradient(135deg,rgba(59,130,246,0.22),rgba(6,182,212,0.14)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-bottom:1px solid var(--border); padding:16px 24px; }
+    /* static aurora glow — kept subtle & un-animated so it doesn't force the
+       GPU to recomposite huge blurred layers every frame (major perf win) */
+    body::before, body::after { content:''; position:fixed; z-index:0; border-radius:50%; filter:blur(70px); opacity:0.4; pointer-events:none; }
+    body::before { width:460px; height:460px; background:radial-gradient(circle,#2563eb,transparent 70%); top:-160px; left:-120px; }
+    body::after { width:520px; height:520px; background:radial-gradient(circle,#0891b2,transparent 70%); bottom:-220px; right:-160px; }
+    .topbar { position:relative; z-index:5; background:linear-gradient(135deg,rgba(59,130,246,0.22),rgba(6,182,212,0.14)); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid var(--border); padding:16px 24px; }
     .topbar-in { max-width:1400px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
     .brand { display:flex; align-items:center; gap:14px; color:#fff; }
     .brand-ic { width:46px; height:46px; background:var(--grad); border-radius:14px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; box-shadow:0 6px 20px rgba(14,165,233,0.5); animation:pulseGlow 3s ease-in-out infinite; }
@@ -42,7 +42,7 @@
     .live-dot { width:8px; height:8px; border-radius:50%; background:#34d399; box-shadow:0 0 0 0 rgba(52,211,153,0.7); animation:liveping 1.8s ease-in-out infinite; display:inline-block; }
     @keyframes liveping { 0%{ box-shadow:0 0 0 0 rgba(52,211,153,0.6);} 70%{ box-shadow:0 0 0 7px rgba(52,211,153,0);} 100%{ box-shadow:0 0 0 0 rgba(52,211,153,0);} }
     .wrap { max-width:1400px; margin:0 auto; padding:24px; position:relative; z-index:1; }
-    .filters { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; margin-bottom:24px; display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap; box-shadow:var(--shadow); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+    .filters { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; margin-bottom:24px; display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap; box-shadow:var(--shadow); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); }
     .fg { display:flex; flex-direction:column; gap:6px; }
     .fg label { font-size:12px; font-weight:600; color:var(--muted); }
     .fg input, .fg select { padding:10px 14px; border:1px solid var(--border); border-radius:var(--rs); font-family:'Kanit',sans-serif; font-size:14px; background:rgba(255,255,255,0.06); color:var(--text); transition:border-color .2s, box-shadow .2s; }
@@ -60,13 +60,15 @@
     .section-title[style*="center"]::before { display:none; }
     .summary-note { font-size:13px; color:var(--muted); margin-bottom:16px; }
 
-    /* entrance animation */
-    @keyframes rise { from{ opacity:0; transform:translateY(18px);} to{ opacity:1; transform:translateY(0);} }
-    #content > * { animation:rise .5s ease both; }
+    /* entrance animation — opacity only, so cards don't keep a transform
+       (a lingering transform makes each section its own stacking context and
+       traps hover tooltips behind later sections) */
+    @keyframes rise { from{ opacity:0; } to{ opacity:1; } }
+    #content > * { animation:rise .45s ease both; }
     .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:18px; margin-bottom:32px; }
     .cards-center { display:flex; flex-wrap:wrap; justify-content:center; gap:18px; margin-bottom:24px; }
     .cards-center > * { flex:1 1 300px; max-width:400px; }
-    .mcard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:20px 22px; box-shadow:var(--shadow); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); transition:transform .2s, box-shadow .25s, border-color .25s; position:relative; overflow:hidden; }
+    .mcard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:20px 22px; box-shadow:var(--shadow); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); transition:transform .2s, box-shadow .25s, border-color .25s; position:relative; overflow:hidden; }
     .mcard::after { content:''; position:absolute; inset:0; border-radius:var(--r); padding:1px; background:linear-gradient(135deg,rgba(56,189,248,0.4),transparent 40%); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; opacity:0; transition:opacity .25s; pointer-events:none; }
     .mcard:hover { transform:translateY(-4px); box-shadow:var(--glow); }
     .mcard:hover::after { opacity:1; }
@@ -122,7 +124,7 @@
     .loading { text-align:center; padding:50px; }
     .spinner { width:42px; height:42px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 12px; box-shadow:0 0 20px rgba(56,189,248,0.3); }
     @keyframes spin { to { transform:rotate(360deg); } }
-    .ccard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:20px 22px; box-shadow:var(--shadow); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); transition:transform .2s, box-shadow .25s; }
+    .ccard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:20px 22px; box-shadow:var(--shadow); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); transition:transform .2s, box-shadow .25s; }
     .ccard:hover { transform:translateY(-4px); box-shadow:var(--glow); }
     .ccard-title { font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; margin-bottom:4px; color:var(--muted); }
     .ccard-big { font-size:26px; font-weight:800; }
@@ -138,12 +140,12 @@
     .plat-line .pl-vl { font-weight:600; }
 
     /* fee editor / target box */
-    .fee-box { background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(6,182,212,0.06)); border:1px solid var(--border); border-radius:var(--r); padding:18px 22px; margin-bottom:32px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:var(--shadow); }
+    .fee-box { background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(6,182,212,0.06)); border:1px solid var(--border); border-radius:var(--r); padding:18px 22px; margin-bottom:32px; backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); box-shadow:var(--shadow); }
     .fee-box h3 { font-size:16px; color:var(--blue); margin-bottom:12px; }
     .fee-row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
 
     /* seller progress section */
-    .seller-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:24px; box-shadow:var(--shadow); margin-bottom:40px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+    .seller-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:24px; box-shadow:var(--shadow); margin-bottom:40px; backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); }
     .seller-head { display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:20px; }
     .scard { border:1px solid var(--border); border-radius:var(--r); padding:0; margin-bottom:16px; overflow:hidden; box-shadow:var(--shadow); background:var(--card-solid); transition:transform .2s, box-shadow .25s; }
     .scard:hover { transform:translateY(-3px); box-shadow:var(--glow); }
@@ -176,9 +178,15 @@
     .info-i { color:var(--blue); font-size:11px; cursor:help; }
     /* hover tooltips */
     .ccard, .mbox { position:relative; }
-    .cc-tip, .mb-tip { display:none; position:absolute; z-index:200; left:0; top:100%; margin-top:6px; background:#0b1120; border:1px solid var(--border); color:#fff; border-radius:10px; padding:10px 12px; min-width:210px; box-shadow:0 12px 34px rgba(0,0,0,0.5); font-size:12px; }
+    .cc-tip, .mb-tip { display:none; position:absolute; z-index:900; left:0; top:100%; margin-top:6px; background:#0b1120; border:1px solid var(--border); color:#fff; border-radius:10px; padding:10px 12px; min-width:210px; box-shadow:0 12px 34px rgba(0,0,0,0.5); font-size:12px; }
     .has-cctip:hover .cc-tip, .mbox.has-tip:hover .mb-tip { display:block; }
-    .ccard.has-cctip:hover, .mbox.has-tip:hover { z-index:150; }
+    /* lift the hovered card (and its whole grid) above later sections so the
+       tooltip is never covered by content below it */
+    .ccard.has-cctip:hover, .mbox.has-tip:hover { z-index:900; }
+    .cards-center:has(.has-cctip:hover), .cards:has(.has-cctip:hover),
+    .scard:has(.mbox.has-tip:hover), .seller-panel:has(.mbox.has-tip:hover) { position:relative; z-index:900; }
+    /* a card carrying a hover tooltip must let it overflow the card bounds */
+    .scard:has(.mbox.has-tip:hover) { overflow:visible; }
     .cc-tip .tt-line, .mb-tip .tt-line { display:flex; justify-content:space-between; gap:14px; padding:3px 0; }
     .cc-tip .tt-line:not(:last-child), .mb-tip .tt-line:not(:last-child) { border-bottom:1px solid rgba(255,255,255,0.12); }
     .mbox.has-tip { cursor:help; }
@@ -204,7 +212,7 @@
     @keyframes tgtGlow { 0%,100%{ box-shadow:0 0 0 0 rgba(52,211,153,0); } 50%{ box-shadow:0 0 14px 2px rgba(52,211,153,0.6); } }
     /* KPI hero row */
     .kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:28px; }
-    .kpi { position:relative; overflow:hidden; background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; box-shadow:var(--shadow); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); transition:transform .2s, box-shadow .25s; }
+    .kpi { position:relative; overflow:hidden; background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; box-shadow:var(--shadow); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); transition:transform .2s, box-shadow .25s; }
     .kpi:hover { transform:translateY(-4px); box-shadow:var(--glow); }
     .kpi-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
     .kpi-label { font-size:13px; color:var(--muted); font-weight:600; }
@@ -224,7 +232,7 @@
     .alert.good { background:rgba(52,211,153,0.12); border-color:rgba(52,211,153,0.35); color:#6ee7b7; }
     .alert .a-ic { font-size:18px; }
     /* compare 2 months */
-    .cmp-grid { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--r); overflow:hidden; background:var(--card); backdrop-filter:blur(14px); }
+    .cmp-grid { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--r); overflow:hidden; background:var(--card); backdrop-filter:blur(7px); }
     .cmp-grid > div { padding:13px 16px; border-bottom:1px solid var(--border); font-size:13.5px; display:flex; align-items:center; }
     .cmp-grid .cmp-h { background:linear-gradient(135deg,rgba(59,130,246,0.14),transparent); font-weight:700; color:var(--text); font-size:13px; }
     .cmp-grid .cmp-lb { color:var(--muted); font-weight:600; justify-content:flex-start; }
@@ -247,6 +255,26 @@
     body.light .btn-outline { background:#fff; }
     body.light .mbox { background:#fff; }
     body.light .cc-tip, body.light .mb-tip { background:#1e293b; color:#fff; border-color:#334155; }
+    /* --- light-mode readable colors (dark pastels are too faint on white) --- */
+    body.light .net-pos { color:#059669; }
+    body.light .net-neg { color:#dc2626; }
+    /* alerts */
+    body.light .alert.warn   { background:#fef9c3; border-color:#fde047; color:#92600a; }
+    body.light .alert.danger { background:#fee2e2; border-color:#fca5a5; color:#b91c1c; }
+    body.light .alert.good   { background:#dcfce7; border-color:#86efac; color:#15803d; }
+    /* delta / chip / mini-delta / vl-pct */
+    body.light .delta.up, body.light .cmp-chip.up, body.light .mini-delta.up, body.light .vl-pct.ok      { background:#dcfce7; color:#15803d; }
+    body.light .delta.down, body.light .cmp-chip.down, body.light .mini-delta.down, body.light .vl-pct.over { background:#fee2e2; color:#b91c1c; }
+    body.light .kpi-delta.up   { background:#dcfce7; color:#15803d; }
+    body.light .kpi-delta.down { background:#fee2e2; color:#b91c1c; }
+    /* watchlist */
+    body.light .watch-card  { background:linear-gradient(135deg,#fff7ed,#fef2f2); border-color:#fdba74; }
+    body.light .watch-name  { color:#c2410c; }
+    body.light .watch-net   { color:#15803d; }
+    body.light .watch-net.neg { color:#dc2626; }
+    body.light .watch-flag.over { background:#fee2e2; color:#b91c1c; }
+    body.light .watch-flag.danger { background:#b91c1c; color:#fff; }
+    body.light .exp-note { color:#94a3b8; }
 
     /* commission modal */
     .modal-ov { display:none; position:fixed; inset:0; background:rgba(2,6,23,0.7); backdrop-filter:blur(6px); z-index:1000; align-items:center; justify-content:center; padding:20px; }
@@ -499,8 +527,18 @@
       m -= 1; if (m < 1) { m = 12; y -= 1; }
       return y + '-' + pad2(m);
     }
+    // in-memory cache so each month is fetched from Firestore at most once per
+    // session (renderTrend/renderCompare/reload used to re-fetch the same
+    // months repeatedly — the main source of lag)
+    const _monthCache = {};
+    function invalidateMonthCache(month){ if(month) delete _monthCache[month]; else Object.keys(_monthCache).forEach(k=>delete _monthCache[k]); }
     async function fetchMonthRows(month) {
-      const snap = await db.collection('it_sales').where('date','<=', month + '-31').get();
+      if (_monthCache[month]) return _monthCache[month];
+      // bound the query to just this month (>= first day, <= last day) instead
+      // of scanning the entire history up to the month
+      const snap = await db.collection('it_sales')
+        .where('date','>=', month + '-01')
+        .where('date','<=', month + '-31').get();
       const latest = {};
       snap.forEach(doc => {
         const s = doc.data();
@@ -508,7 +546,9 @@
         const k = s.branch + '||' + s.employeeName;
         if (!latest[k] || s.date > latest[k].date) latest[k] = s;
       });
-      return Object.values(latest);
+      const rows = Object.values(latest);
+      _monthCache[month] = rows;
+      return rows;
     }
 
     let prevMonthRows = [];
@@ -538,6 +578,10 @@
       document.getElementById('loading').style.display = 'block';
       document.getElementById('content').style.display = 'none';
       try {
+        // manual refresh: drop cache for the selected month + its prev so we
+        // re-read the freshest data (historical months stay cached)
+        invalidateMonthCache(month);
+        invalidateMonthCache(prevMonthStr(month));
         monthRows = await fetchMonthRows(month);
         prevMonthRows = await fetchMonthRows(prevMonthStr(month));
         await fetchDailyRecords(month);
@@ -677,9 +721,10 @@
         salesArr.push(Math.round(s)); adsArr.push(Math.round(a)); netArr.push(Math.round(n));
       }
       // feed KPI sparklines with the 6-month series, then refresh KPI cards
+      // (no count-up replay — renderAll already animated the numbers)
       kpiTrend.sales = salesArr.slice();
       kpiTrend.net = netArr.slice();
-      renderKPI();
+      renderKPI({animate:false});
       if (trendChart) trendChart.destroy();
       trendChart = new Chart(canvas.getContext('2d'), {
         type:'line',
@@ -786,9 +831,15 @@
       const btn=document.getElementById('themeBtn');
       if(btn) btn.textContent = t==='light' ? '☀️ สว่าง' : '🌙 มืด';
       try{ localStorage.setItem('it_theme', t); }catch(e){}
-      // refresh chart text colors
+      // refresh chart text colors without re-fetching data or rebuilding the chart
       if(window.Chart){ Chart.defaults.color = t==='light'?'#475569':'#94a3b8'; Chart.defaults.borderColor = t==='light'?'rgba(30,41,59,0.1)':'rgba(255,255,255,0.08)'; }
-      if(monthRows.length){ const mo=document.getElementById('fMonth').value; if(mo){ renderTrend(mo); renderKPI(); } }
+      if(trendChart){
+        const gc = t==='light'?'rgba(30,41,59,0.08)':'rgba(255,255,255,0.06)';
+        if(trendChart.options.scales && trendChart.options.scales.y && trendChart.options.scales.y.grid) trendChart.options.scales.y.grid.color = gc;
+        trendChart.update('none');
+      }
+      // recolor KPI cards (delta chips read body.light in CSS); no re-fetch, no count-up replay
+      if(monthRows.length) renderKPI({animate:false});
     }
     function toggleTheme(){ applyTheme(document.body.classList.contains('light')?'dark':'light'); }
     (function(){ try{ const t=localStorage.getItem('it_theme'); if(t) applyTheme(t); }catch(e){} })();
@@ -809,7 +860,8 @@
       return vals.map((v,i)=>{ const x=vals.length>1?i/(vals.length-1)*w:0; const y=h-((v-mn)/rng)*h; return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1); }).join(' ');
     }
     let kpiTrend = { sales:[], net:[] };
-    function renderKPI(){
+    function renderKPI(opts){
+      const animate = !opts || opts.animate !== false;
       const cur = sumRows(applyBranchFilter(monthRows));
       const prev = sumRows(applyBranchFilter(prevMonthRows));
       const cost = cur.totalSales - cur.net - cur.totalAdsCost; // ต้นทุน
@@ -828,7 +880,7 @@
         const cls=diff>0?'up':(diff<0?'down':'flat'), ar=diff>0?'▲':(diff<0?'▼':'—');
         const valId='kpiv'+idx;
         const sp = it.spark&&it.spark.length>1 ? `<svg class="kpi-spark" viewBox="0 0 120 38" preserveAspectRatio="none"><path d="${sparkPath(it.spark,120,34)}" fill="none" stroke="${it.c}" stroke-width="2" stroke-linecap="round" opacity="0.7"/></svg>`:'';
-        const valTxt = it.money ? '0' : (it.val.toFixed(2)+(it.suffix||''));
+        const valTxt = it.money ? (animate ? '0' : fmt(Math.round(it.val))) : (it.val.toFixed(2)+(it.suffix||''));
         return `<div class="kpi">
           <div class="kpi-top"><span class="kpi-label">${it.lb}</span><span class="kpi-ic" style="background:${it.c}">${it.ic}</span></div>
           <div class="kpi-val" id="${valId}" style="color:${it.c}">${valTxt}</div>
@@ -836,8 +888,8 @@
           ${sp}
         </div>`;
       }).join('');
-      // animate money values
-      items.forEach((it,idx)=>{ if(it.money) countUp(document.getElementById('kpiv'+idx), it.val); });
+      // animate money values (skipped on theme toggle / re-render)
+      if(animate) items.forEach((it,idx)=>{ if(it.money) countUp(document.getElementById('kpiv'+idx), it.val); });
     }
 
     // ============ AUTO ALERTS ============
