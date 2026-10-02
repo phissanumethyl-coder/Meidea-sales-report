@@ -116,6 +116,21 @@
     .data-table .highlight-success { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important; color: #047857; font-weight: 600; }
     .data-table .total-row { background: var(--bg-tertiary) !important; font-weight: 600; }
 
+    /* ค่าโฆษณา Tiktok รายวัน table */
+    .ads-daily-table { border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+    .ads-daily-table th, .ads-daily-table td { border: 1px solid #94a3b8; padding: 6px 10px; text-align: center; }
+    .ads-daily-table .ad-corner { background: #c6efce; font-weight: 700; font-size: 13px; }
+    .ads-daily-table .ad-sellhead { background: #c6efce; font-weight: 700; font-size: 14px; letter-spacing: 1px; }
+    .ads-daily-table .ad-sumhead { background: #39f959; font-weight: 700; }
+    .ads-daily-table .ad-datehead { background: #c6efce; font-weight: 700; }
+    .ads-daily-table .ad-seller { background: #fff200; font-weight: 600; font-size: 13px; min-width: 78px; }
+    .ads-daily-table .ad-date { text-align: left; font-weight: 600; background: #f8fafc; white-space: nowrap; }
+    .ads-daily-table .ad-val { text-align: right; font-variant-numeric: tabular-nums; }
+    .ads-daily-table .ad-rowsum { font-weight: 700; background: #ecfdf5; }
+    .ads-daily-table tbody tr:hover td.ad-val:not(.ad-rowsum) { background: #eff6ff; }
+    .ads-daily-table .ad-total td { background: #39f959 !important; font-weight: 800; font-size: 13px; }
+    .ads-daily-table .ad-total td.ad-val { text-align: right; }
+
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
     .modal-overlay.active { display: flex; }
     .modal-content { background: var(--bg-secondary); border-radius: var(--radius-lg); padding: 28px; max-width: 400px; width: 90%; max-height: 90vh; overflow-y: auto; }
@@ -904,6 +919,25 @@
           <div id="summaryContainer" style="overflow-x:auto;"><div class="loading active"><div class="spinner"></div></div></div>
         </div>
       </div>
+
+      <!-- ===== ค่าโฆษณา Tiktok รายวัน (ไลฟ์สดแต่ละคน) ===== -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-header">
+          <h2 class="card-title">📣 ค่าโฆษณา Tiktok รายวัน (ไลฟ์สดแต่ละคน)</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="month" id="adsDailyMonth" class="form-input" style="padding:8px 12px;" onchange="loadAdsDaily()">
+            <button class="btn btn-outline btn-sm" onclick="loadAdsDaily()">🔄 โหลด</button>
+          </div>
+        </div>
+        <p class="hint" style="margin-bottom:12px;">แสดงค่าโฆษณาที่ไลฟ์สดแต่ละคนใช้ไปในแต่ละวันของเดือนที่เลือก · แถวล่างสุดเป็นยอดรวมทั้งเดือนของแต่ละคน</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" class="no-capture">
+          <button class="btn btn-secondary btn-sm" onclick="exportAdsDailyExcel()">📥 ดาวน์โหลด Excel</button>
+          <button class="btn btn-primary btn-sm" onclick="exportAdsDailyImage()">🖼️ บันทึกรูปภาพ</button>
+        </div>
+        <div id="adsDailyCard">
+          <div id="adsDailyContainer" style="overflow-x:auto;"><div class="empty-hint" style="padding:30px;text-align:center;color:var(--text-secondary);">เลือกเดือนแล้วกด "โหลด" เพื่อแสดงข้อมูล</div></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1111,6 +1145,10 @@
         root.setProperty('--team-gradient', 'linear-gradient(135deg, #059669 0%, #10b981 100%)');
         root.setProperty('--team-color', '#059669');
         if (typeof loadSummary === 'function') loadSummary();
+        // default the ads-daily month picker to this month and load it
+        const adm = document.getElementById('adsDailyMonth');
+        if (adm && !adm.value) adm.value = todayStr().slice(0,7);
+        if (typeof loadAdsDaily === 'function') loadAdsDaily();
       } else {
         root.setProperty('--team-gradient', 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)');
         root.setProperty('--team-color', '#f97316');
@@ -3584,6 +3622,187 @@
         else { c.alignment={horizontal:'right'}; if(typeof v==='number') c.numFmt='#,##0.00'; }
         if(isTotal) c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFEF9C3'}};
       });
+    }
+
+    // =====================================================
+    // ค่าโฆษณา Tiktok รายวัน (ไลฟ์สดแต่ละคน)
+    // matrix: rows = days of month, cols = each live seller + รวม
+    // =====================================================
+    let adsDailyCache = null;
+
+    // fetch per-day per-seller ads for a month -> { days:[1..n], sellers:[names], matrix:{seller:{day:ads}} }
+    async function fetchAdsDailyMatrix(month) {
+      const [y,m] = month.split('-').map(Number);
+      const daysInMonth = new Date(y, m, 0).getDate();
+      // sellers (keep the managed order; include only active-or-has-data later)
+      await loadLiveSellers();
+      const orderedSellers = liveSellerList.map(s => s.name);
+      const snap = await db.collection('live_sales')
+        .where('date','>=', month + '-01')
+        .where('date','<=', month + '-31').get();
+      const matrix = {};   // seller -> { day -> ads }
+      const seenSellers = new Set();
+      snap.forEach(d => {
+        const x = d.data();
+        if (!x.date || x.date.slice(0,7) !== month) return;
+        const day = parseInt(x.date.slice(8,10), 10);
+        const ads = (x.adsToday != null ? x.adsToday : x.ads) || 0;
+        if (!matrix[x.seller]) matrix[x.seller] = {};
+        matrix[x.seller][day] = (matrix[x.seller][day] || 0) + ads;
+        seenSellers.add(x.seller);
+      });
+      // seller list: managed order first, then any seller that has data but isn't in the list
+      const sellers = orderedSellers.filter(s => seenSellers.has(s) || liveSellers.includes(s));
+      seenSellers.forEach(s => { if (!sellers.includes(s)) sellers.push(s); });
+      const days = [];
+      for (let d = 1; d <= daysInMonth; d++) days.push(d);
+      return { month, y, m, daysInMonth, days, sellers, matrix };
+    }
+
+    async function loadAdsDaily() {
+      const mEl = document.getElementById('adsDailyMonth');
+      if (!mEl.value) mEl.value = todayStr().slice(0,7);
+      const month = mEl.value;
+      const container = document.getElementById('adsDailyContainer');
+      container.innerHTML = '<div class="loading active"><div class="spinner"></div></div>';
+      try {
+        const data = await fetchAdsDailyMatrix(month);
+        adsDailyCache = data;
+        container.innerHTML = buildAdsDailyTable(data);
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = '<div style="padding:24px;text-align:center;color:#dc2626;">โหลดข้อมูลไม่สำเร็จ: ' + err.message + '</div>';
+      }
+    }
+
+    function buildAdsDailyTable(data) {
+      const { y, m, days, sellers, matrix } = data;
+      if (!sellers.length) return '<div style="padding:30px;text-align:center;color:var(--text-secondary);">ยังไม่มีข้อมูลค่าโฆษณาของเดือนนี้</div>';
+      const colTotals = {}; sellers.forEach(s => colTotals[s] = 0);
+      let grandTotal = 0;
+      let h = '<table class="ads-daily-table"><thead>';
+      h += '<tr><th class="ad-corner" rowspan="1">ค่าโฆษณา Tiktok</th><th class="ad-sellhead" colspan="' + sellers.length + '">เซลล์</th><th class="ad-sumhead" rowspan="2">รวม</th></tr>';
+      h += '<tr><th class="ad-datehead">วันที่</th>';
+      sellers.forEach(s => { h += '<th class="ad-seller">' + s + '</th>'; });
+      h += '</tr></thead><tbody>';
+      days.forEach(d => {
+        let rowSum = 0;
+        h += '<tr><td class="ad-date">' + d + ' ' + TH_MONTHS[m-1] + ' ' + (y+543) + '</td>';
+        sellers.forEach(s => {
+          const v = (matrix[s] && matrix[s][d]) || 0;
+          rowSum += v; colTotals[s] += v;
+          h += '<td class="ad-val">' + (v ? fmt(v) : '') + '</td>';
+        });
+        grandTotal += rowSum;
+        h += '<td class="ad-val ad-rowsum">' + (rowSum ? fmt(rowSum) : '') + '</td></tr>';
+      });
+      // total row
+      h += '<tr class="ad-total"><td class="ad-date">รวม</td>';
+      sellers.forEach(s => { h += '<td class="ad-val">' + fmt(colTotals[s]) + '</td>'; });
+      h += '<td class="ad-val">' + fmt(grandTotal) + '</td></tr>';
+      h += '</tbody></table>';
+      return h;
+    }
+
+    async function exportAdsDailyExcel() {
+      if (!adsDailyCache) { showToast('ยังไม่มีข้อมูล กด "โหลด" ก่อน', 'error'); return; }
+      if (typeof ExcelJS === 'undefined') { showToast('กำลังโหลดไลบรารี Excel ลองอีกครั้ง', 'error'); return; }
+      const { y, m, days, sellers, matrix } = adsDailyCache;
+      const THM = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('ค่าแอดโฆษณา Tiktok', { views:[{ showGridLines:false }] });
+
+      const F = 'Angsana New';
+      const ACCT = '_-* #,##0.00_-;\\-* #,##0.00_-;_-* "-"??_-;_-@_-';
+      const thin = { style:'thin', color:{ argb:'FF000000' } };
+      const border = { top:thin, left:thin, bottom:thin, right:thin };
+      const nCols = sellers.length + 2;           // date + sellers + รวม
+      const lastCol = nCols;                       // 1-based last column index
+      const sumColIdx = nCols;                     // รวม column index
+      const colLetter = (i) => ws.getColumn(i).letter;
+
+      // Row 1: A1 "ค่าโฆษณา Tiktok" | merged B1..(lastSeller) "เซลล์"
+      ws.getCell(1,1).value = 'ค่าโฆษณา Tiktok';
+      ws.mergeCells(1, 2, 1, 1 + sellers.length);
+      ws.getCell(1,2).value = 'เซลล์';
+      ws.getCell(1, sumColIdx).value = 'รวม';
+      // Row 2: วันที่ | seller names... | (รวม already set via row1 for sum? keep รวม on row2 col too)
+      ws.getCell(2,1).value = 'วันที่';
+      sellers.forEach((s,i) => { ws.getCell(2, 2+i).value = s; });
+      ws.getCell(2, sumColIdx).value = 'รวม';
+
+      // styling helper
+      const paint = (cell, fill) => { if (fill) cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:fill } }; };
+
+      // Row 1 styles
+      const c11 = ws.getCell(1,1); c11.font={name:F,bold:true,size:20}; c11.alignment={horizontal:'center',vertical:'middle'}; c11.border=border; paint(c11,'FFC6EFCE');
+      const c12 = ws.getCell(1,2); c12.font={name:F,bold:true,size:20}; c12.alignment={horizontal:'center',vertical:'middle'}; c12.border=border; paint(c12,'FFC6EFCE');
+      const c1s = ws.getCell(1,sumColIdx); c1s.font={name:F,bold:true,size:20}; c1s.alignment={horizontal:'center',vertical:'middle'}; c1s.border=border; paint(c1s,'FF39F959');
+      // Row 2 styles
+      const c21 = ws.getCell(2,1); c21.font={name:F,bold:true,size:20}; c21.alignment={horizontal:'center',vertical:'middle'}; c21.border=border; paint(c21,'FFC6EFCE');
+      sellers.forEach((s,i)=>{ const c=ws.getCell(2,2+i); c.font={name:F,bold:false,size:22}; c.alignment={horizontal:'center',vertical:'middle'}; c.border=border; paint(c,'FFFFFF00'); });
+      const c2s = ws.getCell(2,sumColIdx); c2s.font={name:F,bold:true,size:20}; c2s.alignment={horizontal:'center',vertical:'middle'}; c2s.border=border; paint(c2s,'FF39F959');
+
+      // Data rows (start row 3)
+      let r = 3;
+      const colTotals = {}; sellers.forEach(s=>colTotals[s]=0);
+      days.forEach(d => {
+        // date cell as real date — use UTC noon so timezone offsets never shift the day
+        const dc = ws.getCell(r,1);
+        dc.value = new Date(Date.UTC(y, m-1, d, 12, 0, 0));
+        dc.numFmt = 'd mmm yy';
+        dc.font={name:F,bold:true,size:20}; dc.alignment={horizontal:'center'}; dc.border=border;
+        sellers.forEach((s,i)=>{
+          const v = (matrix[s] && matrix[s][d]) || 0;
+          colTotals[s]+=v;
+          const c = ws.getCell(r, 2+i);
+          c.value = v ? v : null;
+          c.numFmt = ACCT; c.font={name:F,bold:true,size:20}; c.alignment={horizontal:'center'}; c.border=border;
+        });
+        // row sum formula
+        const sc = ws.getCell(r, sumColIdx);
+        sc.value = { formula: 'SUM(' + colLetter(2) + r + ':' + colLetter(1+sellers.length) + r + ')' };
+        sc.numFmt = ACCT; sc.font={name:F,bold:true,size:20}; sc.alignment={horizontal:'center'}; sc.border=border;
+        r++;
+      });
+      // Total row
+      const totalRow = r;
+      const tc = ws.getCell(totalRow,1); tc.value='รวม'; tc.font={name:F,bold:true,size:20}; tc.alignment={horizontal:'center'}; tc.border=border; paint(tc,'FF39F959');
+      sellers.forEach((s,i)=>{
+        const c = ws.getCell(totalRow, 2+i);
+        const L = colLetter(2+i);
+        c.value = { formula: 'SUM(' + L + '3:' + L + (totalRow-1) + ')' };
+        c.numFmt = ACCT; c.font={name:F,bold:true,size:20}; c.alignment={horizontal:'center'}; c.border=border; paint(c,'FF39F959');
+      });
+      const tsc = ws.getCell(totalRow, sumColIdx);
+      tsc.value = { formula: 'SUM(' + colLetter(2) + totalRow + ':' + colLetter(1+sellers.length) + totalRow + ')' };
+      tsc.numFmt = ACCT; tsc.font={name:F,bold:true,size:20}; tsc.alignment={horizontal:'center'}; tsc.border=border; paint(tsc,'FF39F959');
+
+      // column widths
+      ws.getColumn(1).width = 20;
+      for (let i=2;i<=sumColIdx;i++) ws.getColumn(i).width = 14;
+
+      const fname = 'ค่าโฆษณา_Tiktok_รายวัน_' + THM[m-1] + '_' + (y+543) + '.xlsx';
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+      showToast('ดาวน์โหลด Excel แล้ว', 'success');
+    }
+
+    async function exportAdsDailyImage() {
+      if (!adsDailyCache) { showToast('ยังไม่มีข้อมูล กด "โหลด" ก่อน', 'error'); return; }
+      const THM = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      const { y, m } = adsDailyCache;
+      const node = document.getElementById('adsDailyCard');
+      try {
+        const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale:2, useCORS:true });
+        const link = document.createElement('a');
+        link.download = 'ค่าโฆษณา_Tiktok_รายวัน_' + THM[m-1] + '_' + (y+543) + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('บันทึกรูปสำเร็จ', 'success');
+      } catch (err) { console.error(err); showToast('บันทึกรูปไม่สำเร็จ', 'error'); }
     }
 
     async function saveNode(containerId, filename) {
